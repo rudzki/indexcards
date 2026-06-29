@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Integrations — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <h1>Integrations</h1>
+    {% include 'admin/_nav.html' %}
+
+    <form method="post" class="settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <fieldset>
+            <legend>Mailchimp</legend>
+            <p class="field-hint">Automatically add new subscribers to a Mailchimp audience when they confirm their subscription.</p>
+            <div class="field">
+                <label for="mailchimp_api_key">API Key</label>
+                <input type="password" id="mailchimp_api_key" name="mailchimp_api_key"
+                       value="{{ settings.mailchimp_api_key or '' }}" autocomplete="new-password"
+                       placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us1">
+                <p class="field-hint">Found under Account → Extras → API keys in Mailchimp.</p>
+            </div>
+            <div class="field-row">
+                <div class="field field-small">
+                    <label for="mailchimp_server_prefix">Server prefix</label>
+                    <input type="text" id="mailchimp_server_prefix" name="mailchimp_server_prefix"
+                           value="{{ settings.mailchimp_server_prefix or '' }}" placeholder="us1">
+                    <p class="field-hint">The prefix at the end of your API key (e.g. <code>us1</code>).</p>
+                </div>
+                <div class="field">
+                    <label for="mailchimp_list_id">Audience ID</label>
+                    <input type="text" id="mailchimp_list_id" name="mailchimp_list_id"
+                           value="{{ settings.mailchimp_list_id or '' }}" placeholder="abc123def4">
+                    <p class="field-hint">Found under Audience → Settings → Audience name and defaults.</p>
+                </div>
+            </div>
+            {% if settings.mailchimp_configured %}
+            <p class="field-hint" style="color: var(--color-success);">&#10003; Mailchimp is connected.</p>
+            {% endif %}
+        </fieldset>
+
+        <fieldset>
+            <legend>Slack</legend>
+            <p class="field-hint">Post a message to a Slack channel when entries are published or updated.</p>
+            <div class="field">
+                <label for="slack_webhook_url">Incoming Webhook URL</label>
+                <input type="url" id="slack_webhook_url" name="slack_webhook_url"
+                       value="{{ settings.slack_webhook_url or '' }}"
+                       placeholder="https://hooks.slack.com/services/…">
+                <p class="field-hint">Create one at api.slack.com/apps → Incoming Webhooks.</p>
+            </div>
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="slack_announce_new"
+                           {% if settings.slack_announce_new %}checked{% endif %}>
+                    Announce new entries
+                </label>
+            </div>
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="slack_announce_updates"
+                           {% if settings.slack_announce_updates %}checked{% endif %}>
+                    Announce updated entries (only when a changelog message is included)
+                </label>
+            </div>
+            {% if settings.slack_configured %}
+            <p class="field-hint" style="color: var(--color-success);">&#10003; Slack is connected.</p>
+            {% endif %}
+        </fieldset>
+
+        <fieldset>
+            <legend>Outgoing Webhook</legend>
+            {% if site_settings.site_visibility != 'public' %}
+            <p class="field-hint">Outgoing webhooks are only available when site visibility is set to <strong>Public</strong>. Update this in <a href="{{ url_for('admin.settings') }}">Settings</a>.</p>
+            {% else %}
+            <p class="field-hint">Send a signed POST request to an external URL whenever an entry is published or updated.</p>
+            <div class="field">
+                <label for="outgoing_webhook_url">Endpoint URL</label>
+                <input type="url" id="outgoing_webhook_url" name="outgoing_webhook_url"
+                       value="{{ settings.outgoing_webhook_url or '' }}"
+                       placeholder="https://example.com/webhook">
+            </div>
+            <div class="field">
+                <label>Signing secret</label>
+                <div class="webhook-secret-row">
+                    <input type="text" value="{{ settings.outgoing_webhook_secret }}" readonly
+                           class="webhook-secret-input" id="webhook-secret-input">
+                    <button type="button" class="btn-small" id="copy-secret-btn">Copy</button>
+                </div>
+                <p class="field-hint">Each request includes an <code>X-Webhook-Signature: sha256=&lt;hmac&gt;</code> header. Verify it on your end to confirm authenticity.</p>
+            </div>
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="regenerate_webhook_secret">
+                    Regenerate signing secret on save
+                </label>
+            </div>
+            <div class="webhook-payload-example">
+                <p class="field-hint">Example payload:</p>
+                <pre class="webhook-payload-code">{
+  "event": "entry.published",
+  "timestamp": "2024-01-01T12:00:00+00:00",
+  "entry": {
+    "title": "My Entry",
+    "slug": "my-entry",
+    "url": "https://yoursite.com/entry/my-entry",
+    "summary": "A brief summary",
+    "changelog": ""
+  }
+}</pre>
+            </div>
+            {% endif %}
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary">Save Integrations</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var btn = document.getElementById('copy-secret-btn');
+    var input = document.getElementById('webhook-secret-input');
+    if (!btn || !input) return;
+    btn.addEventListener('click', function() {
+        navigator.clipboard.writeText(input.value).then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+        });
+    });
+})();
+</script>
+{% endblock %}

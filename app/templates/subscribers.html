@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Subscribers — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <h1>Subscribers</h1>
+    {% include 'admin/_nav.html' %}
+
+    {% if subscribers %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sub in subscribers %}
+                <tr>
+                    <td>{{ sub.display_name }}</td>
+                    <td>{{ sub.email }}</td>
+                    <td><span class="badge badge-draft">{{ sub.role }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No subscribers yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

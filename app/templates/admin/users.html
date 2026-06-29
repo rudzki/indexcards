@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Users — {{ site_settings.site_title }}{% endblock %}
+
+{% macro sort_url(col) %}{{ url_for('admin.users', sort=col, order='desc' if (sort == col and order == 'asc') else 'asc') }}{% endmacro %}
+{% macro sort_ind(col) %}{% if sort == col %} {{ '↑' if order == 'asc' else '↓' }}{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="admin-page">
+    <h1>Users</h1>
+    {% include 'admin/_nav.html' %}
+
+    {% if users %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th class="col-primary"><a href="{{ sort_url('email') }}" class="sort-link">Email{{ sort_ind('email') }}</a></th>
+                    <th><a href="{{ sort_url('name') }}" class="sort-link">Name{{ sort_ind('name') }}</a></th>
+                    <th><a href="{{ sort_url('role') }}" class="sort-link">Role{{ sort_ind('role') }}</a></th>
+                    <th>Digest?</th>
+                    <th><a href="{{ sort_url('joined') }}" class="sort-link">Joined{{ sort_ind('joined') }}</a></th>
+                    <th class="admin-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td class="col-primary col-mono">{{ user.email }}</td>
+                    <td>{{ user.display_name }}</td>
+                    <td>
+                        {% if user.id == current_user.id or (user.is_admin and admin_count <= 1) %}
+                            <span class="badge badge-{{ 'published' if user.is_admin else 'draft' }}">{{ user.role | title }}</span>
+                        {% else %}
+                            <form method="post" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="inline-form role-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <select name="role" onchange="this.form.submit()">
+                                    {% for role in ['viewer', 'author', 'editor', 'admin'] %}
+                                        <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ role | title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td>{% if user.subscribed %}✓{% endif %}</td>
+                    <td class="col-nowrap">{{ user.created_at|timeago }}</td>
+                    <td class="admin-actions">
+                        <div class="admin-actions-wrap">
+                            {% if user.id != current_user.id and not (user.is_admin and admin_count <= 1) %}
+                                <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" class="inline-form"
+                                      data-confirm="Remove {{ user.display_name }}? Their entries will be preserved." data-confirm-label="Remove"
+                                      onsubmit="return askConfirm(event)">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-small btn-danger" title="Remove"><i class="bi bi-trash3"></i></button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    {% if settings.registration_method == 'invite' %}
+    <div class="invite-section">
+        <form method="post" class="invite-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h2>Invite a new user</h2>
+            <div class="field-row">
+                <div class="field">
+                    <input type="email" name="email" placeholder="email@example.com" required>
+                </div>
+                <div class="field field-small">
+                    <select name="role">
+                        {% for role in ['viewer', 'author', 'editor', 'admin'] %}
+                            <option value="{{ role }}">{{ role | title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Send Invite</button>
+            </div>
+        </form>
+
+        {% if pending %}
+        <div class="invite-pending">
+            <h3>Pending Invites</h3>
+            <table class="admin-table">
+                <tbody>
+                    {% for reg in pending %}
+                    <tr>
+                        <td class="col-mono col-primary">{{ reg.email }}</td>
+                        <td class="col-nowrap">{{ reg.created_at|timeago }}</td>
+                        <td class="admin-actions">
+                            <div class="admin-actions-wrap">
+                                <form method="post" action="{{ url_for('admin.resend_invite', reg_id=reg.id) }}" class="inline-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-small" title="Resend invitation to {{ reg.email }}"><i class="bi bi-send"></i></button>
+                                </form>
+                                <form method="post" action="{{ url_for('admin.revoke_invite', reg_id=reg.id) }}" class="inline-form"
+                                      data-confirm="Revoke invitation for {{ reg.email }}?" data-confirm-label="Revoke"
+                                      onsubmit="return askConfirm(event)">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-small btn-danger" title="Revoke"><i class="bi bi-x-circle"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

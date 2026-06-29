@@ -1,0 +1,7 @@
+{{ site_title }} — Confirm Your Subscription
+
+Click the link below to confirm your subscription and start receiving updates:
+
+{{ confirm_url }}
+
+If you didn't subscribe, ignore this message.

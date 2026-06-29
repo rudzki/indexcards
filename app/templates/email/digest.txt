@@ -1,0 +1,20 @@
+{{ site_title }} — Weekly Digest
+
+{% if new_entries %}
+New Entries
+--------------------
+{% for entry in new_entries %}
+• {{ entry.title }}{% if entry.summary %} — {{ entry.summary }}{% endif %}
+  {{ site_url }}/{{ entry.slug }}/
+{% endfor %}
+{% endif %}
+{% if edited_entries %}
+Recently Updated
+--------------------
+{% for entry, changelog in edited_entries %}
+• {{ entry.title }}{% if changelog %} ({{ changelog }}){% endif %}
+  {{ site_url }}/{{ entry.slug }}/
+{% endfor %}
+{% endif %}
+
+To unsubscribe: {{ site_url }}/unsubscribe/{{ unsub_token }}

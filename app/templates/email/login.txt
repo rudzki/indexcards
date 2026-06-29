@@ -1,0 +1,7 @@
+{{ site_title }} — Login Link
+
+Click the link below to log in. It expires in 15 minutes.
+
+{{ login_url }}
+
+If you didn't request this, ignore this message.

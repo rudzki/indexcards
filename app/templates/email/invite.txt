@@ -1,0 +1,7 @@
+You've been invited to {{ site_title }}
+
+{{ invited_by }} has invited you to join. Click the link below to create your account:
+
+{{ signup_url }}
+
+This link expires in 24 hours.

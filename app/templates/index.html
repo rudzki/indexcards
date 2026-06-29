@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="index-page h-feed">
+    <h1 class="sr-only p-name">{{ site_settings.site_title }}</h1>
+    <section class="index-list">
+        {% if index_items %}
+            {% set ns = namespace(current_letter='') %}
+            {% set letters = [] %}
+            {% for item in index_items %}
+                {% set _f = item.sort_title[0:1] %}{% set letter = '#' if not _f or _f in '0123456789' else _f|upper %}
+                {% if letter not in letters %}
+                    {% if letters.append(letter) %}{% endif %}
+                {% endif %}
+            {% endfor %}
+
+            <nav class="index-jump" aria-label="Jump to letter">
+                {% for letter in letters %}
+                    <a href="#letter-{{ letter }}">{{ letter }}</a>
+                {% endfor %}
+            </nav>
+
+            <ul>
+                {% for item in index_items %}
+                    {% set _f = item.sort_title[0:1] %}{% set letter = '#' if not _f or _f in '0123456789' else _f|upper %}
+                    {% if letter != ns.current_letter %}
+                        {% set ns.current_letter = letter %}
+                        </ul>
+                        <h2 class="index-letter" id="letter-{{ letter }}">{{ letter }}</h2>
+                        <ul>
+                    {% endif %}
+                    {% if item.type == 'entry' %}
+                        <li class="index-entry h-entry">
+                            <a class="u-url p-name" href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.entry.title }}</a>
+                            {% if item.entry.summary %}
+                                <span class="index-summary p-summary"> — {{ item.entry.summary }}</span>
+                            {% endif %}
+                        </li>
+                    {% else %}
+                        <li class="index-entry index-alias">
+                            <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.alias.title }}</a>
+                            <span class="index-see">(See {{ item.entry.title }})</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No entries yet.</p>
+        {% endif %}
+    </section>
+
+    {% if recent_updates and site_settings.show_history %}
+    <section class="recent-updates">
+        <h2>Recent Updates</h2>
+        <ul>
+            {% for item in recent_updates %}
+                <li class="recent-entry">
+                    <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.entry.title }}</a>
+                    {% if not item.is_new and item.log.changelog %}
+                        <span class="recent-changelog"> — {{ item.log.changelog }}</span>
+                    {% endif %}
+                    <time class="recent-time" datetime="{{ item.log.edited_at.isoformat() }}">{{ item.log.edited_at|timeago }}</time>
+                </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,7 @@
+{{ site_title }} — Complete Your Signup
+
+Click the link below to create your account:
+
+{{ signup_url }}
+
+This link expires in 24 hours.

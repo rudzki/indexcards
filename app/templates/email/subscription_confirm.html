@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <h2 style="margin-top:0">{{ site_title }}</h2>
+  <p>Click the button below to confirm your subscription and start receiving updates.</p>
+  <p>
+    <a href="{{ confirm_url }}"
+       style="display:inline-block;background:#0057ff;color:#fff;text-decoration:none;
+              padding:10px 20px;border-radius:4px;font-weight:600">
+      Confirm subscription
+    </a>
+  </p>
+  <p style="font-size:0.85em;color:#666">
+    Or copy this URL into your browser:<br>
+    <a href="{{ confirm_url }}" style="color:#0057ff;word-break:break-all">{{ confirm_url }}</a>
+  </p>
+  <p style="font-size:0.8em;color:#999">If you didn't request this, ignore this message.</p>
+</body>
+</html>

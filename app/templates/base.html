@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ site_settings.site_title }}{% endblock %}</title>
+    {% block meta_description %}{% endblock %}
+    {% if site_settings.site_image %}
+    <link rel="icon" href="{{ url_for('main.site_image') }}" type="image/{{ 'png' if site_settings.site_image.endswith('.png') else 'jpeg' }}">
+    {% else %}
+    <link rel="icon" href="{{ url_for('main.favicon') }}" type="image/svg+xml">
+    {% endif %}
+    <link rel="canonical" href="{{ request.base_url }}">
+    <meta property="og:title" content="{{ self.title() }}">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:site_name" content="{{ site_settings.site_title }}">
+    {% block og_description %}{% endblock %}
+    {% if site_settings.site_image %}
+    <meta property="og:image" content="{{ url_for('main.site_image', _external=True) }}">
+    {% endif %}
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ self.title() }}">
+    {% block twitter_description %}{% endblock %}
+    <link rel="alternate" type="application/atom+xml" title="{{ site_settings.site_title }}" href="{{ url_for('main.feed') }}">
+    {% if request.blueprint in ('admin', 'auth') %}
+    <meta name="robots" content="noindex, nofollow">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+    {% if site_settings and site_settings.brand_color %}
+    <style>
+      :root {
+        --brand: {{ site_settings.brand_color }};
+        --brand-ink: {{ site_settings.brand_color_ink }};
+        --brand-bg: {{ site_settings.brand_color_bg }};
+      }
+      [data-theme="light"] {
+        --brand: {{ site_settings.brand_color_light }};
+        --brand-ink: #ffffff;
+        --brand-bg: {{ site_settings.brand_color_bg }};
+      }
+    </style>
+    {% endif %}
+    <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+    {% block head_extra %}{% endblock %}
+    {% if site_settings.custom_css %}
+    <style>{{ site_settings.custom_css }}</style>
+    {% endif %}
+    {% if site_settings.custom_head_html %}
+    {{ site_settings.custom_head_html|safe }}
+    {% endif %}
+</head>
+<body>
+    <header class="site-header">
+        <div class="site-header-inner">
+            <a href="{{ url_for('main.index') }}" class="site-title">{% if site_settings.site_icon %}<span class="site-icon">{{ site_settings.site_icon_svg|safe }}</span> {% endif %}{{ site_settings.site_title }}</a>
+            <nav class="site-nav" aria-label="Main navigation">
+                {% if current_user.is_authenticated %}
+                    {% if current_user.can_write %}
+                        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.blueprint == 'admin' }}">Dashboard</a>
+                    {% endif %}
+                    <a href="{{ url_for('auth.account') }}" class="{{ 'active' if request.endpoint == 'auth.account' }}">Account</a>
+                    <a href="{{ url_for('auth.logout') }}">Log out</a>
+                {% elif site_settings.multiuser_enabled and site_settings.registration_method != 'invite' %}
+                    <a href="{{ url_for('auth.signup_form') }}">Register</a>
+                {% endif %}
+                <a href="{{ url_for('main.about') }}" class="{{ 'active' if request.endpoint == 'main.about' }}">About</a>
+            </nav>
+            {% if site_settings.search_enabled %}
+            <form class="site-search" action="{{ url_for('main.search') }}" method="get" role="search">
+                <label for="site-search-input" class="sr-only">Search</label>
+                <input type="search" id="site-search-input" name="q" placeholder="Search…" value="{{ request.args.get('q', '') }}" aria-label="Search">
+            </form>
+            {% endif %}
+        </div>
+    </header>
+
+    {% block banner %}{% endblock %}
+    <main class="site-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% set show_subscribe = site_settings.subscribe_enabled and not request.path.startswith('/dashboard') and (current_user.is_authenticated or site_settings.site_visibility != 'registered') %}
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            {% if site_settings.footer_text or show_subscribe %}
+            <div class="footer-main">
+                {% if show_subscribe %}
+                <div class="footer-subscribe">
+                    <form action="{{ url_for('main.subscribe') }}" method="post" class="subscribe-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label for="subscribe-email" class="sr-only">Email address</label>
+                        <input type="email" id="subscribe-email" name="email" placeholder="you@example.com" required>
+                        <button type="submit" class="btn btn-primary">Subscribe</button>
+                    </form>
+                </div>
+                {% endif %}
+                {% if site_settings.footer_text %}
+                    <p class="footer-text{% if show_subscribe %} footer-text-below-subscribe{% endif %}">{{ site_settings.footer_text }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark/light mode" title="Toggle dark/light mode">
+                <i class="bi bi-sun icon-sun"></i>
+                <i class="bi bi-moon icon-moon"></i>
+            </button>
+        </div>
+    </footer>
+
+    <div id="toast-container" class="toast-container" aria-live="polite" role="status"></div>
+    <script>
+    function showToast(category, message, duration) {
+        var el = document.createElement('div');
+        el.className = 'toast toast-' + category;
+        if (category === 'error' || category === 'warn') el.setAttribute('role', 'alert');
+        el.innerHTML = '<span>' + message + '</span>'
+            + '<button class="toast-close" onclick="this.parentNode.remove()">&times;</button>';
+        document.getElementById('toast-container').appendChild(el);
+        requestAnimationFrame(function() { el.classList.add('toast-visible'); });
+        setTimeout(function() {
+            el.classList.remove('toast-visible');
+            setTimeout(function() { el.remove(); }, 300);
+        }, duration || 4000);
+    }
+
+    var _flashes = {{ get_flashed_messages(with_categories=true)|tojson }};
+    _flashes.forEach(function(f) { showToast(f[0], f[1]); });
+
+    function confirmDialog(message, label, onConfirm) {
+        var trigger = document.activeElement;
+        var overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        var backdrop = document.createElement('div');
+        backdrop.className = 'confirm-backdrop';
+        var bubble = document.createElement('div');
+        bubble.className = 'confirm-bubble';
+        bubble.setAttribute('role', 'dialog');
+        bubble.setAttribute('aria-modal', 'true');
+        bubble.setAttribute('aria-labelledby', 'confirm-msg');
+        var msg = document.createElement('p');
+        msg.className = 'confirm-message';
+        msg.id = 'confirm-msg';
+        msg.textContent = message;
+        var actions = document.createElement('div');
+        actions.className = 'confirm-actions';
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn';
+        cancel.textContent = 'Cancel';
+        var ok = document.createElement('button');
+        ok.type = 'button';
+        ok.className = 'btn btn-danger';
+        ok.textContent = label || 'Confirm';
+        actions.appendChild(cancel);
+        actions.appendChild(ok);
+        bubble.appendChild(msg);
+        bubble.appendChild(actions);
+        overlay.appendChild(backdrop);
+        overlay.appendChild(bubble);
+        document.body.appendChild(overlay);
+        function close() {
+            overlay.remove();
+            if (trigger && trigger.focus) trigger.focus();
+        }
+        bubble.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { close(); return; }
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                (document.activeElement === ok ? cancel : ok).focus();
+            }
+        });
+        backdrop.addEventListener('click', close);
+        cancel.addEventListener('click', close);
+        ok.addEventListener('click', function() { close(); onConfirm(); });
+        cancel.focus();
+    }
+
+    (function() {
+        var btn = document.getElementById('theme-toggle');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            var current = document.documentElement.getAttribute('data-theme');
+            var isDark = current !== 'light';
+            var next = isDark ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        });
+    })();
+
+    function askConfirm(e) {
+        e.preventDefault();
+        var el = e.currentTarget || e.target;
+        var message = el.dataset.confirm;
+        var label = el.dataset.confirmLabel;
+        confirmDialog(message, label, function() {
+            var formAttr = el.getAttribute && el.getAttribute('form');
+            var form = (formAttr ? document.getElementById(formAttr) : null)
+                       || el.form
+                       || (el.closest ? el.closest('form') : null);
+            if (!form && el.tagName === 'FORM') form = el;
+            if (form) {
+                if (el.tagName === 'BUTTON' && el.name) {
+                    var h = document.createElement('input');
+                    h.type = 'hidden'; h.name = el.name; h.value = el.value;
+                    form.appendChild(h);
+                }
+                form.submit();
+            }
+        });
+        return false;
+    }
+    </script>
+    {% block scripts %}{% endblock %}
+    {% if site_settings.custom_footer_html %}
+    {{ site_settings.custom_footer_html|safe }}
+    {% endif %}
+</body>
+</html>

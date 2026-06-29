@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Log in — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <h1>Log in</h1>
+    {% if sent %}
+        <p>Check your email for a login link.</p>
+    {% else %}
+        <p>Enter your email to receive a login link.</p>
+        <form method="post" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary">Send Login Link</button>
+        </form>
+        {% if site_settings.multiuser_enabled and site_settings.registration_method != 'invite' %}
+            <p class="auth-alt">Don't have an account? <a href="{{ url_for('auth.signup_form') }}">Register</a></p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

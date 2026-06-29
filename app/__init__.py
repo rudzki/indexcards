@@ -1,0 +1,150 @@
+from flask import Flask, redirect, url_for, request, render_template
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+db = SQLAlchemy()
+login_manager = LoginManager()
+migrate = Migrate()
+csrf = CSRFProtect()
+limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+
+
+def create_app():
+    app = Flask(__name__)
+    app.url_map.strict_slashes = False
+    app.config.from_object('config.Config')
+
+    import os
+    is_dev = os.environ.get('FLASK_DEBUG', '0').lower() in ('1', 'true', 'yes')
+    if not is_dev and app.config['SECRET_KEY'] == 'dev-secret-change-me':
+        raise RuntimeError('SECRET_KEY must be set in production. Set the SECRET_KEY environment variable.')
+
+    db.init_app(app)
+    login_manager.init_app(app)
+    migrate.init_app(app, db)
+    csrf.init_app(app)
+    limiter.init_app(app)
+
+    login_manager.login_view = 'auth.login'
+
+    from app.views.auth import auth_bp
+    from app.views.main import main_bp
+    from app.views.admin import admin_bp
+    from app.api import api_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main_bp)
+    app.register_blueprint(admin_bp)
+    csrf.exempt(api_bp)
+    app.register_blueprint(api_bp)
+
+    from app.digest import register_cli
+    register_cli(app)
+
+    @app.before_request
+    def require_setup():
+        if app.config.get('_SETUP_DONE'):
+            return
+        from app.models import User
+        allowed = ('auth.setup', 'static')
+        if request.endpoint and request.endpoint not in allowed:
+            if User.query.count() == 0:
+                return redirect(url_for('auth.setup'))
+            else:
+                app.config['_SETUP_DONE'] = True
+
+    @app.before_request
+    def require_login_for_private_site():
+        from flask_login import current_user
+        from app.models import SiteSettings
+        settings = SiteSettings.query.get(1)
+        if not settings or settings.site_visibility != 'registered':
+            return
+        if current_user.is_authenticated:
+            return
+        allowed_endpoints = ('auth.login', 'auth.verify_login', 'auth.setup',
+                             'auth.signup_form', 'auth.signup_token', 'auth.logout',
+                             'main.healthz', 'main.confirm_subscription', 'main.favicon',
+                             'main.site_image', 'main.unsubscribe', 'static')
+        if request.endpoint in allowed_endpoints:
+            return
+        from flask import flash as _flash
+        _flash('This site requires an account to view.', 'info')
+        return redirect(url_for('auth.login'))
+
+    import os as _os
+    _os.makedirs(app.config.get('UPLOAD_DIR', 'instance/uploads'), exist_ok=True)
+
+    with app.app_context():
+        from app import models  # noqa: F401
+        if is_dev or app.debug:
+            db.create_all()
+        from app.migrate_db import run_migrations
+        run_migrations()
+        from app.search import create_fts_table
+        create_fts_table()
+        from app.models import SiteSettings
+        if not SiteSettings.query.get(1):
+            db.session.add(SiteSettings(id=1, site_title='Index Cards'))
+            db.session.commit()
+
+    @app.template_filter('timeago')
+    def timeago_filter(dt):
+        from datetime import datetime, timezone
+        from markupsafe import Markup
+        if dt is None:
+            return ''
+        now = datetime.now(timezone.utc)
+        if dt.tzinfo is None:
+            from datetime import timezone as tz
+            dt = dt.replace(tzinfo=tz.utc)
+        diff = now - dt
+        seconds = int(diff.total_seconds())
+        if seconds < 60:
+            relative = 'just now'
+        elif seconds < 3600:
+            minutes = seconds // 60
+            relative = f'{minutes}m ago'
+        elif seconds < 86400:
+            hours = seconds // 3600
+            relative = f'{hours}h ago'
+        elif seconds < 2592000:
+            days = seconds // 86400
+            relative = f'{days}d ago'
+        else:
+            months = seconds // 2592000
+            relative = f'{months}mo ago'
+        absolute = dt.strftime('%B %-d, %Y at %-I:%M %p')
+        iso = dt.isoformat()
+        return Markup(f'<time datetime="{iso}" title="{absolute}">{relative}</time>')
+
+    @app.context_processor
+    def inject_site_settings():
+        from app.models import SiteSettings
+        from markupsafe import Markup as _Markup
+        settings = SiteSettings.query.get(1)
+        icon_svg = ''
+        if settings and settings.site_icon:
+            from app.icons import get_icon_svg
+            icon_svg = _Markup(get_icon_svg(settings.site_icon, size=20))
+        if settings:
+            settings.site_icon_svg = icon_svg
+        return dict(site_settings=settings)
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template('errors/403.html'), 403
+
+    @app.errorhandler(404)
+    def page_not_found(e):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        return render_template('errors/500.html'), 500
+
+    return app

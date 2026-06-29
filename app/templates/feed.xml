@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>{{ site_title }}</title>
+  <link href="{{ index_url }}" rel="alternate"/>
+  <link href="{{ feed_url }}" rel="self"/>
+  <id>{{ index_url }}</id>
+  <updated>{{ updated }}</updated>
+{% for e in entries %}
+  <entry>
+    <title>{{ e.title }}</title>
+    <link href="{{ e.url }}"/>
+    <id>{{ e.url }}</id>
+    <published>{{ e.published }}</published>
+    <updated>{{ e.updated }}</updated>
+    {% if e.summary %}<summary>{{ e.summary }}</summary>{% endif %}
+    {% if e.body_html %}<content type="html">{{ e.body_html }}</content>{% endif %}
+    {% if e.author %}<author><name>{{ e.author }}</name></author>{% endif %}
+  </entry>
+{% endfor %}
+</feed>

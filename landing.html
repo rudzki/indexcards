@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Index Cards — Self-hosted knowledge base</title>
+  <meta name="description" content="A lightweight, self-hosted knowledge base. Write in Markdown, link entries together, send a weekly digest. Runs on a single SQLite file.">
+  <style>
+    /* ── Tokens ── */
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-2: #1c2330;
+      --line: #2a313c;
+      --ink: #e6edf3;
+      --ink-2: #9aa7b4;
+      --ink-3: #6b7785;
+      --ok: #5cdd8b;
+      --ok-bg: rgba(92,221,139,.12);
+      --warn: #f8a306;
+      --warn-bg: rgba(248,163,6,.13);
+      --r: 12px;
+      --r-pill: 999px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+      --measure: 68ch;
+      color-scheme: dark;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #ffffff;
+        --surface: #f6f7f9;
+        --surface-2: #eef0f3;
+        --line: #dfe3e8;
+        --ink: #1a1f26;
+        --ink-2: #4a5560;
+        --ink-3: #8893a0;
+        --ok: #1f9d57;
+        --ok-bg: rgba(31,157,87,.10);
+        --warn: #d97706;
+        --warn-bg: rgba(217,119,6,.10);
+        color-scheme: light;
+      }
+    }
+
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--ink);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--ok); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 56rem;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* ── Nav ── */
+    nav {
+      border-bottom: 1px solid var(--line);
+      padding: 1rem 0;
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .nav-logo {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .nav-logo:hover { text-decoration: none; }
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.875rem;
+    }
+    .nav-links a { color: var(--ink-2); }
+    .nav-links a:hover { color: var(--ink); text-decoration: none; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 5rem 0 4rem;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--ok);
+      background: var(--ok-bg);
+      border: 1px solid rgba(92,221,139,.25);
+      border-radius: var(--r-pill);
+      padding: 4px 14px;
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+      color: var(--ink);
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--ok);
+    }
+    .hero-sub {
+      font-size: 1.125rem;
+      color: var(--ink-2);
+      max-width: 42rem;
+      margin: 0 auto 2.5rem;
+      line-height: 1.65;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--r);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: .12s ease;
+      text-decoration: none;
+      line-height: 1;
+    }
+    .btn:hover { text-decoration: none; transform: translateY(-1px); }
+    .btn:active { transform: none; }
+    .btn-primary {
+      background: var(--ok);
+      color: #0d1117;
+    }
+    .btn-primary:hover { filter: brightness(1.08); }
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    .btn-secondary:hover { border-color: var(--ink-3); }
+
+    /* ── Feature grid ── */
+    .features {
+      padding: 4rem 0;
+      border-top: 1px solid var(--line);
+    }
+    .section-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--ink-3);
+      margin-bottom: 0.5rem;
+    }
+    .section-heading {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      margin-bottom: 0.5rem;
+    }
+    .section-sub {
+      font-size: 1rem;
+      color: var(--ink-2);
+      margin-bottom: 2.5rem;
+      max-width: 36rem;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+      gap: 1rem;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 1.25rem 1.375rem;
+    }
+    .feature-icon {
+      font-size: 1.25rem;
+      margin-bottom: 0.625rem;
+      display: block;
+    }
+    .feature-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+      color: var(--ink);
+    }
+    .feature-desc {
+      font-size: 0.875rem;
+      color: var(--ink-2);
+      line-height: 1.55;
+    }
+
+    /* ── Tech stack ── */
+    .stack {
+      padding: 4rem 0;
+      border-top: 1px solid var(--line);
+    }
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+      gap: 0.75rem;
+      margin-top: 2rem;
+    }
+    .stack-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 1rem 1.125rem;
+    }
+    .stack-layer {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ink-3);
+      white-space: nowrap;
+      padding-top: 2px;
+      min-width: 5.5rem;
+    }
+    .stack-tech {
+      font-size: 0.875rem;
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    /* ── How it works ── */
+    .how {
+      padding: 4rem 0;
+      border-top: 1px solid var(--line);
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .step {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--ok);
+      letter-spacing: .06em;
+    }
+    .step-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .step-desc {
+      font-size: 0.875rem;
+      color: var(--ink-2);
+      line-height: 1.55;
+    }
+
+    /* ── Code block ── */
+    .install {
+      padding: 4rem 0;
+      border-top: 1px solid var(--line);
+    }
+    .install-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 640px) {
+      .install-grid { grid-template-columns: 1fr; }
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 1.25rem 1.375rem;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      line-height: 1.65;
+      color: var(--ink-2);
+      overflow-x: auto;
+    }
+    pre .prompt { color: var(--ink-3); user-select: none; }
+    pre .cmd { color: var(--ink); }
+    pre .comment { color: var(--ink-3); font-style: italic; }
+    .install-notes {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .install-note {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 1rem 1.125rem;
+    }
+    .install-note-title {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 0.25rem;
+    }
+    .install-note-desc {
+      font-size: 0.8125rem;
+      color: var(--ink-2);
+      line-height: 1.5;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      padding: 5rem 0;
+      border-top: 1px solid var(--line);
+      text-align: center;
+    }
+    .cta h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      margin-bottom: 0.75rem;
+    }
+    .cta p {
+      font-size: 1rem;
+      color: var(--ink-2);
+      margin-bottom: 2rem;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 1.5rem 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer-text {
+      font-size: 0.8125rem;
+      color: var(--ink-3);
+    }
+    .footer-links {
+      display: flex;
+      gap: 1.25rem;
+      font-size: 0.8125rem;
+    }
+    .footer-links a { color: var(--ink-3); }
+    .footer-links a:hover { color: var(--ink); text-decoration: none; }
+
+    /* ── Utilities ── */
+    .pill {
+      display: inline-block;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      background: var(--ok-bg);
+      color: var(--ok);
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="container">
+      <div class="nav-inner">
+        <a href="#" class="nav-logo">Index Cards</a>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#install">Install</a>
+          <a href="docs.md">Docs</a>
+          <a href="https://github.com/rudzki/indexcards">GitHub</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-eyebrow">Self-hosted &middot; Open source &middot; SQLite</div>
+        <h1>Your knowledge base,<br><em>on your own server.</em></h1>
+        <p class="hero-sub">
+          Index Cards is a lightweight wiki for personal or team use. Write entries in Markdown,
+          link them together, track backlinks, and send a weekly digest to subscribers.
+          One SQLite file. No external services required.
+        </p>
+        <div class="hero-actions">
+          <a href="#install" class="btn btn-primary">Get started</a>
+          <a href="docs.md" class="btn btn-secondary">Read the docs</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+      <div class="container">
+        <div class="section-label">What's included</div>
+        <h2 class="section-heading">Everything a knowledge base needs</h2>
+        <p class="section-sub">No plugins, no subscriptions, no third-party accounts required to get started.</p>
+
+        <div class="feature-grid">
+
+          <div class="feature-card">
+            <span class="feature-icon">&#9998;</span>
+            <div class="feature-title">Rich-text editor</div>
+            <div class="feature-desc">ProseMirror editor with toolbar for headings, lists, code blocks, links, blockquotes, and footnotes. Markdown source always accessible.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128279;</span>
+            <div class="feature-title">Internal links &amp; backlinks</div>
+            <div class="feature-desc">Link entries with <code>[[Title]]</code> syntax. Every entry shows what links to it. Missing targets flagged with a dashed underline.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128269;</span>
+            <div class="feature-title">Full-text search</div>
+            <div class="feature-desc">SQLite FTS5 search with highlighted excerpts and prefix matching. Kept in sync via database triggers — no indexer process needed.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128231;</span>
+            <div class="feature-title">Weekly email digest</div>
+            <div class="feature-desc">Double opt-in subscriptions and a weekly digest of new (and optionally edited) entries. Run via cron; falls back to console when SMTP is absent.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128100;</span>
+            <div class="feature-title">Multi-user with roles</div>
+            <div class="feature-desc">Four roles: Viewer, Author, Editor, Admin. Passwordless magic-link login. Invite-only, public, or email-domain-restricted registration.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128196;</span>
+            <div class="feature-title">Drafts &amp; changelogs</div>
+            <div class="feature-desc">Entries live in draft until published. Each save can include a changelog message. Full edit history visible on every entry.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128257;</span>
+            <div class="feature-title">Import &amp; export</div>
+            <div class="feature-desc">Import from JSON or WordPress XML. Export all entries as a Markdown ZIP or JSON. No lock-in.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128276;</span>
+            <div class="feature-title">Integrations</div>
+            <div class="feature-desc">Slack announcements, signed outgoing webhooks, and Mailchimp audience sync — all configurable from the admin UI, no code required.</div>
+          </div>
+
+          <div class="feature-card">
+            <span class="feature-icon">&#128274;</span>
+            <div class="feature-title">Private mode</div>
+            <div class="feature-desc">Set visibility to "registered" and the entire site requires a login. Useful for internal team wikis.</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Tech stack -->
+    <section class="stack" id="stack">
+      <div class="container">
+        <div class="section-label">Under the hood</div>
+        <h2 class="section-heading">Boring technology, deliberately</h2>
+        <p class="section-sub">Standard Python web stack. Nothing exotic to install or operate.</p>
+
+        <div class="stack-grid">
+          <div class="stack-item">
+            <div class="stack-layer">Backend</div>
+            <div class="stack-tech">Python 3.10+, Flask 3</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Database</div>
+            <div class="stack-tech">SQLite via Flask-SQLAlchemy</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Migrations</div>
+            <div class="stack-tech">Auto-applied at startup, no CLI step</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Markdown</div>
+            <div class="stack-tech">Mistune 3 + Bleach sanitisation</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Editor</div>
+            <div class="stack-tech">ProseMirror (vendored, no build step)</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Auth</div>
+            <div class="stack-tech">Magic-link tokens, Flask-Login</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Security</div>
+            <div class="stack-tech">CSRF (Flask-WTF), rate limiting</div>
+          </div>
+          <div class="stack-item">
+            <div class="stack-layer">Production</div>
+            <div class="stack-tech">Gunicorn + nginx or Caddy</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="how" id="how">
+      <div class="container">
+        <div class="section-label">Getting started</div>
+        <h2 class="section-heading">Up in five minutes</h2>
+        <p class="section-sub">Clone, install, run. The setup wizard creates the first admin account.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">01</div>
+            <div class="step-title">Clone &amp; install</div>
+            <div class="step-desc">Clone the repo, create a virtualenv, and <code>pip install -r requirements.txt</code>. No Node.js, no build step.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">02</div>
+            <div class="step-title">Set three env vars</div>
+            <div class="step-desc"><code>SECRET_KEY</code>, <code>SITE_URL</code>, and optionally <code>DATABASE_URL</code>. Everything else is configured in the admin UI.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">03</div>
+            <div class="step-title">Run</div>
+            <div class="step-desc"><code>gunicorn run:app</code> in production. The database is created automatically. Visit <code>/setup</code> to create the admin account.</div>
+          </div>
+          <div class="step">
+            <div class="step-num">04</div>
+            <div class="step-title">Configure in the UI</div>
+            <div class="step-desc">SMTP, integrations, registration settings, digest schedule — all editable from Dashboard → Settings with no server restart needed.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install -->
+    <section class="install" id="install">
+      <div class="container">
+        <div class="section-label">Installation</div>
+        <h2 class="section-heading">One command to install</h2>
+        <p class="section-sub" style="margin-bottom:0">Requires Python 3.10+. SQLite is included in the standard library.</p>
+
+        <div class="install-grid">
+          <pre><span class="comment"># Clone and install</span>
+<span class="prompt">$ </span><span class="cmd">git clone https://github.com/rudzki/indexcards</span>
+<span class="prompt">$ </span><span class="cmd">cd indexcards</span>
+<span class="prompt">$ </span><span class="cmd">python -m venv venv &amp;&amp; source venv/bin/activate</span>
+<span class="prompt">$ </span><span class="cmd">pip install -r requirements.txt</span>
+
+<span class="comment"># Set required environment variables</span>
+<span class="prompt">$ </span><span class="cmd">export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"</span>
+<span class="prompt">$ </span><span class="cmd">export SITE_URL="https://example.com"</span>
+
+<span class="comment"># Run (development)</span>
+<span class="prompt">$ </span><span class="cmd">python run.py</span>
+
+<span class="comment"># Run (production)</span>
+<span class="prompt">$ </span><span class="cmd">gunicorn run:app --workers 2 --bind 127.0.0.1:8000</span></pre>
+
+          <div class="install-notes">
+            <div class="install-note">
+              <div class="install-note-title">No database setup</div>
+              <div class="install-note-desc">SQLite database is created automatically at <code>instance/indexcards.db</code>. Schema migrations run on every startup — no <code>flask db upgrade</code> step.</div>
+            </div>
+            <div class="install-note">
+              <div class="install-note-title">First run</div>
+              <div class="install-note-desc">Visit the app and you'll be redirected to <code>/setup</code> to create the admin account and set the site title.</div>
+            </div>
+            <div class="install-note">
+              <div class="install-note-title">SMTP is optional</div>
+              <div class="install-note-desc">Without SMTP, login links and digest emails are printed to the console. Configure SMTP from the admin UI after setup.</div>
+            </div>
+            <div class="install-note">
+              <div class="install-note-title">Weekly digest</div>
+              <div class="install-note-desc">Add <code>flask send-digest</code> to a cron job to send the weekly digest to subscribers. Runs independently of the web process.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+      <div class="container">
+        <h2>Ready to run your own?</h2>
+        <p>MIT licensed. No SaaS, no per-seat pricing, no tracking.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/rudzki/indexcards" class="btn btn-primary">View on GitHub</a>
+          <a href="docs.md" class="btn btn-secondary">Full documentation</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <span class="footer-text">Index Cards &mdash; MIT License</span>
+        <div class="footer-links">
+          <a href="https://github.com/rudzki/indexcards">GitHub</a>
+          <a href="docs.md">Docs</a>
+          <a href="README.md">README</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

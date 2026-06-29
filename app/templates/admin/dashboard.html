@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — {{ site_settings.site_title }}{% endblock %}
+
+{% macro sort_url(col) %}{{ url_for('admin.dashboard', sort=col, order='desc' if (sort == col and order == 'asc') else 'asc', page=1) }}{% endmacro %}
+{% macro sort_indicator(col) %}{% if sort == col %} <span aria-hidden="true">{{ '↑' if order == 'asc' else '↓' }}</span>{% endif %}{% endmacro %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>Entries</h1>
+        <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs">New Entry</a>
+    </div>
+
+    {% include 'admin/_nav.html' %}
+
+    {% if entries or pagination.total %}
+        <form method="post" action="{{ url_for('admin.bulk_entries') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th class="col-check"><input type="checkbox" id="select-all" aria-label="Select all entries"></th>
+                        <th class="col-title col-primary" aria-sort="{{ 'ascending' if sort == 'title' and order == 'asc' else 'descending' if sort == 'title' and order == 'desc' else 'none' }}"><a href="{{ sort_url('title') }}" class="sort-link">Title{{ sort_indicator('title') }}</a></th>
+                        <th class="col-status" aria-sort="{{ 'ascending' if sort == 'status' and order == 'asc' else 'descending' if sort == 'status' and order == 'desc' else 'none' }}"><a href="{{ sort_url('status') }}" class="sort-link">Status{{ sort_indicator('status') }}</a></th>
+                        <th class="col-updated" aria-sort="{{ 'ascending' if sort == 'updated' and order == 'asc' else 'descending' if sort == 'updated' and order == 'desc' else 'none' }}"><a href="{{ sort_url('updated') }}" class="sort-link">Updated{{ sort_indicator('updated') }}</a></th>
+                        <th class="admin-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr>
+                        <td class="col-check"><input type="checkbox" name="entry_ids" value="{{ entry.id }}" class="entry-checkbox"></td>
+                        <td class="col-nowrap col-truncate col-title col-primary">
+                            {% if current_user.can_modify(entry) %}
+                                <a href="{{ url_for('admin.edit_entry', entry_id=entry.id) }}">{{ entry.title }}</a>
+                            {% else %}
+                                {{ entry.title }}
+                            {% endif %}
+                        </td>
+                        <td class="col-status">{% if entry.is_draft %}<span class="badge badge-warning">Draft</span>{% else %}<span class="badge badge-published">Published</span>{% endif %}</td>
+                        <td class="col-updated col-nowrap">{{ entry.updated_at|timeago }}</td>
+                        <td class="admin-actions">
+                            <div class="admin-actions-wrap">
+                                {% if entry.is_draft %}
+                                    <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="btn-small" title="Preview" aria-label="Preview {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                {% else %}
+                                    <a href="{{ url_for('main.entry_page', slug=entry.slug) }}" class="btn-small" title="View" aria-label="View {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                {% endif %}
+                                {% if current_user.can_modify(entry) %}
+                                    <button type="submit" form="delete-{{ entry.id }}" class="btn-small btn-danger" title="Delete" aria-label="Delete {{ entry.title }}"
+                                            data-confirm='Delete "{{ entry.title }}"?' data-confirm-label="Delete"
+                                            onclick="return askConfirm(event)"><i class="bi bi-trash3" aria-hidden="true"></i></button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="bulk-actions">
+                <span>With selected:</span>
+                <button type="submit" name="bulk_action" value="publish" class="btn-small">Publish</button>
+                <button type="submit" name="bulk_action" value="unpublish" class="btn-small">Unpublish</button>
+                <button type="submit" name="bulk_action" value="delete" class="btn-small btn-danger"
+                        data-confirm="Delete selected entries?" data-confirm-label="Delete"
+                        onclick="return askConfirm(event)">Delete</button>
+            </div>
+        </form>
+
+        {% for entry in entries %}{% if current_user.can_modify(entry) %}
+        <form method="post" action="{{ url_for('admin.delete_entry', entry_id=entry.id) }}" id="delete-{{ entry.id }}" style="display:none">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        </form>
+        {% endif %}{% endfor %}
+
+        {% if pagination.pages > 1 %}
+        <nav class="pagination" aria-label="Page navigation">
+            <ul>
+            {% if pagination.has_prev %}
+                <li><a href="{{ url_for('admin.dashboard', page=pagination.prev_num, sort=sort, order=order) }}" aria-label="Previous page">&laquo;</a></li>
+            {% endif %}
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                    <li><a href="{{ url_for('admin.dashboard', page=p, sort=sort, order=order) }}"
+                       class="{{ 'pagination-active' if p == pagination.page }}"
+                       {% if p == pagination.page %}aria-current="page"{% endif %}>{{ p }}</a></li>
+                {% else %}
+                    <li><span class="pagination-gap" aria-hidden="true">…</span></li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+                <li><a href="{{ url_for('admin.dashboard', page=pagination.next_num, sort=sort, order=order) }}" aria-label="Next page">&raquo;</a></li>
+            {% endif %}
+            </ul>
+            <span class="pagination-count">{{ pagination.total }} entries</span>
+        </nav>
+        {% endif %}
+    {% else %}
+        <p>No entries yet. <a href="{{ url_for('admin.new_entry') }}">Create your first entry.</a></p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var selectAll = document.getElementById('select-all');
+    if (!selectAll) return;
+    var checkboxes = document.querySelectorAll('.entry-checkbox');
+    selectAll.addEventListener('change', function() {
+        checkboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
+    });
+    checkboxes.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            selectAll.checked = Array.from(checkboxes).every(function(c) { return c.checked; });
+        });
+    });
+})();
+</script>
+{% endblock %}

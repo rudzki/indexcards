@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Search — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="search-results">
+    <h1>Search{% if query %}: "{{ query }}"{% endif %}</h1>
+
+    {% if query %}
+        {% if results %}
+            <p class="search-result-count">{{ results|length }} result{{ 's' if results|length != 1 else '' }}</p>
+            <ul>
+                {% for item in results %}
+                    <li class="search-result-item">
+                        <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.highlighted_title if item.highlighted_title else item.entry.title }}</a>
+                        {% if item.entry.summary %}
+                            <p class="search-result-summary">{{ item.highlighted_summary if item.highlighted_summary else item.entry.summary }}</p>
+                        {% endif %}
+                        {% if item.excerpt %}
+                            <p class="search-result-excerpt">{{ item.excerpt }}</p>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No results found.</p>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

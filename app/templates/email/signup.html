@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <h2 style="margin-top:0">{{ site_title }}</h2>
+  <p>You've been asked to create an account. Click the button below to get started.</p>
+  <p>
+    <a href="{{ signup_url }}"
+       style="display:inline-block;background:#0057ff;color:#fff;text-decoration:none;
+              padding:10px 20px;border-radius:4px;font-weight:600">
+      Create account
+    </a>
+  </p>
+  <p style="font-size:0.85em;color:#666">
+    Or copy this URL into your browser:<br>
+    <a href="{{ signup_url }}" style="color:#0057ff;word-break:break-all">{{ signup_url }}</a>
+  </p>
+  <p style="font-size:0.8em;color:#999">This link expires in 24 hours. If you didn't request this, ignore this message.</p>
+</body>
+</html>

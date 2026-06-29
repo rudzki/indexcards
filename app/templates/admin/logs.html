@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Logs — {{ site_settings.site_title }}{% endblock %}
+
+{% macro sort_url(col) %}{{ url_for('admin.logs', sort=col, order='desc' if (sort == col and order == 'asc') else 'asc') }}{% endmacro %}
+{% macro sort_ind(col) %}{% if sort == col %} {{ '↑' if order == 'asc' else '↓' }}{% endif %}{% endmacro %}
+{% macro action_badge(action) %}<span class="badge {% if action in ('entry_created', 'entry_edited') %}badge-published{% elif 'deleted' in action %}badge-danger{% elif action in ('user_registered', 'user_signed_up', 'role_changed') %}badge-warning{% elif action == 'invite_sent' %}badge-info{% elif 'import' in action %}badge-purple{% else %}badge-draft{% endif %}">{{ action | replace('_', ' ') | title }}</span>{% endmacro %}
+
+{% block content %}
+<div class="admin-page">
+    <h1>Activity Log</h1>
+    {% include 'admin/_nav.html' %}
+
+    {% if logs %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th><a href="{{ sort_url('time') }}" class="sort-link">Time{{ sort_ind('time') }}</a></th>
+                    <th><a href="{{ sort_url('action') }}" class="sort-link">Action{{ sort_ind('action') }}</a></th>
+                    <th class="col-primary">Detail</th>
+                    <th><a href="{{ sort_url('user') }}" class="sort-link">User{{ sort_ind('user') }}</a></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="col-nowrap">{{ log.created_at|timeago }}</td>
+                    <td>{{ action_badge(log.action) }}</td>
+                    <td class="col-primary">{{ log.detail }}</td>
+                    <td class="col-mono">{{ log.user.email if log.user else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No activity logged yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

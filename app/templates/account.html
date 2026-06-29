@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Account — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <h1>Account</h1>
+    <form method="post" class="auth-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+            <label for="display_name">Display Name</label>
+            <input type="text" id="display_name" name="display_name" value="{{ current_user.display_name }}" required>
+        </div>
+        <div class="field">
+            <label for="bio">Bio</label>
+            <textarea id="bio" name="bio" rows="3">{{ current_user.bio or '' }}</textarea>
+        </div>
+        <div class="field field-inline">
+            <label>
+                <input type="checkbox" name="subscribed" {% if current_user.subscribed %}checked{% endif %}>
+                Subscribe to digest emails
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+{% endblock %}

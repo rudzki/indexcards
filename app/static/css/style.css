@@ -1100,12 +1100,8 @@ select {
   color: var(--ink)
 }
 
-.entry-toc .toc-h3 {
-  padding-left: 1rem
-}
-
 .entry-toc .toc-h4 {
-  padding-left: 2rem
+  padding-left: 1rem;
 }
 
 .entry-body {

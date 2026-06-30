@@ -1,3 +1,4 @@
+import html
 import re
 
 import bleach
@@ -121,7 +122,7 @@ def extract_toc(html):
         tag = m.group(1)
         level = int(tag[1])
         attrs = m.group(2) or ''
-        text = re.sub(r'<[^>]+>', '', m.group(4)).strip()
+        text = html.unescape(re.sub(r'<[^>]+>', '', m.group(4)).strip())
         id_match = re.search(r'id="([^"]+)"', attrs)
         if id_match:
             headings.append({'level': level, 'text': text, 'id': id_match.group(1)})

@@ -3,7 +3,8 @@
 # Run as root: bash deploy/setup.sh
 set -euo pipefail
 
-APP_DIR=/srv/indexcards
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
 APP_USER=indexcards
 LOG_DIR=/var/log/indexcards
 SERVICE_NAME=indexcards
@@ -52,15 +53,6 @@ ask DOMAIN      "Domain name (e.g. notes.example.com)"
 ask CERT_EMAIL  "Email address for SSL certificate renewal notices"
 
 echo
-if confirm "Clone from a git repository?"; then
-    ask GIT_URL "Repository URL"
-    DO_GIT=1
-else
-    DO_GIT=0
-    echo "    Code will be installed from the current directory."
-fi
-
-echo
 
 # ── packages ──────────────────────────────────────────────────────────────────
 
@@ -73,26 +65,8 @@ ok "Packages installed"
 
 step "Creating app user and directories"
 id "$APP_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$APP_USER"
-mkdir -p "$APP_DIR" "$LOG_DIR" "$APP_DIR/instance/uploads"
+mkdir -p "$LOG_DIR" "$APP_DIR/instance/uploads"
 ok "User '$APP_USER' ready"
-
-# ── app code ──────────────────────────────────────────────────────────────────
-
-step "Installing app code"
-if [[ "$DO_GIT" -eq 1 ]]; then
-    if [[ -d "$APP_DIR/.git" ]]; then
-        git -C "$APP_DIR" pull
-        ok "Repository updated"
-    else
-        git clone "$GIT_URL" "$APP_DIR"
-        ok "Repository cloned"
-    fi
-else
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    rsync -a --exclude='.env' --exclude='instance/' --exclude='venv/' \
-        "$SCRIPT_DIR/../" "$APP_DIR/"
-    ok "Files copied from $(dirname "$SCRIPT_DIR")"
-fi
 
 # ── virtualenv ────────────────────────────────────────────────────────────────
 
@@ -111,7 +85,7 @@ else
     SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
     cat > "$APP_DIR/.env" <<EOF
 SECRET_KEY=${SECRET_KEY}
-DATABASE_URL=sqlite:////srv/indexcards/instance/indexcards.db
+DATABASE_URL=sqlite:///${APP_DIR}/instance/indexcards.db
 SITE_URL=https://${DOMAIN}
 EOF
     chmod 640 "$APP_DIR/.env"
@@ -125,7 +99,8 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$LOG_DIR"
 # ── systemd service ───────────────────────────────────────────────────────────
 
 step "Installing systemd service"
-cp "$APP_DIR/deploy/indexcards.service" /etc/systemd/system/
+sed "s|/srv/indexcards|${APP_DIR}|g" "$APP_DIR/deploy/indexcards.service" \
+    > /etc/systemd/system/indexcards.service
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
@@ -134,7 +109,9 @@ ok "Service enabled and started"
 # ── nginx ─────────────────────────────────────────────────────────────────────
 
 step "Configuring nginx"
-sed "s/example.com/${DOMAIN}/g" "$APP_DIR/deploy/nginx.conf" \
+sed -e "s/example.com/${DOMAIN}/g" \
+    -e "s|/srv/indexcards|${APP_DIR}|g" \
+    "$APP_DIR/deploy/nginx.conf" \
     > /etc/nginx/sites-available/indexcards
 
 # Remove default site if it's still there

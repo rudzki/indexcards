@@ -95,6 +95,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module" src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script type="module" src="{{ static_url('js/editor.js') }}"></script>
 <script src="{{ static_url('js/editor-page.js') }}"></script>
 {% endblock %}

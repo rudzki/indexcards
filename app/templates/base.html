@@ -29,8 +29,8 @@
     {% if request.blueprint in ('admin', 'auth') %}
     <meta name="robots" content="noindex, nofollow">
     {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+    <link rel="stylesheet" href="{{ static_url('css/style.css') }}">
+    <link rel="stylesheet" href="{{ static_url('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     {% if site_settings and site_settings.brand_color %}
     <style>
       :root {

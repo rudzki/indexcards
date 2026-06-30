@@ -18,6 +18,9 @@ def create_app():
     app.url_map.strict_slashes = False
     app.config.from_object('config.Config')
 
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     import os
     is_dev = os.environ.get('FLASK_DEBUG', '0').lower() in ('1', 'true', 'yes')
     if not is_dev and app.config['SECRET_KEY'] == 'dev-secret-change-me':

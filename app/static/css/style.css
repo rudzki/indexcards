@@ -1059,7 +1059,9 @@ select {
   margin: 0 0 2rem 2rem;
   font-size: 0.875rem;
   float: right;
+  width: 100%;
   min-width: 33%;
+  max-width: 300px;
 }
 
 /* Eyebrow / section-label pattern — used in panels and sidebars */

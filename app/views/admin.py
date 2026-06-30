@@ -14,7 +14,7 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, Alias, EditLog, Backlink, User, Registration, SiteSettings, AuditLog, make_slug, log_audit
+from app.models import Entry, Alias, EditLog, Backlink, User, Registration, SiteSettings, AuditLog, Page, EditLock, make_slug, log_audit
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry, delete_fts_entry
 from app.mail import send_email, render_email
@@ -42,6 +42,56 @@ def writer_required(f):
     return decorated
 
 
+def editor_required(f):
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if not (current_user.is_admin or current_user.is_editor):
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated
+
+
+RESERVED_SLUGS = {
+    'feed', 'search', 'login', 'logout', 'signup', 'subscribe',
+    'confirm', 'unsubscribe', 'random', 'healthz', 'admin', 'dashboard',
+    'static', 'favicon', 'site-image', 'uploads',
+}
+
+
+_LOCK_TTL = 60
+
+
+def _acquire_lock(content_type, content_id):
+    """Acquire or refresh a lock. Returns the display name of the blocking user, or None on success."""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    expires = now + timedelta(seconds=_LOCK_TTL)
+
+    EditLock.query.filter(EditLock.expires_at < now).delete()
+
+    existing = EditLock.query.filter_by(content_type=content_type, content_id=content_id).first()
+    if existing and existing.user_id != current_user.id:
+        exp = existing.expires_at.replace(tzinfo=None) if existing.expires_at.tzinfo else existing.expires_at
+        if exp > now:
+            return existing.user.display_name if existing.user else 'Someone'
+        existing.user_id = current_user.id
+        existing.expires_at = expires
+    elif existing:
+        existing.expires_at = expires
+    else:
+        db.session.add(EditLock(content_type=content_type, content_id=content_id,
+                                user_id=current_user.id, expires_at=expires))
+    db.session.commit()
+    return None
+
+
+def _active_locks(content_type):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    locks = EditLock.query.filter_by(content_type=content_type).filter(EditLock.expires_at > now).all()
+    return {lock.content_id: lock.user.display_name if lock.user else 'Someone' for lock in locks}
+
+
 @admin_bp.route('/')
 @login_required
 def dashboard():
@@ -61,8 +111,10 @@ def dashboard():
     q = q.order_by(sort_col.asc() if order == 'asc' else sort_col.desc())
 
     pagination = q.paginate(page=page, per_page=25, error_out=False)
+    locked_entries = _active_locks('entry')
     return render_template('admin/dashboard.html', entries=pagination.items,
-                           pagination=pagination, sort=sort, order=order)
+                           pagination=pagination, sort=sort, order=order,
+                           locked_entries=locked_entries)
 
 
 @admin_bp.route('/entry/new/', methods=['GET', 'POST'])
@@ -82,7 +134,11 @@ def edit_entry(entry_id):
         abort(403)
     if request.method == 'POST':
         return _save_entry(entry)
-    return render_template('editor.html', entry=entry)
+    blocker = _acquire_lock('entry', entry_id)
+    if blocker:
+        flash(f'"{entry.title}" is currently being edited by {blocker}.', 'warning')
+        return redirect(url_for('admin.dashboard'))
+    return render_template('editor.html', entry=entry, lock_type='entry', lock_id=entry_id)
 
 
 @admin_bp.route('/entry/<int:entry_id>/delete/', methods=['POST'])
@@ -207,8 +263,6 @@ def settings():
     site_settings = SiteSettings.query.get(1)
     if request.method == 'POST':
         site_settings.site_title = request.form.get('site_title', '').strip()
-        site_settings.about_markdown = request.form.get('about_markdown', '')
-        site_settings.about_html = render_markdown(site_settings.about_markdown)
         site_settings.footer_text = request.form.get('footer_text', '').strip()
 
         site_settings.search_enabled = 'search_enabled' in request.form
@@ -230,6 +284,8 @@ def settings():
 
         site_settings.show_authors = 'show_authors' in request.form
         site_settings.show_history = 'show_history' in request.form
+        site_settings.alpha_jump_enabled = 'alpha_jump_enabled' in request.form
+        site_settings.feeds_enabled = 'feeds_enabled' in request.form
         site_settings.site_icon = request.form.get('site_icon', '').strip()
 
         import re as _re
@@ -275,8 +331,10 @@ def upload_site_image():
     site_settings = SiteSettings.query.get(1)
     if site_settings.site_image:
         old_path = os.path.join(upload_dir, site_settings.site_image)
-        if os.path.exists(old_path):
+        try:
             os.remove(old_path)
+        except FileNotFoundError:
+            pass
 
     f.save(os.path.join(upload_dir, filename))
     site_settings.site_image = filename
@@ -473,7 +531,9 @@ def export_markdown():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for entry in entries:
-            frontmatter = f'---\ntitle: "{entry.title}"\nsummary: "{entry.summary}"\nslug: {entry.slug}\n'
+            def _yaml_str(s):
+                return (s or '').replace('\\', '\\\\').replace('"', '\\"')
+            frontmatter = f'---\ntitle: "{_yaml_str(entry.title)}"\nsummary: "{_yaml_str(entry.summary)}"\nslug: {entry.slug}\n'
             if entry.aliases:
                 aliases = ', '.join(a.title for a in entry.aliases)
                 frontmatter += f'aliases: [{aliases}]\n'
@@ -644,24 +704,29 @@ def import_json():
         return redirect(url_for('admin.settings'))
 
     count = 0
-    for item in data:
-        title = (item.get('title') or '').strip()
-        if not title:
-            continue
-        slug = item.get('slug') or make_slug(title)
-        body_markdown = item.get('body_markdown', '')
-        summary = item.get('summary', '')
-        is_draft = item.get('is_draft', False)
-        published_at = None
-        if item.get('published_at'):
-            try:
-                published_at = datetime.fromisoformat(item['published_at'])
-            except ValueError:
-                pass
-        if _import_entry(title, slug, body_markdown, summary, is_draft, published_at):
-            count += 1
+    try:
+        for item in data:
+            title = (item.get('title') or '').strip()
+            if not title:
+                continue
+            slug = item.get('slug') or make_slug(title)
+            body_markdown = item.get('body_markdown', '')
+            summary = item.get('summary', '')
+            is_draft = item.get('is_draft', False)
+            published_at = None
+            if item.get('published_at'):
+                try:
+                    published_at = datetime.fromisoformat(item['published_at'])
+                except ValueError:
+                    pass
+            if _import_entry(title, slug, body_markdown, summary, is_draft, published_at):
+                count += 1
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash('Import failed partway through — no entries were saved.', 'error')
+        return redirect(url_for('admin.settings'))
 
-    db.session.commit()
     log_audit('import_json', detail=f'{count} entries imported', user_id=current_user.id)
     flash(f'{count} entries imported.', 'success')
     return redirect(url_for('admin.settings'))
@@ -784,6 +849,115 @@ def logs():
         col = AuditLog.created_at
     entries = q.order_by(col.asc() if order == 'asc' else col.desc()).limit(200).all()
     return render_template('admin/logs.html', logs=entries, sort=sort, order=order)
+
+
+@admin_bp.route('/pages/')
+@editor_required
+def pages_list():
+    pages = Page.query.order_by(Page.sort_title).all()
+    locked_pages = _active_locks('page')
+    return render_template('admin/pages.html', pages=pages, locked_pages=locked_pages)
+
+
+@admin_bp.route('/pages/new/', methods=['GET', 'POST'])
+@admin_required
+def new_page():
+    if request.method == 'POST':
+        return _save_page(None)
+    return render_template('admin/page_editor.html', page=None)
+
+
+@admin_bp.route('/pages/<int:page_id>/edit/', methods=['GET', 'POST'])
+@editor_required
+def edit_page(page_id):
+    page = Page.query.get_or_404(page_id)
+    if request.method == 'POST':
+        return _save_page(page)
+    blocker = _acquire_lock('page', page_id)
+    if blocker:
+        flash(f'"{page.title}" is currently being edited by {blocker}.', 'warning')
+        return redirect(url_for('admin.pages_list'))
+    return render_template('admin/page_editor.html', page=page, lock_type='page', lock_id=page_id)
+
+
+@admin_bp.route('/pages/<int:page_id>/delete/', methods=['POST'])
+@admin_required
+def delete_page(page_id):
+    page = Page.query.get_or_404(page_id)
+    page_title = page.title
+    db.session.delete(page)
+    db.session.commit()
+    log_audit('page_deleted', detail=page_title, user_id=current_user.id)
+    flash('Page deleted.', 'success')
+    return redirect(url_for('admin.pages_list'))
+
+
+@admin_bp.route('/pages/<int:page_id>/publish/', methods=['POST'])
+@editor_required
+def publish_page(page_id):
+    page = Page.query.get_or_404(page_id)
+    page.is_draft = not page.is_draft
+    if not page.is_draft and not page.published_at:
+        page.published_at = datetime.now(timezone.utc)
+    db.session.commit()
+    status = 'unpublished' if page.is_draft else 'published'
+    flash(f'"{page.title}" {status}.', 'success')
+    return redirect(url_for('admin.edit_page', page_id=page.id))
+
+
+def _save_page(page):
+    title = request.form.get('title', '').strip()
+    summary = request.form.get('summary', '').strip()
+    body_markdown = request.form.get('body_markdown', '')
+    is_draft = 'is_draft' in request.form
+    show_in_nav = 'show_in_nav' in request.form
+    nav_position_raw = request.form.get('nav_position', '').strip()
+    nav_position = int(nav_position_raw) if nav_position_raw.isdigit() else None
+
+    if not title:
+        flash('Title is required.', 'error')
+        return render_template('admin/page_editor.html', page=page)
+
+    slug_input = request.form.get('slug', '').strip()
+    slug = make_slug(slug_input) if slug_input else make_slug(title)
+
+    if slug in RESERVED_SLUGS:
+        flash(f'"{slug}" is a reserved path and cannot be used as a page slug.', 'error')
+        return render_template('admin/page_editor.html', page=page)
+
+    is_new = page is None
+
+    if is_new:
+        if Page.query.filter_by(slug=slug).first():
+            flash('A page with this slug already exists.', 'error')
+            return render_template('admin/page_editor.html', page=page)
+        page = Page(slug=slug, created_by=current_user.id)
+        db.session.add(page)
+    else:
+        if slug != page.slug:
+            if Page.query.filter(Page.slug == slug, Page.id != page.id).first():
+                flash('A page with this slug already exists.', 'error')
+                return render_template('admin/page_editor.html', page=page)
+            page.slug = slug
+
+    page.title = title
+    page.summary = summary
+    page.body_markdown = body_markdown
+    page.body_html = render_markdown(body_markdown)
+    page.is_draft = is_draft
+    page.show_in_nav = show_in_nav
+    page.nav_position = nav_position if show_in_nav else None
+    page.update_sort_title()
+
+    if not is_draft and not page.published_at:
+        page.published_at = datetime.now(timezone.utc)
+
+    db.session.commit()
+
+    action = 'page_created' if is_new else 'page_edited'
+    log_audit(action, detail=page.title, user_id=current_user.id)
+    flash('Page saved.', 'success')
+    return redirect(url_for('admin.edit_page', page_id=page.id))
 
 
 def _fire_integrations(entry, is_new, changelog):

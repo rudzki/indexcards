@@ -37,6 +37,9 @@
                             {% else %}
                                 {{ entry.title }}
                             {% endif %}
+                            {% if entry.id in locked_entries %}
+                                <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_entries[entry.id] }}"></i>
+                            {% endif %}
                         </td>
                         <td class="col-status">{% if entry.is_draft %}<span class="badge badge-warning">Draft</span>{% else %}<span class="badge badge-published">Published</span>{% endif %}</td>
                         <td class="col-updated col-nowrap">{{ entry.updated_at|timeago }}</td>
@@ -103,19 +106,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function() {
-    var selectAll = document.getElementById('select-all');
-    if (!selectAll) return;
-    var checkboxes = document.querySelectorAll('.entry-checkbox');
-    selectAll.addEventListener('change', function() {
-        checkboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
-    });
-    checkboxes.forEach(function(cb) {
-        cb.addEventListener('change', function() {
-            selectAll.checked = Array.from(checkboxes).every(function(c) { return c.checked; });
-        });
-    });
-})();
-</script>
+<script src="{{ static_url('js/dashboard.js') }}"></script>
 {% endblock %}

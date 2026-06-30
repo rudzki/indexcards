@@ -68,6 +68,10 @@ def run_migrations():
             cursor.execute("ALTER TABLE site_settings ADD COLUMN show_authors BOOLEAN DEFAULT 0")
         if not has_column('site_settings', 'show_history'):
             cursor.execute("ALTER TABLE site_settings ADD COLUMN show_history BOOLEAN DEFAULT 1")
+        if not has_column('site_settings', 'alpha_jump_enabled'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN alpha_jump_enabled BOOLEAN DEFAULT 1")
+        if not has_column('site_settings', 'feeds_enabled'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN feeds_enabled BOOLEAN DEFAULT 1")
 
     if has_table('site_settings') and not has_column('site_settings', 'site_icon'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN site_icon TEXT DEFAULT ''")
@@ -78,18 +82,54 @@ def run_migrations():
         cursor.execute("ALTER TABLE site_settings ADD COLUMN brand_color TEXT DEFAULT ''")
 
     if has_table('site_settings'):
-        for col, defval in [
-            ('mailchimp_api_key', "''"),
-            ('mailchimp_server_prefix', "''"),
-            ('mailchimp_list_id', "''"),
-            ('slack_webhook_url', "''"),
-            ('slack_announce_new', '1'),
-            ('slack_announce_updates', '0'),
-            ('outgoing_webhook_url', "''"),
-            ('outgoing_webhook_secret', "''"),
-        ]:
-            if not has_column('site_settings', col):
-                cursor.execute(f"ALTER TABLE site_settings ADD COLUMN {col} TEXT DEFAULT {defval}")
+        if not has_column('site_settings', 'mailchimp_api_key'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN mailchimp_api_key TEXT DEFAULT ''")
+        if not has_column('site_settings', 'mailchimp_server_prefix'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN mailchimp_server_prefix TEXT DEFAULT ''")
+        if not has_column('site_settings', 'mailchimp_list_id'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN mailchimp_list_id TEXT DEFAULT ''")
+        if not has_column('site_settings', 'slack_webhook_url'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN slack_webhook_url TEXT DEFAULT ''")
+        if not has_column('site_settings', 'slack_announce_new'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN slack_announce_new INTEGER DEFAULT 1")
+        if not has_column('site_settings', 'slack_announce_updates'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN slack_announce_updates INTEGER DEFAULT 0")
+        if not has_column('site_settings', 'outgoing_webhook_url'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN outgoing_webhook_url TEXT DEFAULT ''")
+        if not has_column('site_settings', 'outgoing_webhook_secret'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN outgoing_webhook_secret TEXT DEFAULT ''")
+
+    if not has_table('page'):
+        cursor.execute("""
+            CREATE TABLE page (
+                id INTEGER PRIMARY KEY,
+                slug TEXT UNIQUE NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT DEFAULT '',
+                body_markdown TEXT DEFAULT '',
+                body_html TEXT DEFAULT '',
+                is_draft BOOLEAN DEFAULT 0,
+                published_at DATETIME,
+                created_at DATETIME,
+                updated_at DATETIME,
+                created_by INTEGER REFERENCES user(id),
+                sort_title TEXT DEFAULT '',
+                show_in_nav BOOLEAN DEFAULT 0,
+                nav_position INTEGER
+            )
+        """)
+
+    if not has_table('edit_lock'):
+        cursor.execute("""
+            CREATE TABLE edit_lock (
+                id INTEGER PRIMARY KEY,
+                content_type TEXT NOT NULL,
+                content_id INTEGER NOT NULL,
+                user_id INTEGER REFERENCES user(id),
+                expires_at DATETIME NOT NULL
+            )
+        """)
+        cursor.execute("CREATE UNIQUE INDEX uq_edit_lock_content ON edit_lock (content_type, content_id)")
 
     if has_table('entry'):
         from app.models import sort_key as _sort_key

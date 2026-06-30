@@ -18,7 +18,8 @@
         {% endif %}
     </div>
 
-    <form method="post" class="editor-form" data-entry-id="{{ entry.id if entry else 'new' }}">
+    <form method="post" class="editor-form" data-entry-id="{{ entry.id if entry else 'new' }}"
+          {% if lock_type and lock_id %}data-lock-type="{{ lock_type }}" data-lock-id="{{ lock_id }}"{% endif %}>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="editor-meta-top">
             <div class="field">
@@ -26,12 +27,15 @@
                 <input type="text" id="title" name="title" value="{{ entry.title if entry else prefill_title }}" required>
             </div>
             <div class="field">
-                <label for="slug">Slug{% if entry %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
-                <input type="text" id="slug" name="slug"
-                       value="{{ entry.slug if entry else '' }}"
-                       data-is-new="{{ 'true' if not entry else 'false' }}"
-                       placeholder="auto-generated from title"
-                       spellcheck="false">
+                <label for="slug">URL{% if entry %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
+                <div class="slug-input-wrapper">
+                    <span class="slug-prefix">{{ request.host_url }}</span>
+                    <input type="text" id="slug" name="slug"
+                           value="{{ entry.slug if entry else '' }}"
+                           data-is-new="{{ 'true' if not entry else 'false' }}"
+                           placeholder="entry-title"
+                           spellcheck="false">
+                </div>
             </div>
             <div class="field">
                 <label for="aliases">Aliases <span class="field-hint">(comma-separated)</span></label>
@@ -92,26 +96,5 @@
 
 {% block scripts %}
 <script type="module" src="{{ url_for('static', filename='js/editor.js') }}"></script>
-<script>
-(function() {
-    var title = document.getElementById('title');
-    var slug = document.getElementById('slug');
-    if (!title || !slug || slug.dataset.isNew !== 'true') return;
-    var manual = false;
-    function makeSlug(s) {
-        return s.toLowerCase().trim()
-            .replace(/[^\w\s-]/g, '')
-            .replace(/[\s_]+/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-+|-+$/g, '');
-    }
-    title.addEventListener('input', function() {
-        if (!manual) slug.value = makeSlug(title.value);
-    });
-    slug.addEventListener('input', function() { manual = true; });
-    slug.addEventListener('blur', function() {
-        if (!slug.value.trim()) { manual = false; slug.value = makeSlug(title.value); }
-    });
-})();
-</script>
+<script src="{{ static_url('js/editor-page.js') }}"></script>
 {% endblock %}

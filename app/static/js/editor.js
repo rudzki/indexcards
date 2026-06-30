@@ -111,6 +111,45 @@ function docToMarkdown(doc) {
     return mdSerializer.serialize(doc);
 }
 
+function uploadImage(file, view, insertPos) {
+    const formData = new FormData();
+    formData.append('image', file);
+    fetch('/api/upload-image', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.url) return;
+            const node = schema.nodes.image.create({ src: data.url, alt: file.name.replace(/\.[^.]+$/, '') });
+            view.dispatch(view.state.tr.insert(insertPos, node));
+        })
+        .catch(() => showToast('error', 'Image upload failed.'));
+}
+
+function buildImagePlugin() {
+    return new Plugin({
+        props: {
+            handlePaste(view, event) {
+                const items = Array.from(event.clipboardData?.items || []);
+                const imageItem = items.find(i => i.type.startsWith('image/'));
+                if (!imageItem) return false;
+                event.preventDefault();
+                const file = imageItem.getAsFile();
+                if (file) uploadImage(file, view, view.state.selection.from);
+                return true;
+            },
+            handleDrop(view, event, _slice, moved) {
+                if (moved) return false;
+                const files = Array.from(event.dataTransfer?.files || []);
+                const imageFile = files.find(f => f.type.startsWith('image/'));
+                if (!imageFile) return false;
+                event.preventDefault();
+                const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                uploadImage(imageFile, view, coords ? coords.pos : view.state.doc.content.size);
+                return true;
+            },
+        },
+    });
+}
+
 function initEditor(textarea) {
     const editorDiv = document.createElement("div");
     editorDiv.className = "ProseMirror-container";
@@ -128,6 +167,7 @@ function initEditor(textarea) {
             history(),
             dropCursor(),
             gapCursor(),
+            buildImagePlugin(),
             new Plugin({
                 view() {
                     return {
@@ -144,6 +184,17 @@ function initEditor(textarea) {
     return view;
 }
 
+function triggerImageUpload(view) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/gif,image/webp';
+    input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (file) uploadImage(file, view, view.state.selection.from);
+    });
+    input.click();
+}
+
 function setupToolbar(toolbar, view) {
     toolbar.innerHTML = "";
 
@@ -157,18 +208,19 @@ function setupToolbar(toolbar, view) {
         { label: "¶", title: "Paragraph", action: () => setBlockType(schema.nodes.paragraph)(view.state, view.dispatch) },
         { sep: true },
         { label: "❝", title: "Blockquote", action: () => wrapIn(schema.nodes.blockquote)(view.state, view.dispatch) },
-        { label: "•", title: "Bullet List", action: () => wrapInList(schema.nodes.bullet_list)(view.state, view.dispatch) },
-        { label: "1.", title: "Numbered List", action: () => wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch) },
-        { label: "—", title: "Horizontal Rule", action: () => {
+        { icon: "bi-list-ul", title: "Bullet List", action: () => wrapInList(schema.nodes.bullet_list)(view.state, view.dispatch) },
+        { icon: "bi-list-ol", title: "Numbered List", action: () => wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch) },
+        { icon: "bi-hr", title: "Horizontal Rule", action: () => {
             const { tr, selection } = view.state;
             view.dispatch(tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()));
         }},
         { sep: true },
-        { label: "Link", title: "Insert Link", action: () => showLinkDialog(view) },
-        { label: "Code", title: "Code", action: () => toggleMark(schema.marks.code)(view.state, view.dispatch) },
+        { icon: "bi-link-45deg", title: "Insert Link (Ctrl+K)", action: () => showLinkDialog(view) },
+        { icon: "bi-image", title: "Insert Image", action: () => triggerImageUpload(view) },
+        { icon: "bi-code", title: "Inline Code (Ctrl+`)", action: () => toggleMark(schema.marks.code)(view.state, view.dispatch) },
         { sep: true },
-        { label: "Undo", title: "Undo (Ctrl+Z)", action: () => undo(view.state, view.dispatch) },
-        { label: "Redo", title: "Redo (Ctrl+Shift+Z)", action: () => redo(view.state, view.dispatch) },
+        { icon: "bi-arrow-counterclockwise", title: "Undo (Ctrl+Z)", action: () => undo(view.state, view.dispatch) },
+        { icon: "bi-arrow-clockwise", title: "Redo (Ctrl+Shift+Z)", action: () => redo(view.state, view.dispatch) },
     ];
 
     buttons.forEach(b => {
@@ -180,7 +232,11 @@ function setupToolbar(toolbar, view) {
         }
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.textContent = b.label;
+        if (b.icon) {
+            btn.innerHTML = `<i class="bi ${b.icon}"></i>`;
+        } else {
+            btn.textContent = b.label;
+        }
         btn.title = b.title;
         if (b.style) btn.setAttribute("style", b.style);
         btn.addEventListener("mousedown", e => {

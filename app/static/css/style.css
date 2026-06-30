@@ -187,6 +187,10 @@ code.inl,
   padding: 1px 6px
 }
 
+img {
+  max-width: 100%;
+}
+
 /* ── Header ──────────────────────────────────────────────── */
 
 .site-header {
@@ -467,7 +471,7 @@ a.site-title:hover {
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: var(--r-sm);
+  border-radius: 0;
   border: 1px solid var(--line);
   background: var(--surface-2);
   color: var(--ink-2);
@@ -485,11 +489,11 @@ a.site-title:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25rem 0.4rem;
+  padding: 0.25rem 0.4rem !important;
   font-size: 0.875rem;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--r-sm);
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   color: var(--ink-3);
@@ -700,6 +704,7 @@ select {
   font-size: 15px;
   padding: 0.875rem 1rem 1rem;
   background: var(--bg);
+  background-color: inherit;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 0;
@@ -707,6 +712,7 @@ select {
   color-scheme: inherit;
 }
 
+.input-xs,
 .field input[name="registration_domain"] {
   margin-left: 0.4rem;
   border: none !important;
@@ -718,6 +724,7 @@ select {
   font-weight: 400 !important;
 }
 
+.input-xs:focus-visible,
 .field input[name="registration_domain"]:focus-visible {
   background-color: inherit !important;
   outline: 0 !important;
@@ -728,6 +735,13 @@ textarea {
   min-height: 5rem;
   resize: vertical;
   line-height: 1.6;
+}
+
+#custom_footer_html,
+#custom_head_html,
+#custom_css {
+  font-family: var(--mono);
+  font-size: 14px;
 }
 
 /* ── Unified focus ring ──────────────────────────────────── */
@@ -743,7 +757,8 @@ select:focus-visible,
 .inline-input:focus-visible {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-bg);
+  box-shadow: 0 0 0 3px var(--surface-2);
+  background-color: var(--surface-2);
 }
 
 input::placeholder,
@@ -888,40 +903,120 @@ select {
   font-size: 0.875rem
 }
 
-.recent-updates {
-  margin-top: 2rem;
-  padding: 1.25rem;
-  background: var(--surface);
-  border-radius: 0;
-  border: 1px solid var(--line);
+/* ── Activity heatmap ────────────────────────────────────── */
+
+.heatmap-section {
+  margin-top: 4rem;
 }
 
-.recent-updates ul {
-  list-style: none;
-  padding: 0;
-  margin: 0
-}
-
-.recent-entry {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line-soft);
+.heatmap-outer {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 4px;
 }
 
-.recent-changelog,
-.recent-summary {
-  color: var(--ink-2);
-  font-size: 0.875rem
-}
-
-.recent-time {
-  font-size: 0.8125rem;
+.heatmap-day-labels {
+  display: grid;
+  grid-template-rows: 18px repeat(7, 13px);
+  font-size: 9px;
   color: var(--ink-3);
-  margin-left: auto;
+  text-align: right;
+  padding-right: 4px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.heatmap-scroll {
+  overflow-x: auto;
+}
+
+.heatmap-months {
+  position: relative;
+  height: 18px;
+  font-size: 9px;
+  color: var(--ink-3);
+  user-select: none;
+}
+
+.heatmap-months span {
+  position: absolute;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 11px);
+  grid-auto-flow: column;
+  grid-auto-columns: 11px;
+  gap: 2px;
+}
+
+.heatmap-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--surface-2);
+}
+
+.heatmap-cell[data-future] {
+  background: transparent;
+}
+
+.heatmap-cell[data-level="0"] { background: var(--surface-2); }
+.heatmap-cell[data-level="1"] { background: var(--ok-dim); }
+.heatmap-cell[data-level="2"] { background: #279a5a; }
+.heatmap-cell[data-level="3"] { background: var(--ok); }
+
+.heatmap-cell[data-entries] {
+  cursor: pointer;
+}
+
+.heatmap-tip {
+  position: absolute;
+  z-index: 300;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  max-width: 280px;
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.heatmap-tip-date {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 0.35rem;
+}
+
+.heatmap-tip-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.heatmap-tip-list a {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.heatmap-tip-new {
+  font-size: 0.7rem;
+  color: var(--ok);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+
+.heatmap-tip-log {
+  color: var(--ink-3);
+  font-size: 0.8rem;
 }
 
 /* ── Entry page ──────────────────────────────────────────── */
@@ -969,7 +1064,7 @@ select {
 
 /* Eyebrow / section-label pattern — used in panels and sidebars */
 .entry-toc strong,
-.recent-updates h2,
+.heatmap-section h2,
 .entry-backlinks h2,
 .entry-toc h2,
 .entry-footnotes h2,
@@ -1128,11 +1223,10 @@ select {
 
 /* Shared code-block container */
 .entry-body pre,
-.ProseMirror pre,
-.webhook-payload-code {
+.ProseMirror pre {
   background: var(--bg-code);
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 0;
   overflow-x: auto;
 }
 
@@ -1239,14 +1333,13 @@ select {
   border: 1px solid var(--line);
 }
 
-.recent-updates h2,
+.heatmap-section h2,
 .entry-backlinks h2,
 .entry-toc h2 {
   margin-top: 0;
   margin-bottom: 0.5rem;
 }
 
-.recent-updates a,
 .entry-backlinks a {
   color: var(--ink);
   font-weight: 500;
@@ -1438,11 +1531,55 @@ select {
   gap: 1rem
 }
 
+.slug-input-wrapper {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.slug-input-wrapper:focus-within {
+  box-shadow: 0 0 0 3px var(--brand-bg);
+  border-color: var(--brand);
+}
+
+.slug-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0.875rem 0 1rem 1rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  font-size: 15px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.slug-input-wrapper input[type="text"] {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  flex: 1;
+  min-width: 0;
+  padding-left: 0 !important;
+}
+
+.slug-input-wrapper input[type="text"]:focus-visible {
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.slug-input-wrapper:focus-within {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 3px var(--surface-2) !important;
+  background-color: var(--surface-2) !important;
+}
+
 .editor-toolbar {
   display: flex;
   gap: 0.2rem;
   padding: 0.4rem;
-  background: var(--surface-2);
+
+  background: var(--surface);
   border: 1px solid var(--line);
   border-bottom: none;
   border-radius: 0;
@@ -1459,10 +1596,15 @@ select {
   border-radius: 0;
   color: var(--ink-2);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 16px;
   display: grid;
   place-items: center;
   transition: .12s;
+}
+
+.editor-toolbar button .bi-list-ul,
+.editor-toolbar button .bi-list-ol {
+  font-size: 18px;
 }
 
 .editor-toolbar button:hover {
@@ -1694,6 +1836,7 @@ select {
   letter-spacing: .06em;
   color: var(--ink-3);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .admin-table td {
@@ -1717,6 +1860,14 @@ select {
 
 .col-primary {
   width: 100%;
+}
+
+.entry-lock-icon {
+  font-size: 0.75rem;
+  color: var(--warn);
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .col-nowrap {
@@ -1820,12 +1971,11 @@ select {
 .brand-color-row input[type="text"] {
   font-family: var(--mono);
   font-size: 15px;
-  padding: 0.875rem 1rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: var(--bg);
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--ink);
-  width: 9rem;
+  width: 80px;
 }
 
 .brand-previews {
@@ -1949,10 +2099,12 @@ select {
 }
 
 .webhook-payload-code {
+  background-color: #000;
+  border: 1px solid var(--color-border);
   font-size: 0.8125rem;
   color: var(--ink-code);
   padding: 0.75rem 1rem;
-  margin: 0.25rem 0 0;
+  margin: 0.5rem 0 0;
   font-family: var(--mono);
 }
 
@@ -1976,20 +2128,22 @@ select {
 }
 
 .import-forms {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  /* display: flex;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  align-items: center
+  margin-top: 0.75rem; */
 }
 
 .import-form {
-  display: contents
+  margin: 0.8rem 0;
 }
+
 
 .import-filename {
   font-size: 0.8125rem;
-  color: var(--ink-3)
+  color: var(--ink-3);
+  width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Site icon / image ───────────────────────────────────── */
@@ -2008,6 +2162,7 @@ select {
   display: flex;
   align-items: center;
   gap: 1rem;
+  margin-top: 4px;
   flex-wrap: wrap
 }
 

@@ -22,7 +22,10 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="{{ self.title() }}">
     {% block twitter_description %}{% endblock %}
+    {% if site_settings and site_settings.site_visibility == 'public' and site_settings.feeds_enabled %}
     <link rel="alternate" type="application/atom+xml" title="{{ site_settings.site_title }}" href="{{ url_for('main.feed') }}">
+    <link rel="alternate" type="application/feed+json" title="{{ site_settings.site_title }}" href="{{ url_for('main.feed_json') }}">
+    {% endif %}
     {% if request.blueprint in ('admin', 'auth') %}
     <meta name="robots" content="noindex, nofollow">
     {% endif %}
@@ -65,7 +68,9 @@
                 {% elif site_settings.multiuser_enabled and site_settings.registration_method != 'invite' %}
                     <a href="{{ url_for('auth.signup_form') }}">Register</a>
                 {% endif %}
-                <a href="{{ url_for('main.about') }}" class="{{ 'active' if request.endpoint == 'main.about' }}">About</a>
+                {% for p in nav_pages %}
+                <a href="{{ url_for('main.entry_page', slug=p.slug) }}" class="{{ 'active' if request.endpoint == 'main.entry_page' and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
+                {% endfor %}
             </nav>
             {% if site_settings.search_enabled %}
             <form class="site-search" action="{{ url_for('main.search') }}" method="get" role="search">
@@ -109,108 +114,8 @@
     </footer>
 
     <div id="toast-container" class="toast-container" aria-live="polite" role="status"></div>
-    <script>
-    function showToast(category, message, duration) {
-        var el = document.createElement('div');
-        el.className = 'toast toast-' + category;
-        if (category === 'error' || category === 'warn') el.setAttribute('role', 'alert');
-        el.innerHTML = '<span>' + message + '</span>'
-            + '<button class="toast-close" onclick="this.parentNode.remove()">&times;</button>';
-        document.getElementById('toast-container').appendChild(el);
-        requestAnimationFrame(function() { el.classList.add('toast-visible'); });
-        setTimeout(function() {
-            el.classList.remove('toast-visible');
-            setTimeout(function() { el.remove(); }, 300);
-        }, duration || 4000);
-    }
-
-    var _flashes = {{ get_flashed_messages(with_categories=true)|tojson }};
-    _flashes.forEach(function(f) { showToast(f[0], f[1]); });
-
-    function confirmDialog(message, label, onConfirm) {
-        var trigger = document.activeElement;
-        var overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        var backdrop = document.createElement('div');
-        backdrop.className = 'confirm-backdrop';
-        var bubble = document.createElement('div');
-        bubble.className = 'confirm-bubble';
-        bubble.setAttribute('role', 'dialog');
-        bubble.setAttribute('aria-modal', 'true');
-        bubble.setAttribute('aria-labelledby', 'confirm-msg');
-        var msg = document.createElement('p');
-        msg.className = 'confirm-message';
-        msg.id = 'confirm-msg';
-        msg.textContent = message;
-        var actions = document.createElement('div');
-        actions.className = 'confirm-actions';
-        var cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.className = 'btn';
-        cancel.textContent = 'Cancel';
-        var ok = document.createElement('button');
-        ok.type = 'button';
-        ok.className = 'btn btn-danger';
-        ok.textContent = label || 'Confirm';
-        actions.appendChild(cancel);
-        actions.appendChild(ok);
-        bubble.appendChild(msg);
-        bubble.appendChild(actions);
-        overlay.appendChild(backdrop);
-        overlay.appendChild(bubble);
-        document.body.appendChild(overlay);
-        function close() {
-            overlay.remove();
-            if (trigger && trigger.focus) trigger.focus();
-        }
-        bubble.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                (document.activeElement === ok ? cancel : ok).focus();
-            }
-        });
-        backdrop.addEventListener('click', close);
-        cancel.addEventListener('click', close);
-        ok.addEventListener('click', function() { close(); onConfirm(); });
-        cancel.focus();
-    }
-
-    (function() {
-        var btn = document.getElementById('theme-toggle');
-        if (!btn) return;
-        btn.addEventListener('click', function() {
-            var current = document.documentElement.getAttribute('data-theme');
-            var isDark = current !== 'light';
-            var next = isDark ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('theme', next);
-        });
-    })();
-
-    function askConfirm(e) {
-        e.preventDefault();
-        var el = e.currentTarget || e.target;
-        var message = el.dataset.confirm;
-        var label = el.dataset.confirmLabel;
-        confirmDialog(message, label, function() {
-            var formAttr = el.getAttribute && el.getAttribute('form');
-            var form = (formAttr ? document.getElementById(formAttr) : null)
-                       || el.form
-                       || (el.closest ? el.closest('form') : null);
-            if (!form && el.tagName === 'FORM') form = el;
-            if (form) {
-                if (el.tagName === 'BUTTON' && el.name) {
-                    var h = document.createElement('input');
-                    h.type = 'hidden'; h.name = el.name; h.value = el.value;
-                    form.appendChild(h);
-                }
-                form.submit();
-            }
-        });
-        return false;
-    }
-    </script>
+    <script type="application/json" id="flash-data">{{ get_flashed_messages(with_categories=true)|tojson }}</script>
+    <script src="{{ static_url('js/base.js') }}"></script>
     {% block scripts %}{% endblock %}
     {% if site_settings.custom_footer_html %}
     {{ site_settings.custom_footer_html|safe }}

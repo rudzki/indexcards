@@ -14,11 +14,13 @@
                 {% endif %}
             {% endfor %}
 
+            {% if site_settings.alpha_jump_enabled %}
             <nav class="index-jump" aria-label="Jump to letter">
                 {% for letter in letters %}
                     <a href="#letter-{{ letter }}">{{ letter }}</a>
                 {% endfor %}
             </nav>
+            {% endif %}
 
             <ul>
                 {% for item in index_items %}
@@ -26,7 +28,7 @@
                     {% if letter != ns.current_letter %}
                         {% set ns.current_letter = letter %}
                         </ul>
-                        <h2 class="index-letter" id="letter-{{ letter }}">{{ letter }}</h2>
+                        {% if site_settings.alpha_jump_enabled %}<h2 class="index-letter" id="letter-{{ letter }}">{{ letter }}</h2>{% endif %}
                         <ul>
                     {% endif %}
                     {% if item.type == 'entry' %}
@@ -49,21 +51,18 @@
         {% endif %}
     </section>
 
-    {% if recent_updates and site_settings.show_history %}
-    <section class="recent-updates">
-        <h2>Recent Updates</h2>
-        <ul>
-            {% for item in recent_updates %}
-                <li class="recent-entry">
-                    <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.entry.title }}</a>
-                    {% if not item.is_new and item.log.changelog %}
-                        <span class="recent-changelog"> — {{ item.log.changelog }}</span>
-                    {% endif %}
-                    <time class="recent-time" datetime="{{ item.log.edited_at.isoformat() }}">{{ item.log.edited_at|timeago }}</time>
-                </li>
-            {% endfor %}
-        </ul>
+    {% if site_settings.show_history %}
+    <section class="heatmap-section">
+        <h2>Activity</h2>
+        <div id="heatmap-root"></div>
+        <script type="application/json" id="heatmap-data">{{ heatmap_data | tojson }}</script>
     </section>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if site_settings.show_history %}
+<script src="{{ static_url('js/heatmap.js') }}"></script>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,24 @@
+[Unit]
+Description=Index Cards
+After=network.target
+
+[Service]
+User=indexcards
+Group=indexcards
+WorkingDirectory=/srv/indexcards
+EnvironmentFile=/srv/indexcards/.env
+ExecStart=/srv/indexcards/venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:/run/indexcards/indexcards.sock \
+    --umask 007 \
+    --access-logfile /var/log/indexcards/access.log \
+    --error-logfile /var/log/indexcards/error.log \
+    run:app
+ExecReload=/bin/kill -s HUP $MAINPID
+RuntimeDirectory=indexcards
+RuntimeDirectoryMode=0755
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

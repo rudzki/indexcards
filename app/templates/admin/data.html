@@ -11,8 +11,8 @@
         <legend>Export</legend>
         <p class="field-hint">Download all published entries for backup or migration.</p>
         <div class="test-data-actions">
-            <a href="{{ url_for('admin.export_markdown') }}" class="btn">Export Markdown (ZIP)</a>
-            <a href="{{ url_for('admin.export_json') }}" class="btn">Export JSON</a>
+            <a href="{{ url_for('admin.export_markdown') }}" class="btn btn-xs">Export Markdown (ZIP)</a>
+            <a href="{{ url_for('admin.export_json') }}" class="btn btn-xs">Export JSON</a>
         </div>
     </fieldset>
 
@@ -22,23 +22,23 @@
         <div class="import-forms">
             <form method="post" action="{{ url_for('admin.import_json') }}" enctype="multipart/form-data" class="import-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <label class="btn import-file-btn">
+                <label class="btn btn-xs import-file-btn">
                     Choose JSON file…
                     <input type="file" name="file" accept=".json" hidden
                            onchange="this.closest('.import-form').querySelector('.import-filename').textContent = this.files[0]?.name || ''; this.closest('.import-form').querySelector('.import-submit').disabled = !this.files.length;">
                 </label>
                 <span class="import-filename"></span>
-                <button type="submit" class="btn btn-primary import-submit" disabled>Import JSON</button>
+                <button type="submit" class="btn btn-primary btn-xs import-submit" disabled>Import JSON</button>
             </form>
             <form method="post" action="{{ url_for('admin.import_wordpress') }}" enctype="multipart/form-data" class="import-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <label class="btn import-file-btn">
+                <label class="btn btn-xs import-file-btn">
                     Choose WordPress XML…
                     <input type="file" name="file" accept=".xml" hidden
                            onchange="this.closest('.import-form').querySelector('.import-filename').textContent = this.files[0]?.name || ''; this.closest('.import-form').querySelector('.import-submit').disabled = !this.files.length;">
                 </label>
                 <span class="import-filename"></span>
-                <button type="submit" class="btn btn-primary import-submit" disabled>Import WordPress</button>
+                <button type="submit" class="btn btn-primary btn-xs import-submit" disabled>Import WordPress</button>
             </form>
         </div>
     </fieldset>
@@ -52,12 +52,12 @@
                       data-confirm="Remove all test data? This won't affect entries, subscribers, or invites you created yourself." data-confirm-label="Remove"
                       onsubmit="return askConfirm(event)">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-danger">Remove Test Data</button>
+                    <button type="submit" class="btn btn-xs btn-danger">Remove Test Data</button>
                 </form>
             {% else %}
                 <form method="post" action="{{ url_for('admin.add_test_data') }}" class="inline-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn">Add Test Data</button>
+                    <button type="submit" class="btn btn-xs">Add Test Data</button>
                 </form>
             {% endif %}
         </div>

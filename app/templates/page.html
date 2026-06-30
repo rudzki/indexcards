@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} — {{ site_settings.site_title }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block meta_description %}{% if page.summary %}<meta name="description" content="{{ page.summary }}">{% endif %}{% endblock %}
+{% block og_description %}{% if page.summary %}<meta property="og:description" content="{{ page.summary }}">{% endif %}{% endblock %}
+
+{% block content %}
+<article class="entry-page">
+    <header class="entry-header">
+        <h1 class="entry-title">{{ page.title }}</h1>
+    </header>
+
+    <div class="entry-body">
+        {{ page.body_html|safe }}
+    </div>
+
+    <footer class="entry-meta">
+        {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_editor) %}
+            <span class="entry-actions">
+                <a href="{{ url_for('admin.edit_page', page_id=page.id) }}">Edit</a>
+            </span>
+        {% endif %}
+    </footer>
+</article>
+{% endblock %}

@@ -96,7 +96,7 @@
                 </label>
             </div>
             <div class="webhook-payload-example">
-                <p class="field-hint">Example payload:</p>
+                <label>Example payload</label>
                 <pre class="webhook-payload-code">{
   "event": "entry.published",
   "timestamp": "2024-01-01T12:00:00+00:00",
@@ -118,17 +118,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-(function() {
-    var btn = document.getElementById('copy-secret-btn');
-    var input = document.getElementById('webhook-secret-input');
-    if (!btn || !input) return;
-    btn.addEventListener('click', function() {
-        navigator.clipboard.writeText(input.value).then(function() {
-            btn.textContent = 'Copied!';
-            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
-        });
-    });
-})();
-</script>
+<script src="{{ static_url('js/integrations.js') }}"></script>
 {% endblock %}

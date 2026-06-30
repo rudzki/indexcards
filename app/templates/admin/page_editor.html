@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}{% if page %}Edit: {{ page.title }}{% else %}New Page{% endif %} — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="editor-page">
+    <div class="editor-heading">
+        <h1>{% if page %}Edit Page{% else %}New Page{% endif %}</h1>
+        {% if page and not page.is_draft %}
+            <a href="{{ url_for('main.entry_page', slug=page.slug) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View page</a>
+        {% endif %}
+    </div>
+
+    <form method="post" class="editor-form"
+          {% if lock_type and lock_id %}data-lock-type="{{ lock_type }}" data-lock-id="{{ lock_id }}"{% endif %}>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="editor-meta-top">
+            <div class="field">
+                <label for="title">Title</label>
+                <input type="text" id="title" name="title" value="{{ page.title if page else '' }}" required>
+            </div>
+            <div class="field">
+                <label for="slug">URL{% if page %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
+                <div class="slug-input-wrapper">
+                    <span class="slug-prefix">{{ request.host_url }}</span>
+                    <input type="text" id="slug" name="slug"
+                           value="{{ page.slug if page else '' }}"
+                           data-is-new="{{ 'true' if not page else 'false' }}"
+                           placeholder="page-title"
+                           spellcheck="false">
+                </div>
+            </div>
+            <div class="field">
+                <label for="summary">Summary <span class="field-hint">(one sentence)</span></label>
+                <input type="text" id="summary" name="summary" value="{{ page.summary if page else '' }}">
+            </div>
+        </div>
+
+        <div class="editor-area">
+            <div class="editor-toolbar" id="editor-toolbar"></div>
+            <label for="body_markdown" class="sr-only">Page body</label>
+            <textarea id="body_markdown" name="body_markdown" rows="20">{{ page.body_markdown if page else '' }}</textarea>
+            <div id="editor-preview" class="editor-preview" style="display:none;"></div>
+        </div>
+
+        <div class="editor-stats" id="editor-stats"></div>
+
+        <div class="editor-meta-bottom">
+            <div class="editor-actions">
+                <div class="editor-actions-left">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <div class="field field-inline">
+                        <label>
+                            <input type="checkbox" name="is_draft" {% if page and page.is_draft %}checked{% elif not page %}checked{% endif %}>
+                            Draft
+                        </label>
+                    </div>
+                    <div class="field field-inline">
+                        <label>
+                            <input type="checkbox" name="show_in_nav" id="show_in_nav" {% if page and page.show_in_nav %}checked{% endif %}>
+                            Show in navigation menu
+                        </label>
+                    </div>
+                    <div class="field field-inline" id="nav_position_field" {% if not (page and page.show_in_nav) %}style="display:none"{% endif %}>
+                        <label for="nav_position">Nav position</label>
+                        <input class="input-xs" type="number" id="nav_position" name="nav_position" min="1"
+                               value="{{ page.nav_position if page and page.nav_position is not none else '' }}"
+                               style="width:3em">
+                    </div>
+                </div>
+                {% if page and current_user.is_admin %}
+                    <button type="submit" form="delete-page-form" class="btn-small btn-danger" title="Delete page"
+                            data-confirm='Delete "{{ page.title }}"?' data-confirm-label="Delete"
+                            onclick="return askConfirm(event)"><i class="bi bi-trash3"></i></button>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    {% if page and current_user.is_admin %}
+    <form method="post" action="{{ url_for('admin.delete_page', page_id=page.id) }}" id="delete-page-form" style="display:none">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script src="{{ static_url('js/editor-page.js') }}"></script>
+{% endblock %}

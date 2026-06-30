@@ -116,6 +116,20 @@ class Backlink(db.Model):
     target_entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
 
 
+class EditLock(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content_type = db.Column(db.Text, nullable=False)  # 'entry' or 'page'
+    content_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+    user = db.relationship('User')
+
+    __table_args__ = (
+        db.UniqueConstraint('content_type', 'content_id', name='uq_edit_lock_content'),
+    )
+
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.Text, unique=True, nullable=False)
@@ -214,11 +228,32 @@ def log_audit(action, detail='', user_id=None):
     db.session.commit()
 
 
+class Page(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.Text, unique=True, nullable=False)
+    title = db.Column(db.Text, nullable=False)
+    summary = db.Column(db.Text, default='')
+    body_markdown = db.Column(db.Text, default='')
+    body_html = db.Column(db.Text, default='')
+    is_draft = db.Column(db.Boolean, default=False)
+    published_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    sort_title = db.Column(db.Text, default='')
+    show_in_nav = db.Column(db.Boolean, default=False)
+    nav_position = db.Column(db.Integer, nullable=True)
+
+    author = db.relationship('User', backref='pages')
+
+    def update_sort_title(self):
+        self.sort_title = sort_key(self.title)
+
+
 class SiteSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     site_title = db.Column(db.Text, default='Index Cards')
-    about_markdown = db.Column(db.Text, default='')
-    about_html = db.Column(db.Text, default='')
     digest_include_edits = db.Column(db.Boolean, default=False)
     digest_day = db.Column(db.Integer, default=0)
     search_enabled = db.Column(db.Boolean, default=True)
@@ -231,6 +266,8 @@ class SiteSettings(db.Model):
     site_visibility = db.Column(db.Text, default='public')
     show_authors = db.Column(db.Boolean, default=False)
     show_history = db.Column(db.Boolean, default=True)
+    alpha_jump_enabled = db.Column(db.Boolean, default=True)
+    feeds_enabled = db.Column(db.Boolean, default=True)
     site_icon = db.Column(db.Text, default='')
     site_image = db.Column(db.Text, default='')
     smtp_host = db.Column(db.Text)

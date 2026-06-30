@@ -118,9 +118,33 @@ def create_app():
         else:
             months = seconds // 2592000
             relative = f'{months}mo ago'
-        absolute = dt.strftime('%B %-d, %Y at %-I:%M %p')
+        hour = dt.hour % 12 or 12
+        ampm = 'AM' if dt.hour < 12 else 'PM'
+        absolute = f'{dt.strftime("%B")} {dt.day}, {dt.year} at {hour}:{dt.strftime("%M")} {ampm}'
         iso = dt.isoformat()
         return Markup(f'<time datetime="{iso}" title="{absolute}">{relative}</time>')
+
+    @app.context_processor
+    def inject_nav_pages():
+        from app.models import Page
+        from sqlalchemy import nullslast
+        pages = (Page.query
+                 .filter_by(show_in_nav=True, is_draft=False)
+                 .order_by(nullslast(Page.nav_position.asc()))
+                 .all())
+        return dict(nav_pages=pages)
+
+    @app.context_processor
+    def inject_static_url():
+        import os as _os2
+        def static_url(filename):
+            path = _os2.path.join(app.static_folder, filename)
+            try:
+                mtime = int(_os2.path.getmtime(path))
+            except OSError:
+                mtime = 0
+            return url_for('static', filename=filename) + '?v=' + str(mtime)
+        return dict(static_url=static_url)
 
     @app.context_processor
     def inject_site_settings():

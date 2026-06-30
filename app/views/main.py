@@ -1,5 +1,6 @@
 import re
-from datetime import datetime, timezone
+from collections import defaultdict, OrderedDict
+from datetime import datetime, timezone, timedelta
 
 import os
 
@@ -8,8 +9,8 @@ from flask_login import current_user, login_user
 from markupsafe import Markup
 
 from app import db, limiter
-from app.models import Entry, Alias, User, SiteSettings, EditLog, sort_key
-from app.markdown import mark_missing_links, extract_toc
+from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, sort_key
+from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.search import search_entries
 from app.mail import send_email, render_email
 
@@ -31,34 +32,48 @@ def index():
                                 'sort_title': sort_key(alias.title)})
     index_items.sort(key=lambda x: x['sort_title'])
 
-    recent_logs = (
+    today = datetime.now(timezone.utc)
+    start_month = today.month - 11
+    start_year = today.year
+    if start_month <= 0:
+        start_month += 12
+        start_year -= 1
+    cutoff = datetime(start_year, start_month, 1)
+    all_logs = (
         db.session.query(EditLog, Entry)
         .join(Entry, EditLog.entry_id == Entry.id)
         .filter(Entry.is_draft == False)  # noqa: E712
+        .filter(EditLog.edited_at >= cutoff)
         .order_by(EditLog.edited_at.desc())
-        .limit(6)
         .all()
     )
 
-    seen_ids = set()
-    recent_updates = []
-    for log, entry in recent_logs:
-        if entry.id not in seen_ids:
-            seen_ids.add(entry.id)
-            recent_updates.append({
-                'entry': entry,
-                'log': log,
+    day_map = defaultdict(OrderedDict)
+    for log, entry in all_logs:
+        date_str = log.edited_at.strftime('%Y-%m-%d')
+        if entry.id not in day_map[date_str]:
+            day_map[date_str][entry.id] = {
+                'title': entry.title,
+                'slug': entry.slug,
+                'changelog': log.changelog or '',
                 'is_new': log.changelog is None and len(entry.edit_logs) <= 1,
-            })
+            }
 
-    return render_template('index.html', entries=entries, index_items=index_items, recent_updates=recent_updates)
+    heatmap_data = {ds: list(items.values()) for ds, items in day_map.items()}
+
+    return render_template('index.html', entries=entries, index_items=index_items, heatmap_data=heatmap_data)
 
 
 @main_bp.route('/<slug>/')
 def entry_page(slug):
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if entry:
-        existing_slugs = {e.slug for e in Entry.query.with_entities(Entry.slug).all()}
+        linked_slugs = set(INTERNAL_LINK_RE.findall(entry.body_html or ''))
+        if linked_slugs:
+            existing_slugs = {r[0] for r in Entry.query.with_entities(Entry.slug)
+                              .filter(Entry.slug.in_(linked_slugs)).all()}
+        else:
+            existing_slugs = set()
         body_html = mark_missing_links(entry.body_html, existing_slugs)
         backlinks = (Entry.query
                      .join(Entry.outgoing_links)
@@ -80,16 +95,14 @@ def entry_page(slug):
     if alias:
         return redirect(url_for('main.entry_page', slug=alias.entry.slug), code=301)
 
+    page = Page.query.filter_by(slug=slug, is_draft=False).first()
+    if page:
+        return render_template('page.html', page=page)
+
     if current_user.is_authenticated and current_user.can_write:
         return redirect(url_for('admin.new_entry', title=slug))
 
     abort(404)
-
-
-@main_bp.route('/about/')
-def about():
-    settings = SiteSettings.query.get(1)
-    return render_template('about.html', settings=settings)
 
 
 @main_bp.route('/search')
@@ -232,9 +245,11 @@ def favicon():
     return Response(svg, mimetype='image/svg+xml', headers={'Cache-Control': 'public, max-age=3600'})
 
 
-@main_bp.route('/feed.xml')
-def feed():
-    settings = SiteSettings.query.get(1)
+def _feeds_available(settings):
+    return settings and settings.site_visibility == 'public' and settings.feeds_enabled
+
+
+def _feed_entries():
     db_entries = (Entry.query
                   .filter_by(is_draft=False)
                   .filter(Entry.published_at.isnot(None))
@@ -249,7 +264,7 @@ def feed():
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    feed_entries = [{
+    entries = [{
         'title': e.title,
         'url': url_for('main.entry_page', slug=e.slug, _external=True),
         'published': fmt(e.published_at),
@@ -260,15 +275,66 @@ def feed():
     } for e in db_entries]
 
     most_recent = fmt(db_entries[0].updated_at) if db_entries else fmt(datetime.now(timezone.utc))
+    return entries, most_recent
 
+
+@main_bp.route('/feed.xml')
+def feed():
+    settings = SiteSettings.query.get(1)
+    if not _feeds_available(settings):
+        abort(404)
+    entries, most_recent = _feed_entries()
     xml = render_template('feed.xml',
                           site_title=(settings.site_title if settings else None) or 'Index Cards',
                           feed_url=url_for('main.feed', _external=True),
                           index_url=url_for('main.index', _external=True),
                           updated=most_recent,
-                          entries=feed_entries)
+                          entries=entries)
     return Response(xml, mimetype='application/atom+xml',
                     headers={'Cache-Control': 'public, max-age=300'})
+
+
+@main_bp.route('/feed.json')
+def feed_json():
+    settings = SiteSettings.query.get(1)
+    if not _feeds_available(settings):
+        abort(404)
+    entries, _ = _feed_entries()
+    site_title = (settings.site_title if settings else None) or 'Index Cards'
+    payload = {
+        'version': 'https://jsonfeed.org/version/1.1',
+        'title': site_title,
+        'home_page_url': url_for('main.index', _external=True),
+        'feed_url': url_for('main.feed_json', _external=True),
+        'items': [{
+            'id': e['url'],
+            'url': e['url'],
+            'title': e['title'],
+            'summary': e['summary'],
+            'content_html': e['body_html'],
+            'date_published': e['published'],
+            'date_modified': e['updated'],
+            **(({'authors': [{'name': e['author']}]} if e['author'] else {})),
+        } for e in entries],
+    }
+    return current_app.response_class(
+        __import__('json').dumps(payload, ensure_ascii=False),
+        mimetype='application/feed+json',
+        headers={'Cache-Control': 'public, max-age=300'},
+    )
+
+
+@main_bp.route('/uploads/<filename>')
+def uploaded_file(filename):
+    import re
+    if not re.match(r'^[0-9a-f]{32}\.[a-z]{2,4}$', filename):
+        abort(404)
+    path = os.path.join(current_app.config['UPLOAD_DIR'], filename)
+    if not os.path.exists(path):
+        abort(404)
+    response = make_response(send_file(path))
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
 
 
 @main_bp.route('/site-image')

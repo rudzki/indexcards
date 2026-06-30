@@ -116,9 +116,9 @@ def add_heading_ids(html):
     return HEADING_BARE_RE.sub(replacer, html)
 
 
-def extract_toc(html):
+def extract_toc(html_content):
     headings = []
-    for m in HEADING_WITH_ATTRS_RE.finditer(html):
+    for m in HEADING_WITH_ATTRS_RE.finditer(html_content):
         tag = m.group(1)
         level = int(tag[1])
         attrs = m.group(2) or ''

@@ -132,7 +132,7 @@
                     </label>
                 </div>
                 {% if settings.site_visibility == 'registered' and settings.subscribe_enabled %}
-                    <p class="field-hint">Subscribers who don't have accounts won't be able to view linked content.</p>
+                    <p class="field-hint" style="margin-bottom:0">Subscribers who don't have accounts won't be able to view linked content.</p>
                 {% endif %}
             </div>
             {% if settings.site_visibility == 'public' %}
@@ -270,7 +270,7 @@
             <div class="field">
                 <label for="custom_footer_html">Custom footer HTML</label>
                 <textarea id="custom_footer_html" name="custom_footer_html" rows="6" spellcheck="false">{{ settings.custom_footer_html or '' }}</textarea>
-                <p class="field-hint">Injected before &lt;/body&gt;. Use for widgets, tracking pixels, or other body-level scripts.</p>
+                <p class="field-hint" style="margin-bottom:0">Injected before &lt;/body&gt;. Use for widgets, tracking pixels, or other body-level scripts.</p>
             </div>
         </fieldset>
 

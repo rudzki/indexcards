@@ -1589,6 +1589,10 @@ a.index-child-link,
   gap: 1rem
 }
 
+.editor-meta-top .field-hint {
+  margin: 0;
+}
+
 .slug-input-wrapper {
   display: flex;
   align-items: stretch;

@@ -19,7 +19,12 @@ import {
 
 const schema = new Schema({
     nodes: addListNodes(markdownSchema.spec.nodes, "paragraph block*", "block"),
-    marks: markdownSchema.spec.marks,
+    marks: markdownSchema.spec.marks.append({
+        s: {
+            parseDOM: [{ tag: 's' }, { tag: 'del' }, { style: 'text-decoration=line-through' }],
+            toDOM() { return ['s', 0]; },
+        },
+    }),
 });
 
 function buildInputRules(schema) {
@@ -36,6 +41,11 @@ function buildInputRules(schema) {
     rules.push(textblockTypeInputRule(/^```$/, schema.nodes.code_block));
     rules.push(new InputRule(/^---$/, (state, match, start, end) => {
         return state.tr.replaceRangeWith(start, end, schema.nodes.horizontal_rule.create());
+    }));
+    rules.push(new InputRule(/~~([^~\s][^~]*)~~$/, (state, match, start, end) => {
+        const markType = schema.marks.s;
+        if (!markType) return null;
+        return state.tr.replaceWith(start, end, schema.text(match[1], [markType.create()]));
     }));
 
     return inputRules({ rules });
@@ -72,10 +82,12 @@ function buildKeymap(schema) {
     return keymap(keys);
 }
 
+try { defaultMarkdownParser.tokenizer.enable('strikethrough'); } catch (e) {}
+
 const mdParser = new MarkdownParser(
     schema,
     defaultMarkdownParser.tokenizer,
-    defaultMarkdownParser.tokens,
+    { ...defaultMarkdownParser.tokens, s: { mark: 's' } },
 );
 
 const mdSerializer = new MarkdownSerializer(
@@ -92,7 +104,10 @@ const mdSerializer = new MarkdownSerializer(
             state.renderContent(node);
         },
     },
-    defaultMarkdownSerializer.marks,
+    {
+        ...defaultMarkdownSerializer.marks,
+        s: { open: '~~', close: '~~', mixable: true, expelEnclosingWhitespace: true },
+    },
 );
 
 function markdownToDoc(markdown) {
@@ -150,6 +165,143 @@ function buildImagePlugin() {
     });
 }
 
+function buildWikiLinkPlugin() {
+    let popup = null;
+    let results = [];
+    let selectedIdx = 0;
+    let queryStart = null;
+    let debounceTimer = null;
+
+    function closePopup() {
+        if (popup) { popup.remove(); popup = null; }
+        results = [];
+        selectedIdx = 0;
+        queryStart = null;
+        clearTimeout(debounceTimer);
+    }
+
+    function renderPopup(view) {
+        if (!popup) return;
+        popup.innerHTML = '';
+        if (results.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'wikilink-empty';
+            empty.textContent = 'No entries found';
+            popup.appendChild(empty);
+            return;
+        }
+        results.forEach((entry, i) => {
+            const div = document.createElement('div');
+            div.className = 'wikilink-result' + (i === selectedIdx ? ' selected' : '');
+            const title = document.createElement('strong');
+            title.textContent = entry.title;
+            div.appendChild(title);
+            if (entry.summary) {
+                const s = document.createElement('span');
+                s.className = 'wikilink-summary';
+                s.textContent = entry.summary;
+                div.appendChild(s);
+            }
+            div.addEventListener('mousedown', e => {
+                e.preventDefault();
+                insertWikiLink(view, entry);
+            });
+            popup.appendChild(div);
+        });
+    }
+
+    function positionPopup(view, cursorPos) {
+        if (!popup) return;
+        const coords = view.coordsAtPos(cursorPos);
+        const popW = popup.offsetWidth || 260;
+        let left = coords.left + window.scrollX;
+        let top = coords.bottom + window.scrollY + 4;
+        left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
+    }
+
+    function insertWikiLink(view, entry) {
+        if (queryStart === null) return;
+        const { state, dispatch } = view;
+        const to = state.selection.from;
+        const linkMark = schema.marks.link.create({ href: `/${entry.slug}/` });
+        dispatch(state.tr.replaceWith(queryStart, to, schema.text(entry.title, [linkMark])));
+        closePopup();
+        view.focus();
+    }
+
+    return new Plugin({
+        view() {
+            return {
+                update(view) {
+                    const { $from } = view.state.selection;
+                    const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
+                    const match = textBefore.match(/\[\[([^\]]*)$/);
+
+                    if (!match) { closePopup(); return; }
+
+                    const query = match[1];
+                    queryStart = $from.pos - query.length - 2;
+
+                    if (!popup) {
+                        popup = document.createElement('div');
+                        popup.className = 'wikilink-popup';
+                        document.body.appendChild(popup);
+                        const hint = document.createElement('div');
+                        hint.className = 'wikilink-empty';
+                        hint.textContent = 'Type to search entries…';
+                        popup.appendChild(hint);
+                    }
+
+                    positionPopup(view, $from.pos);
+
+                    clearTimeout(debounceTimer);
+                    if (!query) return;
+
+                    debounceTimer = setTimeout(() => {
+                        fetch(`/api/entries/search?q=${encodeURIComponent(query)}`)
+                            .then(r => r.json())
+                            .then(data => {
+                                results = data;
+                                selectedIdx = 0;
+                                renderPopup(view);
+                                positionPopup(view, view.state.selection.$from.pos);
+                            })
+                            .catch(() => {});
+                    }, 150);
+                },
+                destroy() { closePopup(); },
+            };
+        },
+        props: {
+            handleKeyDown(view, event) {
+                if (!popup) return false;
+                if (event.key === 'Escape') { closePopup(); return true; }
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    selectedIdx = Math.min(selectedIdx + 1, results.length - 1);
+                    renderPopup(view);
+                    return true;
+                }
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    selectedIdx = Math.max(selectedIdx - 1, 0);
+                    renderPopup(view);
+                    return true;
+                }
+                if (event.key === 'Enter' && results.length > 0) {
+                    insertWikiLink(view, results[selectedIdx]);
+                    return true;
+                }
+                return false;
+            },
+        },
+    });
+}
+
+let toolbarStateUpdater = null;
+
 function initEditor(textarea) {
     const editorDiv = document.createElement("div");
     editorDiv.className = "ProseMirror-container";
@@ -168,11 +320,13 @@ function initEditor(textarea) {
             dropCursor(),
             gapCursor(),
             buildImagePlugin(),
+            buildWikiLinkPlugin(),
             new Plugin({
                 view() {
                     return {
                         update(view) {
                             textarea.value = docToMarkdown(view.state.doc);
+                            toolbarStateUpdater && toolbarStateUpdater(view.state);
                         },
                     };
                 },
@@ -195,33 +349,58 @@ function triggerImageUpload(view) {
     input.click();
 }
 
+function isMarkActive(state, markType) {
+    const { from, $from, to, empty } = state.selection;
+    if (empty) return !!(state.storedMarks || $from.marks()).find(m => m.type === markType);
+    return state.doc.rangeHasMark(from, to, markType);
+}
+
+function isNodeActive(state, nodeType, attrs) {
+    const { $from } = state.selection;
+    if (nodeType === schema.nodes.blockquote ||
+        nodeType === schema.nodes.bullet_list ||
+        nodeType === schema.nodes.ordered_list) {
+        for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type === nodeType) return true;
+        }
+        return false;
+    }
+    const node = $from.parent;
+    if (node.type !== nodeType) return false;
+    if (!attrs) return true;
+    return Object.keys(attrs).every(k => node.attrs[k] === attrs[k]);
+}
+
 function setupToolbar(toolbar, view) {
     toolbar.innerHTML = "";
 
     const buttons = [
-        { label: "B", title: "Bold (Ctrl+B)", action: () => toggleMark(schema.marks.strong)(view.state, view.dispatch), style: "font-weight:bold" },
-        { label: "I", title: "Italic (Ctrl+I)", action: () => toggleMark(schema.marks.em)(view.state, view.dispatch), style: "font-style:italic" },
+        { label: "B", title: "Bold (Ctrl+B)", action: () => toggleMark(schema.marks.strong)(view.state, view.dispatch), style: "font-weight:bold", activeMark: () => schema.marks.strong },
+        { label: "I", title: "Italic (Ctrl+I)", action: () => toggleMark(schema.marks.em)(view.state, view.dispatch), style: "font-style:italic", activeMark: () => schema.marks.em },
+        { label: "S̶", title: "Strikethrough", action: () => toggleMark(schema.marks.s)(view.state, view.dispatch), style: "text-decoration:line-through", activeMark: () => schema.marks.s },
         { sep: true },
-        { label: "H2", title: "Heading 2", action: () => setBlockType(schema.nodes.heading, { level: 2 })(view.state, view.dispatch) },
-        { label: "H3", title: "Heading 3", action: () => setBlockType(schema.nodes.heading, { level: 3 })(view.state, view.dispatch) },
-        { label: "H4", title: "Heading 4", action: () => setBlockType(schema.nodes.heading, { level: 4 })(view.state, view.dispatch) },
-        { label: "¶", title: "Paragraph", action: () => setBlockType(schema.nodes.paragraph)(view.state, view.dispatch) },
+        { label: "H2", title: "Heading 2", action: () => setBlockType(schema.nodes.heading, { level: 2 })(view.state, view.dispatch), activeNode: () => schema.nodes.heading, activeNodeAttrs: { level: 2 } },
+        { label: "H3", title: "Heading 3", action: () => setBlockType(schema.nodes.heading, { level: 3 })(view.state, view.dispatch), activeNode: () => schema.nodes.heading, activeNodeAttrs: { level: 3 } },
+        { label: "H4", title: "Heading 4", action: () => setBlockType(schema.nodes.heading, { level: 4 })(view.state, view.dispatch), activeNode: () => schema.nodes.heading, activeNodeAttrs: { level: 4 } },
+        { label: "¶", title: "Paragraph", action: () => setBlockType(schema.nodes.paragraph)(view.state, view.dispatch), activeNode: () => schema.nodes.paragraph },
         { sep: true },
-        { label: "❝", title: "Blockquote", action: () => wrapIn(schema.nodes.blockquote)(view.state, view.dispatch) },
-        { icon: "bi-list-ul", title: "Bullet List", action: () => wrapInList(schema.nodes.bullet_list)(view.state, view.dispatch) },
-        { icon: "bi-list-ol", title: "Numbered List", action: () => wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch) },
+        { label: "❝", title: "Blockquote", action: () => wrapIn(schema.nodes.blockquote)(view.state, view.dispatch), activeNode: () => schema.nodes.blockquote },
+        { icon: "bi-list-ul", title: "Bullet List", action: () => wrapInList(schema.nodes.bullet_list)(view.state, view.dispatch), activeNode: () => schema.nodes.bullet_list },
+        { icon: "bi-list-ol", title: "Numbered List", action: () => wrapInList(schema.nodes.ordered_list)(view.state, view.dispatch), activeNode: () => schema.nodes.ordered_list },
         { icon: "bi-hr", title: "Horizontal Rule", action: () => {
-            const { tr, selection } = view.state;
+            const { tr } = view.state;
             view.dispatch(tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()));
         }},
         { sep: true },
         { icon: "bi-link-45deg", title: "Insert Link (Ctrl+K)", action: () => showLinkDialog(view) },
         { icon: "bi-image", title: "Insert Image", action: () => triggerImageUpload(view) },
-        { icon: "bi-code", title: "Inline Code (Ctrl+`)", action: () => toggleMark(schema.marks.code)(view.state, view.dispatch) },
+        { icon: "bi-code", title: "Inline Code (Ctrl+`)", action: () => toggleMark(schema.marks.code)(view.state, view.dispatch), activeMark: () => schema.marks.code },
         { sep: true },
         { icon: "bi-arrow-counterclockwise", title: "Undo (Ctrl+Z)", action: () => undo(view.state, view.dispatch) },
         { icon: "bi-arrow-clockwise", title: "Redo (Ctrl+Shift+Z)", action: () => redo(view.state, view.dispatch) },
     ];
+
+    const activeChecks = [];
 
     buttons.forEach(b => {
         if (b.sep) {
@@ -245,7 +424,19 @@ function setupToolbar(toolbar, view) {
             view.focus();
         });
         toolbar.appendChild(btn);
+
+        if (b.activeMark) {
+            activeChecks.push({ btn, check: (state) => isMarkActive(state, b.activeMark()) });
+        } else if (b.activeNode) {
+            activeChecks.push({ btn, check: (state) => isNodeActive(state, b.activeNode(), b.activeNodeAttrs) });
+        }
     });
+
+    return (state) => {
+        activeChecks.forEach(({ btn, check }) => {
+            btn.classList.toggle('active', !!check(state));
+        });
+    };
 }
 
 function showLinkDialog(view) {
@@ -374,7 +565,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const entryId = form.dataset.entryId || "new";
     const autosaveKey = `autosave-${entryId}`;
 
-    // Check for auto-saved content before initializing ProseMirror
     const saved = localStorage.getItem(autosaveKey);
     if (saved && saved !== textarea.value) {
         textarea.value = saved;
@@ -382,7 +572,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const view = initEditor(textarea);
-    setupToolbar(toolbar, view);
+    toolbarStateUpdater = setupToolbar(toolbar, view);
 
     const initialContent = textarea.value;
     let submitting = false;
@@ -396,30 +586,50 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Auto-save every 10 seconds
-    setInterval(() => {
-        const current = textarea.value;
-        if (current) {
-            localStorage.setItem(autosaveKey, current);
-        }
-    }, 10000);
+    // Stats bar: word count (left) + autosave status (right)
+    let lastAutosavedContent = textarea.value;
+    let lastAutosaveAt = null;
 
-    // Word count and reading time
     const statsDiv = document.getElementById("editor-stats");
     if (statsDiv) {
+        const wordSpan = document.createElement('span');
+        const saveSpan = document.createElement('span');
+        saveSpan.className = 'editor-save-status';
+        statsDiv.appendChild(wordSpan);
+        statsDiv.appendChild(saveSpan);
+
         function updateStats() {
             const text = textarea.value.trim();
             const words = text ? text.split(/\s+/).length : 0;
             const minutes = Math.max(1, Math.ceil(words / 200));
-            statsDiv.textContent = `${words} word${words !== 1 ? 's' : ''} · ${minutes} min read`;
+            wordSpan.textContent = `${words} word${words !== 1 ? 's' : ''} · ${minutes} min read`;
+
+            const current = textarea.value;
+            if (current !== lastAutosavedContent) {
+                saveSpan.textContent = 'Unsaved';
+                saveSpan.className = 'editor-save-status editor-save-status--dirty';
+            } else if (lastAutosaveAt) {
+                const secs = Math.round((Date.now() - lastAutosaveAt) / 1000);
+                saveSpan.textContent = secs < 60 ? `Saved ${secs}s ago` : '';
+                saveSpan.className = 'editor-save-status';
+            } else {
+                saveSpan.textContent = '';
+            }
         }
-        textarea.addEventListener("input", updateStats);
-        // Also update when ProseMirror syncs to textarea
-        new MutationObserver(updateStats).observe(textarea, { attributes: true, childList: true });
-        // Poll for ProseMirror changes since it sets .value programmatically
+
         setInterval(updateStats, 1000);
         updateStats();
     }
+
+    // Autosave every 10 seconds
+    setInterval(() => {
+        const current = textarea.value;
+        if (current) {
+            localStorage.setItem(autosaveKey, current);
+            lastAutosavedContent = current;
+            lastAutosaveAt = Date.now();
+        }
+    }, 10000);
 
     if (previewDiv) previewDiv.remove();
 });

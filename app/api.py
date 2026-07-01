@@ -124,6 +124,7 @@ def search_entries():
         if entry.id not in seen:
             seen.add(entry.id)
             results.append({
+                'id': entry.id,
                 'title': entry.title,
                 'slug': entry.slug,
                 'summary': entry.summary,
@@ -133,6 +134,7 @@ def search_entries():
         if alias.entry_id not in seen and not alias.entry.is_draft:
             seen.add(alias.entry_id)
             results.append({
+                'id': alias.entry_id,
                 'title': f'{alias.title} → {alias.entry.title}',
                 'slug': alias.entry.slug,
                 'summary': alias.entry.summary,

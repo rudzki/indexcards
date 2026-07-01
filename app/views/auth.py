@@ -163,6 +163,7 @@ def account():
     if request.method == 'POST':
         display_name = request.form.get('display_name', '').strip()
         bio = request.form.get('bio', '').strip()
+        link = request.form.get('link', '').strip()
         subscribed = 'subscribed' in request.form
 
         if not display_name:
@@ -171,6 +172,7 @@ def account():
 
         current_user.display_name = display_name
         current_user.bio = bio
+        current_user.link = link
         current_user.subscribed = subscribed
         db.session.commit()
         flash('Account updated.', 'success')

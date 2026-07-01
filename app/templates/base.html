@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if site_settings and site_settings.site_theme and site_settings.site_theme != 'default' %} data-site-theme="{{ site_settings.site_theme }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,20 +31,6 @@
     {% endif %}
     <link rel="stylesheet" href="{{ static_url('css/style.css') }}">
     <link rel="stylesheet" href="{{ static_url('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
-    {% if site_settings and site_settings.brand_color %}
-    <style>
-      :root {
-        --brand: {{ site_settings.brand_color }};
-        --brand-ink: {{ site_settings.brand_color_ink }};
-        --brand-bg: {{ site_settings.brand_color_bg }};
-      }
-      [data-theme="light"] {
-        --brand: {{ site_settings.brand_color_light }};
-        --brand-ink: #ffffff;
-        --brand-bg: {{ site_settings.brand_color_bg }};
-      }
-    </style>
-    {% endif %}
     <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
     {% block head_extra %}{% endblock %}
     {% if site_settings.custom_css %}

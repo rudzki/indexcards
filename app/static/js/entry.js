@@ -104,7 +104,23 @@ document.querySelectorAll('.footnote-ref a[data-footnote]').forEach(function(el)
             if (existing) { existing.remove(); return; }
             var popup = document.createElement('div');
             popup.className = 'bio-popup';
-            popup.textContent = el.getAttribute('data-bio');
+            var bio = el.getAttribute('data-bio');
+            if (bio) {
+                var bioText = document.createElement('div');
+                bioText.className = 'bio-popup-text';
+                bioText.textContent = bio;
+                popup.appendChild(bioText);
+            }
+            var link = el.getAttribute('data-link');
+            if (link) {
+                var linkEl = document.createElement('a');
+                linkEl.className = 'bio-popup-link';
+                linkEl.href = link;
+                linkEl.textContent = link.replace(/^https?:\/\//i, '');
+                linkEl.target = '_blank';
+                linkEl.rel = 'noopener noreferrer';
+                popup.appendChild(linkEl);
+            }
             var rect = el.getBoundingClientRect();
             popup.style.left = (rect.left + window.scrollX) + 'px';
             popup.style.top = '-9999px';

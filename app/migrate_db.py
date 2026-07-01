@@ -139,5 +139,29 @@ def run_migrations():
             if new_key != old_key:
                 cursor.execute("UPDATE entry SET sort_title = ? WHERE id = ?", (new_key, entry_id))
 
+    if has_table('edit_log') and not has_column('edit_log', 'body_snapshot'):
+        cursor.execute("ALTER TABLE edit_log ADD COLUMN body_snapshot TEXT")
+
+    if has_table('entry') and not has_column('entry', 'parent_id'):
+        cursor.execute("ALTER TABLE entry ADD COLUMN parent_id INTEGER REFERENCES entry(id)")
+
+    if has_table('site_settings') and not has_column('site_settings', 'site_theme'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN site_theme TEXT DEFAULT 'default'")
+
+    if has_table('user') and not has_column('user', 'link'):
+        cursor.execute("ALTER TABLE user ADD COLUMN link TEXT DEFAULT ''")
+
+    if not has_table('page_revision'):
+        cursor.execute("""
+            CREATE TABLE page_revision (
+                id INTEGER PRIMARY KEY,
+                page_id INTEGER NOT NULL REFERENCES page(id),
+                user_id INTEGER REFERENCES user(id),
+                body_snapshot TEXT DEFAULT '',
+                changelog TEXT,
+                edited_at DATETIME
+            )
+        """)
+
     conn.commit()
     conn.close()

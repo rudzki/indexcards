@@ -9,6 +9,9 @@
         {% if page and not page.is_draft %}
             <a href="{{ url_for('main.entry_page', slug=page.slug) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View page</a>
         {% endif %}
+        {% if page %}
+            <a href="{{ url_for('admin.page_history', page_id=page.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
+        {% endif %}
     </div>
 
     <form method="post" class="editor-form"
@@ -17,7 +20,7 @@
         <div class="editor-meta-top">
             <div class="field">
                 <label for="title">Title</label>
-                <input type="text" id="title" name="title" value="{{ page.title if page else '' }}" required>
+                <input type="text" id="title" name="title" value="{{ page.title if page else '' }}" required{% if not page %} autofocus{% endif %}>
             </div>
             <div class="field">
                 <label for="slug">URL{% if page %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
@@ -28,6 +31,7 @@
                            data-is-new="{{ 'true' if not page else 'false' }}"
                            placeholder="page-title"
                            spellcheck="false">
+                    <button type="button" class="slug-copy-btn" id="slug-copy-btn" title="Copy URL"><i class="bi bi-clipboard"></i></button>
                 </div>
             </div>
             <div class="field">
@@ -46,6 +50,10 @@
         <div class="editor-stats" id="editor-stats"></div>
 
         <div class="editor-meta-bottom">
+            <div class="field editor-changelog">
+                <label for="changelog">Changelog message <span class="field-hint">(optional)</span></label>
+                <input type="text" id="changelog" name="changelog" placeholder="What changed?">
+            </div>
             <div class="editor-actions">
                 <div class="editor-actions-left">
                     <button type="submit" class="btn btn-primary">Save</button>

@@ -24,9 +24,15 @@ def index():
                .order_by(Entry.sort_title)
                .all())
 
+    children_by_parent = defaultdict(list)
+    for entry in entries:
+        if entry.parent_id:
+            children_by_parent[entry.parent_id].append(entry)
+
     index_items = []
     for entry in entries:
-        index_items.append({'type': 'entry', 'entry': entry, 'sort_title': entry.sort_title})
+        index_items.append({'type': 'entry', 'entry': entry, 'sort_title': entry.sort_title,
+                            'children': children_by_parent.get(entry.id, [])})
         for alias in entry.aliases:
             index_items.append({'type': 'alias', 'entry': entry, 'alias': alias,
                                 'sort_title': sort_key(alias.title)})
@@ -88,8 +94,39 @@ def entry_page(slug):
                          .order_by(EditLog.edited_at.desc())
                          .first())
         last_editor = last_edit_log.user if last_edit_log else None
+
+        prev_entry = (Entry.query
+                      .filter(Entry.is_draft == False,  # noqa: E712
+                              Entry.sort_title < entry.sort_title)
+                      .order_by(Entry.sort_title.desc())
+                      .first())
+        next_entry = (Entry.query
+                      .filter(Entry.is_draft == False,  # noqa: E712
+                              Entry.sort_title > entry.sort_title)
+                      .order_by(Entry.sort_title.asc())
+                      .first())
+
+        ancestors = []
+        cursor = entry
+        for _ in range(10):
+            if not cursor.parent_id:
+                break
+            p = Entry.query.get(cursor.parent_id)
+            if not p or p.id in {a.id for a in ancestors}:
+                break
+            ancestors.append(p)
+            cursor = p
+        ancestors.reverse()
+
+        children = (Entry.query
+                    .filter_by(parent_id=entry.id, is_draft=False)
+                    .order_by(Entry.sort_title)
+                    .all())
+
         return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                               backlinks=backlinks, toc=toc, last_editor=last_editor)
+                               backlinks=backlinks, toc=toc, last_editor=last_editor,
+                               prev_entry=prev_entry, next_entry=next_entry,
+                               ancestors=ancestors, children=children)
 
     alias = Alias.query.filter_by(slug=slug).first()
     if alias:

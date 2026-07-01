@@ -9,42 +9,6 @@ from app import db, login_manager
 STOP_WORDS = {'the', 'a', 'an'}
 
 
-def _hex_to_hsl(hex_color):
-    h = hex_color.lstrip('#')
-    r, g, b = int(h[0:2], 16) / 255, int(h[2:4], 16) / 255, int(h[4:6], 16) / 255
-    mx, mn = max(r, g, b), min(r, g, b)
-    l = (mx + mn) / 2
-    if mx == mn:
-        return 0.0, 0.0, l
-    d = mx - mn
-    s = d / (2 - mx - mn) if l > 0.5 else d / (mx + mn)
-    if mx == r:
-        hue = (g - b) / d + (6 if g < b else 0)
-    elif mx == g:
-        hue = (b - r) / d + 2
-    else:
-        hue = (r - g) / d + 4
-    return hue / 6, s, l
-
-
-def _hsl_to_hex(hue, s, l):
-    if s == 0:
-        v = int(round(l * 255))
-        return f'#{v:02x}{v:02x}{v:02x}'
-    def _c(p, q, t):
-        t = t % 1
-        if t < 1 / 6: return p + (q - p) * 6 * t
-        if t < 1 / 2: return q
-        if t < 2 / 3: return p + (q - p) * (2 / 3 - t) * 6
-        return p
-    q = l * (1 + s) if l < 0.5 else l + s - l * s
-    p = 2 * l - q
-    r = int(round(_c(p, q, hue + 1 / 3) * 255))
-    g = int(round(_c(p, q, hue) * 255))
-    b = int(round(_c(p, q, hue - 1 / 3) * 255))
-    return f'#{r:02x}{g:02x}{b:02x}'
-
-
 def make_slug(title):
     slug = title.lower().strip()
     slug = re.sub(r'[^\w\s-]', '', slug)
@@ -79,6 +43,7 @@ class Entry(db.Model):
                            onupdate=lambda: datetime.now(timezone.utc))
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     sort_title = db.Column(db.Text, default='')
+    parent_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=True)
 
     aliases = db.relationship('Alias', backref='entry', cascade='all, delete-orphan')
     edit_logs = db.relationship('EditLog', backref='entry', cascade='all, delete-orphan',
@@ -105,6 +70,7 @@ class EditLog(db.Model):
     entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     changelog = db.Column(db.Text)
+    body_snapshot = db.Column(db.Text, nullable=True)
     edited_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = db.relationship('User')
@@ -136,6 +102,7 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.Text, nullable=False)
     role = db.Column(db.Text, default='author')
     bio = db.Column(db.Text, default='')
+    link = db.Column(db.Text, default='')
     subscribed = db.Column(db.Boolean, default=False)
     unsubscribe_token = db.Column(db.Text, unique=True,
                                   default=lambda: secrets.token_urlsafe(32))
@@ -246,9 +213,22 @@ class Page(db.Model):
     nav_position = db.Column(db.Integer, nullable=True)
 
     author = db.relationship('User', backref='pages')
+    revisions = db.relationship('PageRevision', backref='page', cascade='all, delete-orphan',
+                                order_by='PageRevision.edited_at.desc()')
 
     def update_sort_title(self):
         self.sort_title = sort_key(self.title)
+
+
+class PageRevision(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    page_id = db.Column(db.Integer, db.ForeignKey('page.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    body_snapshot = db.Column(db.Text, default='')
+    changelog = db.Column(db.Text)
+    edited_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User')
 
 
 class SiteSettings(db.Model):
@@ -277,7 +257,7 @@ class SiteSettings(db.Model):
     smtp_use_tls = db.Column(db.Boolean, default=True)
     smtp_from_address = db.Column(db.Text)
 
-    brand_color = db.Column(db.Text, default='')
+    site_theme = db.Column(db.Text, default='default')
     custom_css = db.Column(db.Text, default='')
     custom_head_html = db.Column(db.Text, default='')
     custom_footer_html = db.Column(db.Text, default='')
@@ -304,28 +284,11 @@ class SiteSettings(db.Model):
     def smtp_configured(self):
         return bool(self.smtp_host and self.smtp_from_address)
 
-    @property
-    def brand_color_light(self):
-        """Darkened version of brand_color for use on light backgrounds."""
-        if not self.brand_color:
-            return ''
-        h, s, l = _hex_to_hsl(self.brand_color)
-        target_l = min(l, 0.42)
-        return _hsl_to_hex(h, min(s, 0.85), target_l)
 
-    @property
-    def brand_color_ink(self):
-        """Contrasting ink color for text on a brand-colored background."""
-        if not self.brand_color:
-            return ''
-        _, _, l = _hex_to_hsl(self.brand_color)
-        return '#0d1117' if l > 0.5 else '#ffffff'
-
-    @property
-    def brand_color_bg(self):
-        """Semi-transparent tint for focus rings and active backgrounds."""
-        if not self.brand_color:
-            return ''
-        h = self.brand_color.lstrip('#')
-        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-        return f'rgba({r}, {g}, {b}, .12)'
+# Self-referential adjacency list for Entry hierarchy
+Entry.children = db.relationship(
+    'Entry',
+    foreign_keys=[Entry.parent_id],
+    backref=db.backref('parent', remote_side=[Entry.id]),
+    order_by=Entry.sort_title,
+)

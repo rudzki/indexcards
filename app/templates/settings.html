@@ -60,30 +60,22 @@
                 <p class="field-hint field-hint-mt">PNG, JPEG, or WebP. Max 2 MB. Used as favicon and Open Graph image for social sharing.</p>
             </div>
             <div class="field">
-                <label for="brand_color">Brand Color</label>
-                <div class="brand-color-row">
-                    <input type="color" id="brand_color_picker" class="brand-color-picker"
-                           value="{{ settings.brand_color or '#9aa7b4' }}">
-                    <input type="text" id="brand_color" name="brand_color"
-                           value="{{ settings.brand_color }}" placeholder="#9aa7b4" maxlength="7"
-                           pattern="^#[0-9a-fA-F]{6}$">
-                    <button type="button" class="btn-small" id="brand_color_reset">Reset</button>
+                <label>Theme</label>
+                <input type="hidden" name="site_theme" id="site_theme_input" value="{{ settings.site_theme or 'default' }}">
+                <div class="theme-picker" id="theme-picker">
+                    {% for theme in themes %}
+                    <button type="button" class="theme-card {{ 'active' if (settings.site_theme or 'default') == theme.id }}"
+                            data-theme-id="{{ theme.id }}">
+                        <div class="theme-swatches">
+                            <span style="background:{{ theme.dark_bg }}"></span>
+                            <span style="background:{{ theme.brand }}"></span>
+                            <span style="background:{{ theme.light_bg }}"></span>
+                        </div>
+                        <span class="theme-name">{{ theme.name }}</span>
+                    </button>
+                    {% endfor %}
                 </div>
-                <p class="field-hint">Applied to links, active states, and primary buttons. Leave blank for default.</p>
-                <div class="brand-previews" id="brand_previews" style="{{ '' if settings.brand_color else 'display:none' }}">
-                    <div class="brand-preview-item">
-                        <span class="brand-preview-swatch" id="preview_dark_swatch"
-                              style="background:{{ settings.brand_color or '' }}"></span>
-                        <span class="brand-preview-label">Dark mode</span>
-                        <code class="brand-preview-hex" id="preview_dark_hex">{{ settings.brand_color }}</code>
-                    </div>
-                    <div class="brand-preview-item">
-                        <span class="brand-preview-swatch" id="preview_light_swatch"
-                              style="background:{{ settings.brand_color_light or '' }}"></span>
-                        <span class="brand-preview-label">Light mode</span>
-                        <code class="brand-preview-hex" id="preview_light_hex">{{ settings.brand_color_light }}</code>
-                    </div>
-                </div>
+                <p class="field-hint field-hint-mt">Sets the color palette for the site. The dark/light toggle still works within any theme.</p>
             </div>
             <div class="field">
                 <label for="footer_text">Footer Text</label>
@@ -300,4 +292,20 @@
 {% block scripts %}
 <script type="application/json" id="icon-names-data">{{ icon_names|tojson }}</script>
 <script src="{{ static_url('js/settings.js') }}"></script>
+<script>
+(function(){
+  document.getElementById('theme-picker').addEventListener('click', function(e){
+    var card = e.target.closest('.theme-card');
+    if (!card) return;
+    document.querySelectorAll('.theme-card').forEach(function(c){ c.classList.remove('active'); });
+    card.classList.add('active');
+    document.getElementById('site_theme_input').value = card.dataset.themeId;
+    if (card.dataset.themeId === 'default') {
+      document.documentElement.removeAttribute('data-site-theme');
+    } else {
+      document.documentElement.setAttribute('data-site-theme', card.dataset.themeId);
+    }
+  });
+})();
+</script>
 {% endblock %}

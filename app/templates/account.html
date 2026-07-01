@@ -15,6 +15,10 @@
             <label for="bio">Bio</label>
             <textarea id="bio" name="bio" rows="3">{{ current_user.bio or '' }}</textarea>
         </div>
+        <div class="field">
+            <label for="link">Link</label>
+            <input type="url" id="link" name="link" value="{{ current_user.link or '' }}" placeholder="https://example.com">
+        </div>
         <div class="field field-inline">
             <label>
                 <input type="checkbox" name="subscribed" {% if current_user.subscribed %}checked{% endif %}>

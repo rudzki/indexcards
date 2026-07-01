@@ -12,6 +12,7 @@
             {% else %}
                 <a href="{{ url_for('main.entry_page', slug=entry.slug) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
             {% endif %}
+            <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
             {% if site_settings.show_authors and entry.author %}
                 <span class="editor-author">by {{ entry.author.display_name }}</span>
             {% endif %}
@@ -24,7 +25,7 @@
         <div class="editor-meta-top">
             <div class="field">
                 <label for="title">Title</label>
-                <input type="text" id="title" name="title" value="{{ entry.title if entry else prefill_title }}" required>
+                <input type="text" id="title" name="title" value="{{ entry.title if entry else prefill_title }}" required{% if not entry %} autofocus{% endif %}>
             </div>
             <div class="field">
                 <label for="slug">URL{% if entry %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
@@ -35,12 +36,26 @@
                            data-is-new="{{ 'true' if not entry else 'false' }}"
                            placeholder="entry-title"
                            spellcheck="false">
+                    <button type="button" class="slug-copy-btn" id="slug-copy-btn" title="Copy URL"><i class="bi bi-clipboard"></i></button>
                 </div>
             </div>
             <div class="field">
                 <label for="aliases">Aliases <span class="field-hint">(comma-separated)</span></label>
                 <input type="text" id="aliases" name="aliases"
                        value="{{ entry.aliases|map(attribute='title')|join(', ') if entry else '' }}">
+                <p class="field-hint field-hint-mt">Alternate titles that redirect to this entry</p>
+            </div>
+            <div class="field">
+                <label for="parent_search">Parent Entry <span class="field-hint">(optional)</span></label>
+                <div class="parent-field-wrap">
+                    <input type="text" id="parent_search" class="parent-search-input"
+                           placeholder="Search entries…"
+                           value="{{ entry.parent.title if entry and entry.parent else '' }}"
+                           autocomplete="off">
+                    <input type="hidden" name="parent_id" id="parent_id"
+                           value="{{ entry.parent_id if entry and entry.parent_id else '' }}">
+                </div>
+                <p class="field-hint field-hint-mt">Makes this a subpage of another entry. Shown in breadcrumbs.</p>
             </div>
             <div class="field">
                 <label for="summary">Summary <span class="field-hint">(one sentence)</span></label>

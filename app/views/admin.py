@@ -14,7 +14,7 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, Alias, EditLog, Backlink, User, Registration, SiteSettings, AuditLog, Page, EditLock, make_slug, log_audit
+from app.models import Entry, Alias, EditLog, Backlink, User, Registration, SiteSettings, AuditLog, Page, PageRevision, EditLock, make_slug, log_audit
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry, delete_fts_entry
 from app.mail import send_email, render_email
@@ -50,6 +50,29 @@ def editor_required(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def _compute_diff(old_text, new_text):
+    import difflib
+    old_lines = (old_text or '').splitlines()
+    new_lines = (new_text or '').splitlines()
+    result = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines).get_opcodes():
+        if op == 'equal':
+            for line in old_lines[i1:i2]:
+                result.append(('=', line))
+        elif op == 'insert':
+            for line in new_lines[j1:j2]:
+                result.append(('+', line))
+        elif op == 'delete':
+            for line in old_lines[i1:i2]:
+                result.append(('-', line))
+        elif op == 'replace':
+            for line in old_lines[i1:i2]:
+                result.append(('-', line))
+            for line in new_lines[j1:j2]:
+                result.append(('+', line))
+    return result
 
 
 RESERVED_SLUGS = {
@@ -163,6 +186,7 @@ def _save_entry(entry):
     aliases_raw = request.form.get('aliases', '').strip()
     changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
+    parent_id_raw = request.form.get('parent_id', '').strip()
 
     if not title:
         flash('Title is required.', 'error')
@@ -191,6 +215,7 @@ def _save_entry(entry):
 
     entry.title = title
     entry.summary = summary
+    old_body = entry.body_markdown
     entry.body_markdown = body_markdown
     entry.body_html = render_markdown(body_markdown)
     entry.is_draft = is_draft
@@ -199,18 +224,50 @@ def _save_entry(entry):
     if not is_draft and not entry.published_at:
         entry.published_at = datetime.now(timezone.utc)
 
+    if parent_id_raw and parent_id_raw.isdigit():
+        proposed_parent_id = int(parent_id_raw)
+        parent_entry = Entry.query.get(proposed_parent_id)
+        if parent_entry and parent_entry.id != (entry.id or -1):
+            entry.parent_id = parent_entry.id
+        else:
+            entry.parent_id = None
+    else:
+        entry.parent_id = None
+
     _sync_aliases(entry, aliases_raw)
 
     db.session.flush()
 
     _sync_backlinks(entry)
 
+    last_log = (EditLog.query
+                .filter_by(entry_id=entry.id)
+                .order_by(EditLog.edited_at.desc())
+                .first())
+    content_changed = is_new or (last_log is None) or (last_log.body_snapshot != body_markdown)
     log = EditLog(
         entry_id=entry.id,
         user_id=current_user.id,
         changelog=changelog,
+        body_snapshot=body_markdown if content_changed else None,
     )
     db.session.add(log)
+
+    # Keep at most 50 snapshots per entry; prune oldest beyond the limit
+    snapshot_count = (EditLog.query
+                      .filter(EditLog.entry_id == entry.id,
+                              EditLog.body_snapshot.isnot(None))
+                      .count())
+    if snapshot_count > 50:
+        oldest = (EditLog.query
+                  .filter(EditLog.entry_id == entry.id,
+                          EditLog.body_snapshot.isnot(None))
+                  .order_by(EditLog.edited_at.asc())
+                  .limit(snapshot_count - 50)
+                  .all())
+        for old in oldest:
+            old.body_snapshot = None
+
     db.session.commit()
 
     update_fts_entry(entry)
@@ -288,9 +345,9 @@ def settings():
         site_settings.feeds_enabled = 'feeds_enabled' in request.form
         site_settings.site_icon = request.form.get('site_icon', '').strip()
 
-        import re as _re
-        raw_color = request.form.get('brand_color', '').strip()
-        site_settings.brand_color = raw_color if _re.match(r'^#[0-9a-fA-F]{6}$', raw_color) else ''
+        valid_themes = {'default', 'forest', 'sepia', 'midnight', 'stone'}
+        raw_theme = request.form.get('site_theme', 'default').strip()
+        site_settings.site_theme = raw_theme if raw_theme in valid_themes else 'default'
 
         site_settings.digest_include_edits = 'digest_include_edits' in request.form
         day = request.form.get('digest_day', '0')
@@ -306,7 +363,14 @@ def settings():
 
     from app.icons import ICONS
     icon_names = sorted(ICONS.keys())
-    return render_template('settings.html', settings=site_settings, icon_names=icon_names)
+    themes = [
+        {'id': 'default',  'name': 'Default',  'dark_bg': '#0d1117', 'surface_bg': '#161b22', 'light_bg': '#ffffff', 'brand': '#9aa7b4'},
+        {'id': 'forest',   'name': 'Forest',   'dark_bg': '#0c1410', 'surface_bg': '#141f18', 'light_bg': '#f4f7f4', 'brand': '#4caf7d'},
+        {'id': 'sepia',    'name': 'Sepia',    'dark_bg': '#1a1410', 'surface_bg': '#231c17', 'light_bg': '#f8f4ed', 'brand': '#c0956a'},
+        {'id': 'midnight', 'name': 'Midnight', 'dark_bg': '#080c16', 'surface_bg': '#0e1424', 'light_bg': '#f0f4ff', 'brand': '#6b8fff'},
+        {'id': 'stone',    'name': 'Stone',    'dark_bg': '#111110', 'surface_bg': '#1a1917', 'light_bg': '#f9f8f6', 'brand': '#b0a890'},
+    ]
+    return render_template('settings.html', settings=site_settings, icon_names=icon_names, themes=themes)
 
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
@@ -521,7 +585,8 @@ def preview_entry(entry_id):
                      .first())
     last_editor = last_edit_log.user if last_edit_log else None
     return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                           backlinks=backlinks, toc=toc, is_preview=True, last_editor=last_editor)
+                           backlinks=backlinks, toc=toc, is_preview=True, last_editor=last_editor,
+                           ancestors=[], children=[], prev_entry=None, next_entry=None)
 
 
 @admin_bp.route('/export/markdown/')
@@ -909,6 +974,7 @@ def _save_page(page):
     title = request.form.get('title', '').strip()
     summary = request.form.get('summary', '').strip()
     body_markdown = request.form.get('body_markdown', '')
+    changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
     show_in_nav = 'show_in_nav' in request.form
     nav_position_raw = request.form.get('nav_position', '').strip()
@@ -952,12 +1018,140 @@ def _save_page(page):
     if not is_draft and not page.published_at:
         page.published_at = datetime.now(timezone.utc)
 
+    db.session.flush()
+
+    last_rev = (PageRevision.query
+                .filter_by(page_id=page.id)
+                .order_by(PageRevision.edited_at.desc())
+                .first())
+    content_changed = is_new or (last_rev is None) or (last_rev.body_snapshot != body_markdown)
+    db.session.add(PageRevision(
+        page_id=page.id,
+        user_id=current_user.id,
+        body_snapshot=body_markdown if content_changed else None,
+        changelog=changelog,
+    ))
+
+    # Keep at most 50 snapshots per page
+    snap_count = (PageRevision.query
+                  .filter(PageRevision.page_id == page.id,
+                          PageRevision.body_snapshot.isnot(None))
+                  .count())
+    if snap_count > 50:
+        oldest = (PageRevision.query
+                  .filter(PageRevision.page_id == page.id,
+                          PageRevision.body_snapshot.isnot(None))
+                  .order_by(PageRevision.edited_at.asc())
+                  .limit(snap_count - 50)
+                  .all())
+        for old in oldest:
+            old.body_snapshot = None
+
     db.session.commit()
 
     action = 'page_created' if is_new else 'page_edited'
     log_audit(action, detail=page.title, user_id=current_user.id)
     flash('Page saved.', 'success')
     return redirect(url_for('admin.edit_page', page_id=page.id))
+
+
+@admin_bp.route('/entry/<int:entry_id>/history/')
+@writer_required
+def entry_history(entry_id):
+    entry = Entry.query.get_or_404(entry_id)
+    if not current_user.can_modify(entry):
+        abort(403)
+    logs = (EditLog.query
+            .filter_by(entry_id=entry_id)
+            .order_by(EditLog.edited_at.desc())
+            .all())
+    revisions = []
+    for i, log in enumerate(logs):
+        prev_snapshot = logs[i + 1].body_snapshot if i + 1 < len(logs) else ''
+        curr_snapshot = log.body_snapshot or ''
+        revisions.append({
+            'id': log.id,
+            'snapshot': curr_snapshot,
+            'changelog': log.changelog,
+            'edited_at': log.edited_at,
+            'user': log.user,
+            'diff_lines': _compute_diff(prev_snapshot or '', curr_snapshot),
+            'char_delta': len(curr_snapshot) - len(prev_snapshot or ''),
+        })
+    return render_template('admin/entry_history.html', entry=entry, revisions=revisions)
+
+
+@admin_bp.route('/entry/<int:entry_id>/history/<int:log_id>/restore/', methods=['POST'])
+@writer_required
+def restore_entry_revision(entry_id, log_id):
+    entry = Entry.query.get_or_404(entry_id)
+    if not current_user.can_modify(entry):
+        abort(403)
+    log = EditLog.query.filter_by(id=log_id, entry_id=entry_id).first_or_404()
+    if not log.body_snapshot:
+        flash('This revision has no saved content to restore.', 'error')
+        return redirect(url_for('admin.entry_history', entry_id=entry_id))
+    entry.body_markdown = log.body_snapshot
+    entry.body_html = render_markdown(log.body_snapshot)
+    restore_note = f'Restored from revision on {log.edited_at.strftime("%Y-%m-%d %H:%M")}'
+    db.session.add(EditLog(
+        entry_id=entry.id,
+        user_id=current_user.id,
+        body_snapshot=log.body_snapshot,
+        changelog=restore_note,
+    ))
+    db.session.flush()
+    _sync_backlinks(entry)
+    db.session.commit()
+    update_fts_entry(entry)
+    flash('Entry restored to selected revision.', 'success')
+    return redirect(url_for('admin.edit_entry', entry_id=entry_id))
+
+
+@admin_bp.route('/pages/<int:page_id>/history/')
+@editor_required
+def page_history(page_id):
+    page = Page.query.get_or_404(page_id)
+    revs = (PageRevision.query
+            .filter_by(page_id=page_id)
+            .order_by(PageRevision.edited_at.desc())
+            .all())
+    revisions = []
+    for i, rev in enumerate(revs):
+        prev_snapshot = revs[i + 1].body_snapshot if i + 1 < len(revs) else ''
+        curr_snapshot = rev.body_snapshot or ''
+        revisions.append({
+            'id': rev.id,
+            'snapshot': curr_snapshot,
+            'changelog': rev.changelog,
+            'edited_at': rev.edited_at,
+            'user': rev.user,
+            'diff_lines': _compute_diff(prev_snapshot or '', curr_snapshot),
+            'char_delta': len(curr_snapshot) - len(prev_snapshot or ''),
+        })
+    return render_template('admin/page_history.html', page=page, revisions=revisions)
+
+
+@admin_bp.route('/pages/<int:page_id>/history/<int:rev_id>/restore/', methods=['POST'])
+@editor_required
+def restore_page_revision(page_id, rev_id):
+    page = Page.query.get_or_404(page_id)
+    rev = PageRevision.query.filter_by(id=rev_id, page_id=page_id).first_or_404()
+    if not rev.body_snapshot:
+        flash('This revision has no saved content to restore.', 'error')
+        return redirect(url_for('admin.page_history', page_id=page_id))
+    page.body_markdown = rev.body_snapshot
+    page.body_html = render_markdown(rev.body_snapshot)
+    restore_note = f'Restored from revision on {rev.edited_at.strftime("%Y-%m-%d %H:%M")}'
+    db.session.add(PageRevision(
+        page_id=page.id,
+        user_id=current_user.id,
+        body_snapshot=rev.body_snapshot,
+        changelog=restore_note,
+    ))
+    db.session.commit()
+    flash('Page restored to selected revision.', 'success')
+    return redirect(url_for('admin.edit_page', page_id=page_id))
 
 
 def _fire_integrations(entry, is_new, changelog):

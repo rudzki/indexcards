@@ -31,12 +31,13 @@
                     {% for entry in entries %}
                     <tr>
                         <td class="col-check"><input type="checkbox" name="entry_ids" value="{{ entry.id }}" class="entry-checkbox"></td>
-                        <td class="col-nowrap col-truncate col-title col-primary">
+                        <td class="col-nowrap col-truncate col-title col-primary{{ ' entry-is-child' if entry.parent_id else '' }}">
                             {% if current_user.can_modify(entry) %}
                                 <a href="{{ url_for('admin.edit_entry', entry_id=entry.id) }}">{{ entry.title }}</a>
                             {% else %}
                                 {{ entry.title }}
                             {% endif %}
+                            {% if entry.parent_id %} &nbsp;<span class="parent" aria-hidden="true">↳ {{ entry.parent.title }}</span>{% endif %}
                             {% if entry.id in locked_entries %}
                                 <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_entries[entry.id] }}"></i>
                             {% endif %}

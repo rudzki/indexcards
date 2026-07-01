@@ -5,3 +5,4 @@ venv/
 test-results/
 .env
 *.md
+landing.html

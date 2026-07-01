@@ -2047,6 +2047,10 @@ a.index-child-link,
   margin-bottom: 1rem
 }
 
+.settings-form .field:last-of-type {
+  margin-bottom: 0;
+}
+
 .radio-group {
   display: flex;
   flex-direction: column;

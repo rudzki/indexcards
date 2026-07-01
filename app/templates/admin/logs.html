@@ -4,7 +4,7 @@
 
 {% macro sort_url(col) %}{{ url_for('admin.logs', sort=col, order='desc' if (sort == col and order == 'asc') else 'asc') }}{% endmacro %}
 {% macro sort_ind(col) %}{% if sort == col %} {{ '↑' if order == 'asc' else '↓' }}{% endif %}{% endmacro %}
-{% macro action_badge(action) %}<span class="badge {% if action in ('entry_created', 'entry_edited') %}badge-published{% elif 'deleted' in action %}badge-danger{% elif action in ('user_registered', 'user_signed_up', 'role_changed') %}badge-warning{% elif action == 'invite_sent' %}badge-info{% elif 'import' in action %}badge-purple{% else %}badge-draft{% endif %}">{{ action | replace('_', ' ') | title }}</span>{% endmacro %}
+{% macro action_badge(action) %}<span class="badge {% if action in ('entry_created', 'entry_edited') %}badge-published{% elif 'deleted' in action %}badge-danger{% elif action in ('user_registered', 'user_signed_up', 'role_changed') %}badge-warning{% elif action == 'invite_sent' %}badge-info{% elif 'import' in action %}badge-purple{% elif 'created' in action %}badge-published{% else %}badge-draft{% endif %}">{{ action | replace('_', ' ') | title }}</span>{% endmacro %}
 
 {% block content %}
 <div class="admin-page">

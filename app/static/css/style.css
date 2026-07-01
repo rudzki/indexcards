@@ -2164,6 +2164,10 @@ a.index-child-link,
   margin: 0.8rem 0;
 }
 
+.import-form:last-of-type {
+  margin-bottom: 0;
+}
+
 
 .import-filename {
   font-size: 0.8125rem;

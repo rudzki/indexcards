@@ -57,7 +57,7 @@
                                 class="btn btn-primary btn-xs import-submit" disabled>Upload</button>
                     </div>
                 </div>
-                <p class="field-hint field-hint-mt">PNG, JPEG, or WebP. Max 2 MB. Used as favicon and Open Graph image for social sharing.</p>
+                <p class="field-hint field-hint-mt mb-0">PNG, JPEG, or WebP. Max 2 MB. Used as favicon and Open Graph image for social sharing.</p>
             </div>
             <div class="field">
                 <label>Theme</label>
@@ -75,7 +75,7 @@
                     </button>
                     {% endfor %}
                 </div>
-                <p class="field-hint field-hint-mt">Sets the color palette for the site. The dark/light toggle still works within any theme.</p>
+                <p class="field-hint field-hint-mt mb-0">Sets the color palette for the site. The dark/light toggle still works within any theme.</p>
             </div>
             <div class="field">
                 <label for="footer_text">Footer Text</label>
@@ -96,7 +96,7 @@
                     <input type="checkbox" name="subscribe_enabled" {% if settings.subscribe_enabled %}checked{% endif %}>
                     Enable email subscriptions
                 </label>
-                <p class="field-hint" style="margin-bottom:0;">Adds a subscribe form to the footer. Requires SMTP to be configured in the Email section.</p>
+                <p class="field-hint mb-0">Adds a subscribe form to the footer. Requires SMTP to be configured in the Email section.</p>
             </div>
             <div class="field field-inline">
                 <label>
@@ -118,7 +118,7 @@
             </div>
             <div class="field">
                 <label>Site visibility</label>
-                <p class="field-hint">Controls who can access this site. Set to Registered to restrict all content to logged-in users only.</p>
+                <p class="field-hint mb-0">Controls who can access this site. Set to Registered to restrict all content to logged-in users only.</p>
                 <div class="radio-group">
                     <label>
                         <input type="radio" name="site_visibility" value="public"
@@ -132,7 +132,7 @@
                     </label>
                 </div>
                 {% if settings.site_visibility == 'registered' and settings.subscribe_enabled %}
-                    <p class="field-hint" style="margin-bottom:0">Subscribers who don't have accounts won't be able to view linked content.</p>
+                    <p class="field-hint mb-0">Subscribers who don't have accounts won't be able to view linked content.</p>
                 {% endif %}
             </div>
             {% if settings.site_visibility == 'public' %}
@@ -270,7 +270,7 @@
             <div class="field">
                 <label for="custom_footer_html">Custom footer HTML</label>
                 <textarea id="custom_footer_html" name="custom_footer_html" rows="6" spellcheck="false">{{ settings.custom_footer_html or '' }}</textarea>
-                <p class="field-hint" style="margin-bottom:0">Injected before &lt;/body&gt;. Use for widgets, tracking pixels, or other body-level scripts.</p>
+                <p class="field-hint mb-0">Injected before &lt;/body&gt;. Use for widgets, tracking pixels, or other body-level scripts.</p>
             </div>
         </fieldset>
 

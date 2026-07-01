@@ -2915,6 +2915,10 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   margin-top: 0.5rem;
 }
 
+.mb-0 {
+  margin-bottom: 0;
+}
+
 /* ── Arrow nav ───────────────────────────────────────────── */
 
 .entry-nav-arrows {

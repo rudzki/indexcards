@@ -1121,14 +1121,14 @@ a.index-child-link,
   margin: 0 0 2rem 2rem;
   font-size: 0.875rem;
   float: right;
-  max-width: 300px;
+  width: 300px;
 }
 
 /* Eyebrow / section-label pattern — used in panels and sidebars */
 .entry-toc strong,
 .heatmap-section h2,
 .entry-backlinks h2,
-.entry-toc h2,
+.entry-toc summary,
 .entry-footnotes h2,
 .invite-form h2,
 .invite-pending h3 {
@@ -1144,10 +1144,37 @@ a.index-child-link,
   margin-bottom: 0.5rem;
 }
 
+.entry-toc summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.entry-toc summary::-webkit-details-marker {
+  display: none;
+}
+
+.entry-toc summary::marker {
+  content: "";
+}
+
+.toc-toggle-icon {
+  flex-shrink: 0;
+  color: var(--ink-3);
+}
+
+.entry-toc details:not([open]) .toc-icon-minus,
+.entry-toc details[open] .toc-icon-plus {
+  display: none;
+}
+
 .entry-toc ul {
   list-style: none;
   padding: 0;
-  margin: 0
+  margin: 0.5rem 0 0 0;
 }
 
 .entry-toc li {
@@ -1392,8 +1419,7 @@ a.index-child-link,
 }
 
 .heatmap-section h2,
-.entry-backlinks h2,
-.entry-toc h2 {
+.entry-backlinks h2 {
   margin-top: 0;
   margin-bottom: 0.5rem;
 }
@@ -2767,6 +2793,10 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
   .index-jump {
     gap: 0
+  }
+
+  .entry-toc {
+    width: 100%;
   }
 
   .field-row {

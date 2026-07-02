@@ -739,6 +739,14 @@ class _HTMLToMarkdown(HTMLParser):
             self._out.append('`')
 
     def handle_data(self, data):
+        # WordPress exports sometimes double-encode entities (e.g. "&amp;amp;"
+        # for a literal "&"). HTMLParser only unescapes one level, so unescape
+        # repeatedly until stable to avoid leaving literal "&amp;" in the text.
+        while True:
+            unescaped = html_lib.unescape(data)
+            if unescaped == data:
+                break
+            data = unescaped
         self._out.append(data)
 
     def get_markdown(self):

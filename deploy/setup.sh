@@ -106,6 +106,16 @@ systemctl enable "$SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
 ok "Service enabled and started"
 
+# ── digest timer ──────────────────────────────────────────────────────────────
+
+step "Installing weekly digest timer"
+sed "s|/srv/indexcards|${APP_DIR}|g" "$APP_DIR/deploy/indexcards-digest.service" \
+    > /etc/systemd/system/indexcards-digest.service
+cp "$APP_DIR/deploy/indexcards-digest.timer" /etc/systemd/system/indexcards-digest.timer
+systemctl daemon-reload
+systemctl enable --now indexcards-digest.timer
+ok "Digest timer enabled (checks daily, sends on the day configured in Settings)"
+
 # ── nginx ─────────────────────────────────────────────────────────────────────
 
 step "Configuring nginx"

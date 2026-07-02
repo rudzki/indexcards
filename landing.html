@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Index Cards — a wiki that publishes itself</title>
+<meta name="description" content="Index Cards is a self-hosted wiki with backlinks, drafts, feeds, and a weekly digest. Clone it, run it, own your notes.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-2: #1c2330;
+    --line: #2a313c;
+    --line-soft: #222831;
+    --ink: #e6edf3;
+    --ink-2: #9aa7b4;
+    --ink-3: #6b7785;
+    --brand: #9aa7b4;
+    --brand-ink: #0d1117;
+    --ok: #5cdd8b;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, "Cascadia Mono", "Roboto Mono", Menlo, monospace;
+    --max-width: 50rem;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: var(--max-width); margin: 0 auto; padding: 0 1.5rem; }
+
+  /* Header — mirrors the real app's site-header exactly */
+  .site-header {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: 1rem 1.5rem;
+  }
+  .site-header-inner {
+    max-width: var(--max-width); margin: 0 auto;
+    display: flex; align-items: center; gap: 0.4rem 1.5rem; flex-wrap: wrap;
+  }
+  .site-title {
+    font-size: 1rem; font-weight: 700; color: var(--ink);
+    letter-spacing: -.2px; display: flex; align-items: center; gap: 6px;
+  }
+  .site-nav { display: flex; gap: 1rem; }
+  .site-nav a { font-size: 0.875rem; color: var(--ink-2); }
+  .site-nav a:hover { color: var(--ink); text-decoration: none; }
+  .site-search { margin-left: auto; }
+  .site-search input {
+    font-size: 0.875rem; font-family: var(--font);
+    padding: 0.35rem 0.7rem; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink); width: 10rem;
+  }
+  .site-search input::placeholder { color: var(--ink-3); }
+
+  /* Buttons — sharp corners, small lift on hover, matches the app exactly */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border: 1px solid var(--line); border-radius: 0;
+    padding: 0.75rem 1.1rem; font-size: 15px; font-weight: 600;
+    font-family: var(--font); cursor: pointer; transition: .12s ease;
+    text-decoration: none; background: var(--surface-2); color: var(--ink);
+  }
+  .btn:hover { border-color: var(--ink-3); text-decoration: none; transform: translateY(-1px); }
+  .btn-primary { background: var(--ink); color: var(--bg); border-color: transparent; }
+  .btn-primary:hover { filter: brightness(1.15); border-color: transparent; }
+
+  /* Hero — plain-spoken, not a marketing kicker wall */
+  .hero { padding: 4rem 0 3rem; }
+  .hero h1 {
+    font-size: 2.5rem; font-weight: 800; letter-spacing: -.5px;
+    line-height: 1.15; margin: 0 0 1rem; max-width: 30rem;
+  }
+  .hero p.lede {
+    max-width: 34rem; color: var(--ink-2); font-size: 1.0625rem; margin: 0 0 1.75rem;
+  }
+  .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .hero-note { font-size: 0.8125rem; color: var(--ink-3); font-family: var(--mono); }
+
+  /* Section scaffolding */
+  section { padding: 3rem 0; border-top: 1px solid var(--line-soft); }
+  section.hero { border-top: none; }
+  .eyebrow {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--ink-3); font-weight: 700; margin-bottom: 0.6rem;
+  }
+  section h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.3px; margin: 0 0 0.5rem; }
+  section > .wrap > p.intro { color: var(--ink-2); max-width: 36rem; margin: 0 0 2rem; }
+
+  /* Browser-chrome mockups, built from the app's real markup/classes */
+  .mock {
+    border: 1px solid var(--line); background: var(--surface);
+    margin-top: 1rem; overflow: hidden;
+  }
+  .mock-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .mock-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .mock-url {
+    margin-left: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+  }
+  .mock-page { padding: 1.75rem; }
+
+  /* Index page replica */
+  .mock-index-jump {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 1.25rem;
+  }
+  .mock-index-jump span {
+    min-width: 26px; height: 26px; display: grid; place-items: center;
+    font-size: 11px; font-weight: 600; color: var(--ink-3); border: 1px solid var(--line);
+  }
+  .mock-letter {
+    font-size: 0.75rem; font-weight: 700; color: var(--brand); font-family: var(--mono);
+    text-transform: uppercase; letter-spacing: .08em; margin: 1.25rem 0 0.4rem;
+    padding-bottom: 0.25rem; border-bottom: 1px solid var(--line);
+  }
+  .mock-letter:first-child { margin-top: 0; }
+  ul.mock-list { list-style: none; margin: 0; padding: 0; }
+  .mock-entry { padding: 0.45rem 0; border-bottom: 1px solid var(--line-soft); font-size: 0.9rem; }
+  .mock-entry:last-child { border-bottom: none; }
+  .mock-entry a { color: var(--ink); font-weight: 600; }
+  .mock-entry .s { color: var(--ink-2); font-size: 0.85rem; }
+  .mock-entry.alias .see { font-size: 0.75rem; color: var(--ink-3); margin-left: 0.35rem; }
+
+  /* Entry page replica */
+  .mock-breadcrumb { font-size: 0.75rem; color: var(--ink-3); margin-bottom: 0.5rem; }
+  .mock-breadcrumb a { color: var(--ink-3); }
+  .mock-entry-header { border-bottom: 1px solid var(--line); padding-bottom: 0.85rem; margin-bottom: 1.25rem; }
+  .mock-entry-header h3 { margin: 0; font-size: 1.4rem; }
+  .mock-aliases { font-size: 0.8rem; color: var(--ink-2); margin-top: 0.35rem; }
+  .mock-toc {
+    float: right; width: 150px; margin: 0 0 1rem 1.25rem;
+    background: var(--surface-2); border: 1px solid var(--line); padding: 0.85rem;
+    font-size: 0.75rem;
+  }
+  .mock-toc strong {
+    display: block; text-transform: uppercase; letter-spacing: .06em;
+    font-size: 0.65rem; color: var(--ink-3); margin-bottom: 0.4rem;
+  }
+  .mock-toc div { padding: 0.2rem 0; color: var(--ink-2); }
+  .mock-body p { color: var(--ink-2); font-size: 0.875rem; margin: 0 0 0.75rem; }
+  .mock-body a.link { color: var(--brand); border-bottom: 1px dashed var(--brand); text-decoration: none; }
+  .mock-backlinks { clear: both; margin-top: 1.5rem; padding: 0.9rem 1rem; background: var(--surface-2); border: 1px solid var(--line); }
+  .mock-backlinks .eyebrow { margin: 0 0 0.5rem; }
+  .mock-backlinks li { padding: 0.3rem 0; border-bottom: 1px solid var(--line-soft); font-size: 0.85rem; list-style: none; }
+  .mock-backlinks li:last-child { border-bottom: none; }
+  .mock-backlinks a { color: var(--ink); font-weight: 500; }
+  .mock-backlinks ul { margin: 0; padding: 0; }
+
+  /* Functional walkthrough — numbered, plain, not icon cards */
+  .steps { counter-reset: step; margin-top: 1.5rem; }
+  .step { display: flex; gap: 1.1rem; padding: 1.1rem 0; border-top: 1px solid var(--line-soft); }
+  .step:first-child { border-top: none; padding-top: 0; }
+  .step-num {
+    counter-increment: step; flex-shrink: 0;
+    width: 2rem; height: 2rem; border: 1px solid var(--line);
+    display: grid; place-items: center; font-family: var(--mono);
+    font-size: 0.8rem; color: var(--ink-3);
+  }
+  .step-num::before { content: counter(step); }
+  .step h3 { margin: 0 0 0.25rem; font-size: 1rem; }
+  .step p { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
+  .step code { font-family: var(--mono); font-size: 0.85em; background: var(--surface-2); border: 1px solid var(--line); padding: 1px 6px; }
+
+  /* Design principles */
+  .principles { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.5rem; }
+  .principle {
+    background: var(--surface); border: 1px solid var(--line); padding: 1.25rem;
+  }
+  .principle h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+  .principle p { margin: 0; color: var(--ink-2); font-size: 0.875rem; }
+
+  /* Feature detail rows */
+  .feature-group { margin-top: 2.25rem; }
+  .feature-group:first-child { margin-top: 1.5rem; }
+  .feature-group h3 {
+    font-size: 0.95rem; margin: 0 0 0.75rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .feature-row { display: flex; gap: 1.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--line-soft); }
+  .feature-row:last-child { border-bottom: none; }
+  .feature-row dt {
+    flex: 0 0 11rem; font-weight: 600; font-size: 0.875rem; color: var(--ink);
+  }
+  .feature-row dd { margin: 0; color: var(--ink-2); font-size: 0.875rem; flex: 1; }
+
+  /* Roles table */
+  table.roles { width: 100%; border-collapse: collapse; margin-top: 1.5rem; font-size: 0.875rem; }
+  table.roles th, table.roles td {
+    text-align: left; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--line-soft);
+  }
+  table.roles th {
+    color: var(--ink-3); font-size: 0.7rem; text-transform: uppercase; letter-spacing: .06em;
+    font-weight: 700; border-bottom: 1px solid var(--line);
+  }
+  table.roles td:first-child, table.roles th:first-child { color: var(--ink); font-weight: 600; padding-left: 0; }
+  table.roles .yes { color: var(--ok); }
+  table.roles .no { color: var(--ink-3); }
+
+  /* FAQ */
+  .faq { margin-top: 1.5rem; }
+  .faq details {
+    border-bottom: 1px solid var(--line-soft); padding: 0.9rem 0;
+  }
+  .faq details:first-child { padding-top: 0; }
+  .faq summary {
+    cursor: pointer; font-weight: 600; font-size: 0.9375rem; color: var(--ink);
+    list-style: none;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::before { content: "+ "; color: var(--ink-3); font-family: var(--mono); }
+  .faq details[open] summary::before { content: "− "; }
+  .faq p { margin: 0.6rem 0 0; color: var(--ink-2); font-size: 0.875rem; padding-left: 1.1rem; }
+
+  /* Tech section — its own clearly separated place, not mixed into the pitch */
+  .tech-panel {
+    background: var(--surface); border: 1px solid var(--line); padding: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  .tech-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid var(--line-soft); font-size: 0.875rem; }
+  .tech-row:last-child { border-bottom: none; }
+  .tech-row .k { color: var(--ink-3); }
+  .tech-row .v { color: var(--ink); text-align: right; font-family: var(--mono); font-size: 0.8125rem; }
+  .tech-links { margin-top: 1.25rem; display: flex; gap: 1.25rem; font-size: 0.875rem; }
+
+  pre.code {
+    background: var(--surface); border: 1px solid var(--line);
+    padding: 1rem 1.15rem; font-family: var(--mono); font-size: 0.8125rem;
+    color: var(--ink-2); overflow-x: auto; margin: 1rem 0 0;
+  }
+  pre.code .c1 { color: var(--ink-3); }
+  pre.code .c2 { color: var(--ok); }
+
+  .site-footer { border-top: 1px solid var(--line); padding: 1.5rem; margin-top: 1rem; }
+  .site-footer-inner {
+    max-width: var(--max-width); margin: 0 auto;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 0.75rem;
+  }
+  .footer-text { color: var(--ink-3); font-size: 0.8125rem; margin: 0; }
+  .site-footer nav a { color: var(--ink-3); font-size: 0.8125rem; margin-left: 1.1rem; }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 2rem; }
+    .site-nav { display: none; }
+    .mock-toc { float: none; width: auto; margin: 0 0 1rem; }
+    .principles { grid-template-columns: 1fr; }
+    .feature-row { flex-direction: column; gap: 0.25rem; }
+    .feature-row dt { flex: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="README.md" class="site-title">Index Cards</a>
+    <nav class="site-nav">
+      <a href="#how-it-works">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#roles">Roles</a>
+      <a href="#faq">FAQ</a>
+      <a href="#under-the-hood">Under the hood</a>
+    </nav>
+    <form class="site-search" onsubmit="return false">
+      <input type="search" placeholder="Search…" disabled>
+    </form>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <h1>A knowledge base and wiki that publishes like a blog.</h1>
+      <p class="lede">
+        Index Cards is a self-hosted knowledge base where every page is both a
+        wiki entry and a blog post. Write it, link it to whatever else it's
+        about, and publish it when it's ready — no separate systems, no import steps between them.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="README.md">Download</a>
+        <a class="btn" href="README.md">Read the README</a>
+        <a class="btn" href="#how-it-works">See how it works ↓</a>
+      </div>
+      <div class="hero-note">MIT licensed · self-hosted · Python/Flask/SQLite</div>
+    </div>
+  </section>
+
+  <section id="how-it-works">
+    <div class="wrap">
+      <div class="eyebrow">What it actually does</div>
+      <h2>Two core pages</h2>
+      <p class="intro">
+        Not a feature grid — here's what you get.
+      </p>
+
+      <div class="mock">
+        <div class="mock-bar">
+          <span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span>
+          <span class="mock-url">yourdomain.com/</span>
+        </div>
+        <div class="mock-page">
+          <div class="mock-index-jump">
+            <span>A</span><span>D</span><span>F</span><span>L</span><span>S</span>
+          </div>
+          <div class="mock-letter">D</div>
+          <ul class="mock-list">
+            <li class="mock-entry"><a>Deep Work</a> <span class="s">— why the good ideas take longer to reach</span></li>
+          </ul>
+          <div class="mock-letter">F</div>
+          <ul class="mock-list">
+            <li class="mock-entry"><a>Forgetting Curve</a> <span class="s">— review intervals and why they work</span></li>
+          </ul>
+          <div class="mock-letter">L</div>
+          <ul class="mock-list">
+            <li class="mock-entry"><a>Leitner System</a> <span class="s">— a box-based spaced repetition method</span></li>
+            <li class="mock-entry alias"><a>Flashcard Boxes</a><span class="see">See also: Leitner System</span></li>
+          </ul>
+          <div class="mock-letter">S</div>
+          <ul class="mock-list">
+            <li class="mock-entry"><a>Spaced Repetition</a> <span class="s">— reviewing right before you'd forget</span></li>
+          </ul>
+        </div>
+      </div>
+      <p style="color:var(--ink-3); font-size:0.8125rem; margin-top:0.6rem;">
+        Every entry, alphabetized, with cross-references surfaced as "See also" —
+        this is the homepage.
+      </p>
+
+      <div class="mock" style="margin-top:2.5rem;">
+        <div class="mock-bar">
+          <span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span>
+          <span class="mock-url">yourdomain.com/spaced-repetition/</span>
+        </div>
+        <div class="mock-page">
+          <div class="mock-breadcrumb"><a>Contents</a> › Spaced Repetition</div>
+          <div class="mock-toc">
+            <strong>Contents</strong>
+            <div>The forgetting curve</div>
+            <div>Leitner's boxes</div>
+            <div>Active recall</div>
+          </div>
+          <div class="mock-entry-header">
+            <h3>Spaced Repetition</h3>
+            <div class="mock-aliases">Also known as: distributed practice</div>
+          </div>
+          <div class="mock-body">
+            <p>A technique for reviewing material at increasing intervals, timed to land
+            just before you'd otherwise forget it. Closely related to the
+            <a class="link">forgetting curve</a> and formalized in systems like the
+            <a class="link">Leitner system</a>.</p>
+            <p>Most flashcard software implements some version of this — see also
+            <a class="link">active recall</a> for the retrieval side of it.</p>
+          </div>
+          <div class="mock-backlinks">
+            <div class="eyebrow" style="margin-bottom:0.5rem;">Referenced by</div>
+            <ul>
+              <li><a>Study Techniques</a></li>
+              <li><a>Leitner System</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <p style="color:var(--ink-3); font-size:0.8125rem; margin-top:0.6rem;">
+        Link to another entry and the backlink shows up automatically on both
+        ends — you never maintain that list by hand.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="eyebrow">Day to day</div>
+      <h2>From draft to someone's inbox</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div>
+            <h3>Write it as a draft</h3>
+            <p>The editor is a real WYSIWYG (ProseMirror) that reads and writes plain Markdown underneath. Drafts are only visible to writers, never to the public.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div>
+            <h3>Link it as you go</h3>
+            <p>Typing <code>[[</code> opens an inline search over existing titles. Link to an entry that doesn't exist yet and it renders as a distinct "missing" link — a visible prompt to write it later, the same way a classic wiki works.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div>
+            <h3>Publish when it's ready</h3>
+            <p>Flip it out of draft and it appears in the index, the RSS/Atom/JSON feeds, and — if the entry is new that week — the digest queue. Publishing can also announce to Slack or fire an outgoing webhook, if configured.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div>
+            <h3>Subscribers get a weekly note</h3>
+            <p>Anyone who subscribed gets one email a week listing what's new and what changed. No mailing list service required — it's just SMTP, with Mailchimp sync as an optional add-on.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div>
+            <h3>Edit it later, history stays</h3>
+            <p>Every save that changes content is a revision you can review and restore. Concurrent editors get a soft lock so two people don't silently overwrite each other's work on the same page.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div>
+            <h3>Find it again instantly</h3>
+            <p>Full-text search runs on SQLite's FTS5 engine — no external search service, no indexing pipeline to babysit. Ranked results and highlighted snippets are built in.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="eyebrow">In detail</div>
+      <h2>What's in the box</h2>
+      <p class="intro">The full feature list.</p>
+
+      <div class="feature-group">
+        <h3>Wiki mechanics</h3>
+        <dl>
+          <div class="feature-row">
+            <dt>Aliases</dt>
+            <dd>An entry can have alternate titles that redirect to it — cover alternative terms and rename freely without breaking old links or bookmarks.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Backlinks</dt>
+            <dd>Every internal link is tracked in both directions and rebuilt automatically on save. Never maintain your references by hand.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Hierarchy</dt>
+            <dd>Entries can optionally have a parent, for grouping subpages under a topic.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Missing-link prompts</dt>
+            <dd>Links to entries that don't exist yet render distinctly, so gaps in the wiki are visible instead of silently broken.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="feature-group">
+        <h3>Blog mechanics</h3>
+        <dl>
+          <div class="feature-row">
+            <dt>Drafts</dt>
+            <dd>Write and revise privately; nothing is public until it's explicitly published.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Feeds</dt>
+            <dd>RSS, Atom, and JSON feed formats generated automatically from published entries.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Weekly digest</dt>
+            <dd>One email per week to subscribers, summarizing new and (optionally) edited entries, on a configurable day.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Revision history</dt>
+            <dd>Every content-changing save is kept as a restorable snapshot, with an optional changelog note per edit.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="feature-group">
+        <h3>Collaboration</h3>
+        <dl>
+          <div class="feature-row">
+            <dt>Four roles</dt>
+            <dd>Admin, editor, author, and viewer — see the breakdown below.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Passwordless login</dt>
+            <dd>Email magic links instead of passwords to manage, reset, or leak.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Invites &amp; open signup</dt>
+            <dd>Add people by invite, by email-domain match, or open registration — whichever fits your site.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Edit locks</dt>
+            <dd>A short-lived soft lock warns when someone else already has an entry or page open for editing.</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="feature-group">
+        <h3>Integrations &amp; customization</h3>
+        <dl>
+          <div class="feature-row">
+            <dt>Slack</dt>
+            <dd>Post to a webhook when entries are published or updated, independently toggled.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Mailchimp</dt>
+            <dd>Sync subscribers to a Mailchimp list instead of (or alongside) the built-in digest.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Outgoing webhooks</dt>
+            <dd>Signed payloads to any endpoint you control, for anything the built-in integrations don't cover.</dd>
+          </div>
+          <div class="feature-row">
+            <dt>Themes</dt>
+            <dd>Several built-in color themes plus custom CSS, head, and footer HTML injection for full control.</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section id="roles">
+    <div class="wrap">
+      <div class="eyebrow">Access control</div>
+      <h2>Four roles, plainly scoped</h2>
+      <p class="intro">Enough separation for a small team without turning permissions into a nightmare.</p>
+      <table class="roles">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Write entries</th>
+            <th>Edit others' entries</th>
+            <th>Manage pages</th>
+            <th>Site settings &amp; users</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Admin</td>
+            <td class="yes">Yes</td>
+            <td class="yes">Yes, any entry</td>
+            <td class="yes">Yes</td>
+            <td class="yes">Yes</td>
+          </tr>
+          <tr>
+            <td>Editor</td>
+            <td class="yes">Yes</td>
+            <td class="yes">Yes, except admins' entries</td>
+            <td class="yes">Yes</td>
+            <td class="no">No</td>
+          </tr>
+          <tr>
+            <td>Author</td>
+            <td class="yes">Yes</td>
+            <td class="no">Own entries only</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+          </tr>
+          <tr>
+            <td>Viewer</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+            <td class="no">No</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="eyebrow">Design</div>
+      <h2>A few deliberate choices</h2>
+      <div class="principles">
+        <div class="principle">
+          <h3>One object, not two</h3>
+          <p>An entry is simultaneously a wiki page and a blog post — draft, published, and everything in between are just states of the same record, not separate content types.</p>
+        </div>
+        <div class="principle">
+          <h3>No lock-in</h3>
+          <p>Content is stored as Markdown and exportable as Markdown or JSON at any time. Nothing about the format depends on your app staying online.</p>
+        </div>
+        <div class="principle">
+          <h3>Small footprint</h3>
+          <p>One SQLite file, one Python process, no external search index, message queue, or cache layer required to run it.</p>
+        </div>
+        <div class="principle">
+          <h3>Self-hosted by default</h3>
+          <p>Built to run on a single low-cost server you control, with a setup script that gets a production instance running in minutes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="eyebrow">Questions</div>
+      <h2>FAQ</h2>
+      <div class="faq">
+        <details>
+          <summary>Is this a wiki or a blog?</summary>
+          <p>Both, on purpose. Entries behave like wiki pages (aliases, backlinks, optional hierarchy) and like blog posts (drafts, publish dates, feeds, a digest) at the same time — there's no separate "post" content type to keep in sync.</p>
+        </details>
+        <details>
+          <summary>Can more than one person write on the same site?</summary>
+          <p>Yes. There are four roles (admin, editor, author, viewer), invite-based or open signup, and a soft edit lock so two people don't silently overwrite the same entry.</p>
+        </details>
+        <details>
+          <summary>What happens to my content if I stop using it?</summary>
+          <p>Everything is exportable as Markdown or JSON from the admin dashboard at any time. The database itself is a single SQLite file, so there's also nothing preventing direct access to the raw data.</p>
+        </details>
+        <details>
+          <summary>Does it need a mail service?</summary>
+          <p>It needs SMTP credentials to send magic-link logins, invites, and the weekly digest. If none are configured, emails print to the console instead — convenient for local development, not for production.</p>
+        </details>
+        <details>
+          <summary>What does hosting it cost?</summary>
+          <p>Whatever a small Ubuntu/Debian VM costs — there's no database service, search service, or queue to pay for separately. SQLite and the app run on the same box. It's possible to host this app for a couple bucks per month.</p>
+        </details>
+        <details>
+          <summary>Can I change how it looks?</summary>
+          <p>Yes — pick from several built-in color themes, or go further with custom CSS and injected head/footer HTML from the settings page.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="under-the-hood">
+    <div class="wrap">
+      <div class="eyebrow">For the curious</div>
+      <h2>Under the hood</h2>
+      <div class="tech-panel">
+        <div class="tech-row"><span class="k">Backend</span><span class="v">Flask · SQLAlchemy · Flask-Login</span></div>
+        <div class="tech-row"><span class="k">Database</span><span class="v">SQLite + FTS5 (one file)</span></div>
+        <div class="tech-row"><span class="k">Editor</span><span class="v">ProseMirror, Markdown in/out</span></div>
+        <div class="tech-row"><span class="k">Frontend</span><span class="v">Server-rendered Jinja2 + vanilla JS</span></div>
+        <div class="tech-row"><span class="k">Deployment</span><span class="v">gunicorn + nginx + systemd</span></div>
+        <div class="tech-row"><span class="k">Auth</span><span class="v">passwordless, email magic links</span></div>
+      </div>
+      <pre class="code"><span class="c1"># local dev</span>
+pip install -r requirements.txt
+cp env.example .env
+python3 run.py
+
+<span class="c1"># production install (any path — the script installs wherever it's run from)</span>
+<span class="c2">sudo bash deploy/setup.sh</span></pre>
+      <div class="tech-links">
+        <a href="TECHNICAL.md">Download →</a>
+        <a href="TECHNICAL.md">Full architecture &amp; data model</a>
+        <a href="deploy/README.md">Deployment guide</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p class="footer-text">Index Cards — MIT licensed.</p>
+    <nav>
+      <a href="README.md">README</a>
+      <a href="TECHNICAL.md">Technical docs</a>
+      <a href="deploy/README.md">Deployment</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>

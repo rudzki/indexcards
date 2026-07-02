@@ -3,7 +3,8 @@
 # Run as root (or a user with sudo access to systemctl).
 set -euo pipefail
 
-APP_DIR=/srv/indexcards
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
 APP_USER=indexcards
 
 echo "==> Pulling latest code"

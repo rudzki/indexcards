@@ -138,14 +138,19 @@
     if (!form || !form.dataset.lockType || !form.dataset.lockId) return;
     var LOCK_URL = '/api/lock/' + form.dataset.lockType + '/' + form.dataset.lockId;
     var heartbeat = setInterval(function() {
-        fetch(LOCK_URL, { method: 'POST', credentials: 'same-origin' });
+        fetch(LOCK_URL, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken() },
+        });
     }, 30000);
+    var releaseBody = function() { return new URLSearchParams({ csrf_token: csrfToken() }); };
     form.addEventListener('submit', function() {
         clearInterval(heartbeat);
-        navigator.sendBeacon(LOCK_URL + '/release');
+        navigator.sendBeacon(LOCK_URL + '/release', releaseBody());
     });
     window.addEventListener('pagehide', function() {
         clearInterval(heartbeat);
-        navigator.sendBeacon(LOCK_URL + '/release');
+        navigator.sendBeacon(LOCK_URL + '/release', releaseBody());
     });
 })();

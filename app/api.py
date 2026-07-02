@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 
 from app.models import Entry, Alias, SiteSettings, EditLock
 from app.markdown import render_markdown
-from app import db, limiter
+from app import db, limiter, csrf
 
 LOCK_TTL = 60  # seconds
 
@@ -54,6 +54,7 @@ def _entry_full(entry):
 
 @api_bp.route('/v1/entries')
 @limiter.limit('120 per minute')
+@csrf.exempt
 def public_entries():
     denied = _check_visibility()
     if denied:
@@ -79,6 +80,7 @@ def public_entries():
 
 @api_bp.route('/v1/entries/<slug>')
 @limiter.limit('120 per minute')
+@csrf.exempt
 def public_entry(slug):
     denied = _check_visibility()
     if denied:
@@ -145,6 +147,9 @@ def search_entries():
 
 @api_bp.route('/entry/<slug>/preview')
 def entry_preview(slug):
+    denied = _check_visibility()
+    if denied:
+        return denied
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if not entry:
         return jsonify({'error': 'not found'}), 404

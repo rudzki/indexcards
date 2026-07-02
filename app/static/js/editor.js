@@ -126,10 +126,18 @@ function docToMarkdown(doc) {
     return mdSerializer.serialize(doc);
 }
 
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function uploadImage(file, view, insertPos) {
     const formData = new FormData();
     formData.append('image', file);
-    fetch('/api/upload-image', { method: 'POST', body: formData })
+    fetch('/api/upload-image', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken() },
+        body: formData,
+    })
         .then(r => r.json())
         .then(data => {
             if (!data.url) return;
@@ -486,8 +494,8 @@ function showLinkDialog(view) {
                     }
                     results.innerHTML = entries.map(e =>
                         `<div class="link-result" data-slug="${e.slug}">
-                            <strong>${e.title}</strong>
-                            ${e.summary ? `<span class="link-result-summary">${e.summary}</span>` : ""}
+                            <strong>${escapeHtml(e.title)}</strong>
+                            ${e.summary ? `<span class="link-result-summary">${escapeHtml(e.summary)}</span>` : ""}
                         </div>`
                     ).join("");
                     selectedUrl = `/${entries[0].slug}/`;

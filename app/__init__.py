@@ -42,7 +42,6 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp)
-    csrf.exempt(api_bp)
     app.register_blueprint(api_bp)
 
     from app.digest import register_cli
@@ -62,6 +61,13 @@ def create_app():
 
     @app.before_request
     def require_login_for_private_site():
+        # The `api` blueprint enforces its own visibility rules (see
+        # app/api.py:_check_visibility) with proper JSON 401 responses
+        # instead of an HTML redirect — keep it out of this gate so there's
+        # a single source of truth per endpoint instead of two allowlists
+        # that can drift out of sync.
+        if request.endpoint and request.endpoint.startswith('api.'):
+            return
         from flask_login import current_user
         from app.models import SiteSettings
         settings = SiteSettings.query.get(1)
@@ -84,8 +90,7 @@ def create_app():
 
     with app.app_context():
         from app import models  # noqa: F401
-        if is_dev or app.debug:
-            db.create_all()
+        db.create_all()
         from app.migrate_db import run_migrations
         run_migrations()
         from app.search import create_fts_table

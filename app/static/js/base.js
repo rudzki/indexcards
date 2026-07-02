@@ -1,9 +1,20 @@
+function csrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
 function showToast(category, message, duration) {
     var el = document.createElement('div');
     el.className = 'toast toast-' + category;
     if (category === 'error' || category === 'warn') el.setAttribute('role', 'alert');
-    el.innerHTML = '<span>' + message + '</span>'
-        + '<button class="toast-close" onclick="this.parentNode.remove()">&times;</button>';
+    var span = document.createElement('span');
+    span.textContent = message;
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.addEventListener('click', function() { el.remove(); });
+    el.appendChild(span);
+    el.appendChild(closeBtn);
     document.getElementById('toast-container').appendChild(el);
     requestAnimationFrame(function() { el.classList.add('toast-visible'); });
     setTimeout(function() {

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}{{ site_settings.site_title }}{% endblock %}</title>
     {% block meta_description %}{% endblock %}
     {% if site_settings.site_image %}
@@ -34,7 +35,7 @@
     <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
     {% block head_extra %}{% endblock %}
     {% if site_settings.custom_css %}
-    <style>{{ site_settings.custom_css }}</style>
+    <style>{{ site_settings.custom_css|safe }}</style>
     {% endif %}
     {% if site_settings.custom_head_html %}
     {{ site_settings.custom_head_html|safe }}

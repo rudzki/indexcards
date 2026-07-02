@@ -15,11 +15,17 @@ def register_cli(app):
 
 
 @click.command('send-digest')
+@click.option('--force', is_flag=True, help="Send even if today isn't the configured digest day.")
 @with_appcontext
-def send_digest():
+def send_digest(force):
     settings = SiteSettings.query.get(1)
     if not settings:
         click.echo('No site settings found.')
+        return
+
+    today = datetime.now(timezone.utc).weekday()  # Monday=0 .. Sunday=6, matches digest_day
+    if not force and settings.digest_day != today:
+        click.echo(f'Not the configured digest day (today={today}, configured={settings.digest_day}). Skipping.')
         return
 
     since = datetime.now(timezone.utc) - timedelta(days=7)

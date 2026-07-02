@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Index Cards weekly digest
+
+[Timer]
+# Runs daily; the digest itself checks SiteSettings.digest_day and no-ops
+# on any other day, so this just needs to fire at least once per target day.
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

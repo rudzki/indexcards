@@ -1,0 +1,12 @@
+[Unit]
+Description=Index Cards weekly digest
+After=network.target
+
+[Service]
+Type=oneshot
+User=indexcards
+Group=indexcards
+WorkingDirectory=/srv/indexcards
+Environment=FLASK_APP=run.py
+EnvironmentFile=/srv/indexcards/.env
+ExecStart=/srv/indexcards/venv/bin/flask send-digest

@@ -1,4 +1,4 @@
-import html
+import html as html_lib
 import re
 
 import bleach
@@ -11,7 +11,7 @@ ALLOWED_TAGS = [
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
 ]
 ALLOWED_ATTRS = {
-    'a': ['href', 'title', 'class'],
+    'a': ['href', 'title', 'class', 'data-footnote'],
     'img': ['src', 'alt', 'title'],
     'sup': ['class', 'id'],
     'section': ['class'],
@@ -45,9 +45,13 @@ def render_markdown(text):
         key = m.group(1)
         if key in footnotes:
             content = footnotes[key]
+            # Strip any markup and escape for safe embedding inside a quoted
+            # HTML attribute — bleach.clean() alone does not escape quotes.
+            plain = html_lib.unescape(bleach.clean(content, tags=[], strip=True))
+            safe_content = html_lib.escape(plain, quote=True)
             return (
                 f'<sup class="footnote-ref" id="fnref-{key}">'
-                f'<a href="#fn-{key}" data-footnote="{bleach.clean(content)}">{key}</a>'
+                f'<a href="#fn-{key}" data-footnote="{safe_content}">{key}</a>'
                 f'</sup>'
             )
         return m.group(0)
@@ -122,7 +126,7 @@ def extract_toc(html_content):
         tag = m.group(1)
         level = int(tag[1])
         attrs = m.group(2) or ''
-        text = html.unescape(re.sub(r'<[^>]+>', '', m.group(4)).strip())
+        text = html_lib.unescape(re.sub(r'<[^>]+>', '', m.group(4)).strip())
         id_match = re.search(r'id="([^"]+)"', attrs)
         if id_match:
             headings.append({'level': level, 'text': text, 'id': id_match.group(1)})

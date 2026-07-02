@@ -194,6 +194,11 @@ def _save_entry(entry):
 
     slug_input = request.form.get('slug', '').strip()
     slug = make_slug(slug_input) if slug_input else make_slug(title)
+
+    if slug in RESERVED_SLUGS:
+        flash(f'"{slug}" is a reserved path and cannot be used as an entry slug.', 'error')
+        return render_template('editor.html', entry=entry)
+
     is_new = entry is None
 
     if is_new:
@@ -925,7 +930,7 @@ def pages_list():
 
 
 @admin_bp.route('/pages/new/', methods=['GET', 'POST'])
-@admin_required
+@editor_required
 def new_page():
     if request.method == 'POST':
         return _save_page(None)

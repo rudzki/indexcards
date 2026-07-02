@@ -5,4 +5,5 @@ venv/
 test-results/
 .env
 *.md
-landing.html
+!README.md
+!TECHNICAL.md

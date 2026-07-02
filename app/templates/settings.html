@@ -119,18 +119,18 @@
                 </label>
             </div>
             <div class="field">
-                <label>Subpages on index</label>
-                <p class="field-hint mb-0">Controls how subpages appear in the main index list.</p>
+                <label>Child entries on index</label>
+                <p class="field-hint mb-0">Controls how child entries appear in the main index list.</p>
                 <div class="radio-group">
                     <label>
                         <input type="radio" name="subpage_display" value="separate"
                                {% if settings.subpage_display == 'separate' %}checked{% endif %}>
-                        Show subpages as their own item
+                        Show child entries alongside other entries
                     </label>
                     <label>
                         <input type="radio" name="subpage_display" value="nested"
                                {% if settings.subpage_display == 'nested' %}checked{% endif %}>
-                        Show subpages under their parent page
+                        Show child entries under their parent entry
                     </label>
                     <label>
                         <input type="radio" name="subpage_display" value="both"

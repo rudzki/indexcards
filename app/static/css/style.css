@@ -253,8 +253,6 @@ img {
   letter-spacing: -.2px;
   line-height: normal;
   display: flex;
-  top: -1px;
-  position: relative;
 }
 
 a.site-title:hover {
@@ -264,7 +262,7 @@ a.site-title:hover {
 .site-nav {
   display: flex;
   gap: 1rem;
-  line-height: normal;
+  line-height: 1;
 }
 
 .site-nav a {

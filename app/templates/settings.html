@@ -87,6 +87,34 @@
         </fieldset>
 
         <fieldset>
+            <legend>Site visibility</legend>
+            <div class="field">
+                <label>Site visibility</label>
+                <p class="field-hint mb-0">Controls who can access this site. Set to Registered to restrict all content to logged-in users only.</p>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="site_visibility" value="public"
+                               {% if settings.site_visibility == 'public' %}checked{% endif %}>
+                        Public — anyone can read
+                    </label>
+                    <label>
+                        <input type="radio" name="site_visibility" value="registered"
+                               {% if settings.site_visibility == 'registered' %}checked{% endif %}>
+                        Registered users only
+                    </label>
+                </div>
+            </div>
+            {% if settings.site_visibility == 'public' %}
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="feeds_enabled" {% if settings.feeds_enabled %}checked{% endif %}>
+                    Enable JSON and RSS feeds
+                </label>
+            </div>
+            {% endif %}
+        </fieldset>
+
+        <fieldset>
             <legend>Options</legend>
             <div class="field field-inline">
                 <label>
@@ -139,30 +167,6 @@
                     </label>
                 </div>
             </div>
-            <div class="field">
-                <label>Site visibility</label>
-                <p class="field-hint mb-0">Controls who can access this site. Set to Registered to restrict all content to logged-in users only.</p>
-                <div class="radio-group">
-                    <label>
-                        <input type="radio" name="site_visibility" value="public"
-                               {% if settings.site_visibility == 'public' %}checked{% endif %}>
-                        Public — anyone can read
-                    </label>
-                    <label>
-                        <input type="radio" name="site_visibility" value="registered"
-                               {% if settings.site_visibility == 'registered' %}checked{% endif %}>
-                        Registered users only
-                    </label>
-                </div>
-            </div>
-            {% if settings.site_visibility == 'public' %}
-            <div class="field field-inline">
-                <label>
-                    <input type="checkbox" name="feeds_enabled" {% if settings.feeds_enabled %}checked{% endif %}>
-                    Enable JSON and RSS feeds
-                </label>
-            </div>
-            {% endif %}
         </fieldset>
 
         <fieldset>

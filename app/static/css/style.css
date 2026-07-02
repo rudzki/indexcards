@@ -2527,40 +2527,20 @@ a.index-child-link,
   }
 }
 
-/* ── Link dialog ─────────────────────────────────────────── */
+/* ── Floating search popups ──────────────────────────────────
+   Shared look for anchored search/create dropdowns: the link-insert
+   popup, the wiki-link typeahead, and the parent-entry field below
+   all use the same border/shadow/row recipe. ── */
 
 .link-dialog {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.link-dialog-backdrop {
   position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, .5)
-}
-
-.link-dialog-content {
-  position: relative;
-  background: var(--surface-2);
+  z-index: 200;
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 1.5rem;
-  width: 28rem;
-  max-width: 90vw;
-  box-shadow: var(--shadow-lg);
-}
-
-.link-dialog-content label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ink-2);
-  display: block;
-  margin-bottom: 0.5rem;
+  box-shadow: var(--shadow);
+  padding: 0.5rem;
+  width: 300px;
+  max-width: calc(100vw - 16px);
 }
 
 .link-dialog-input {
@@ -2587,17 +2567,12 @@ a.index-child-link,
 .link-result {
   padding: 0.5rem 0.65rem;
   cursor: pointer;
-  border-radius: var(--r-sm);
   font-size: 0.875rem
 }
 
-.link-result:hover {
-  background: var(--surface)
-}
-
+.link-result:hover,
 .link-result.selected {
-  background: var(--brand-bg);
-  color: var(--brand)
+  background: var(--surface-2)
 }
 
 .link-result-summary {
@@ -2613,37 +2588,9 @@ a.index-child-link,
   font-size: 0.8125rem
 }
 
-.link-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1rem
-}
-
-.link-dialog-actions button {
-  padding: 0.4rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-family: inherit;
-  background: var(--surface-2);
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.link-dialog-actions button:hover {
-  border-color: var(--ink-3)
-}
-
-.link-dialog-insert {
-  background: var(--brand) !important;
-  color: var(--brand-ink) !important;
-  border-color: var(--brand) !important;
-}
-
-.link-dialog-insert:hover {
-  filter: brightness(1.08)
+.link-result-create {
+  color: var(--brand);
+  border-top: 1px solid var(--line);
 }
 
 /* ── Wiki-link typeahead popup ───────────────────────────── */
@@ -2691,6 +2638,12 @@ a.index-child-link,
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
   color: var(--ink-3);
+}
+
+.wikilink-result-create {
+  color: var(--brand);
+  font-size: 0.875rem;
+  border-top: 1px solid var(--line);
 }
 
 /* ── Confirm dialog ──────────────────────────────────────── */
@@ -3077,9 +3030,10 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   top: 100%;
   left: 0;
   right: 0;
+  margin-top: 4px;
   background: var(--surface);
-  border: 1px solid var(--brand);
-  border-top: none;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
   z-index: 50;
   max-height: 200px;
   overflow-y: auto;
@@ -3089,7 +3043,12 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   cursor: pointer;
   font-size: 0.875rem;
 }
-.parent-result:hover { background: var(--surface-2); }
+.parent-result:hover,
+.parent-result.selected { background: var(--surface-2); }
+.parent-result-create {
+  color: var(--brand);
+  border-top: 1px solid var(--line);
+}
 
 /* ── Theme picker ────────────────────────────────────────── */
 

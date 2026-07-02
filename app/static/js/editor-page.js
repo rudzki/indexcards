@@ -68,6 +68,7 @@
 
     var dropdown = null;
     var debounceTimer = null;
+    var creating = false;
 
     function createDropdown() {
         if (dropdown) return;
@@ -80,31 +81,82 @@
         if (dropdown) { dropdown.remove(); dropdown = null; }
     }
 
+    function selectResult(item) {
+        searchInput.value = item.title;
+        hiddenInput.value = item.id;
+        removeDropdown();
+    }
+
+    function quickCreate(title) {
+        if (creating) return;
+        creating = true;
+        fetch('/api/entries/quick-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+            body: JSON.stringify({ title: title }),
+        })
+            .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+            .then(function(res) {
+                creating = false;
+                if (!res.ok) {
+                    if (window.showToast) showToast('error', res.data.error || 'Could not create entry.');
+                    return;
+                }
+                selectResult(res.data);
+            })
+            .catch(function() {
+                creating = false;
+                if (window.showToast) showToast('error', 'Could not create entry.');
+            });
+    }
+
+    function renderResults(results, q) {
+        createDropdown();
+        dropdown.innerHTML = '';
+        results.forEach(function(item) {
+            var div = document.createElement('div');
+            div.className = 'parent-result';
+            div.textContent = item.title;
+            div.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                selectResult(item);
+            });
+            dropdown.appendChild(div);
+        });
+
+        var exactMatch = results.some(function(item) {
+            return item.title.toLowerCase() === q.toLowerCase();
+        });
+        if (q && !exactMatch) {
+            var createDiv = document.createElement('div');
+            createDiv.className = 'parent-result parent-result-create';
+            createDiv.textContent = 'Create new entry: "' + q + '"';
+            createDiv.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                quickCreate(q);
+            });
+            dropdown.appendChild(createDiv);
+        }
+
+        if (!dropdown.children.length) removeDropdown();
+    }
+
+    function runSearch(q) {
+        fetch('/api/entries/search?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(results) { renderResults(results, q); });
+    }
+
     searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
+        hiddenInput.value = '';
         var q = searchInput.value.trim();
-        if (!q) { hiddenInput.value = ''; removeDropdown(); return; }
-        debounceTimer = setTimeout(function() {
-            fetch('/api/entries/search?q=' + encodeURIComponent(q))
-                .then(function(r) { return r.json(); })
-                .then(function(results) {
-                    if (!results.length) { removeDropdown(); return; }
-                    createDropdown();
-                    dropdown.innerHTML = '';
-                    results.forEach(function(item) {
-                        var div = document.createElement('div');
-                        div.className = 'parent-result';
-                        div.textContent = item.title;
-                        div.addEventListener('mousedown', function(e) {
-                            e.preventDefault();
-                            searchInput.value = item.title;
-                            hiddenInput.value = item.id;
-                            removeDropdown();
-                        });
-                        dropdown.appendChild(div);
-                    });
-                });
-        }, 200);
+        debounceTimer = setTimeout(function() { runSearch(q); }, 200);
+    });
+
+    searchInput.addEventListener('focus', function() {
+        if (dropdown) return;
+        runSearch(searchInput.value.trim());
     });
 
     searchInput.addEventListener('blur', function() {

@@ -179,6 +179,7 @@ function buildWikiLinkPlugin() {
     let selectedIdx = 0;
     let queryStart = null;
     let debounceTimer = null;
+    let currentQuery = '';
 
     function closePopup() {
         if (popup) { popup.remove(); popup = null; }
@@ -200,15 +201,20 @@ function buildWikiLinkPlugin() {
         }
         results.forEach((entry, i) => {
             const div = document.createElement('div');
-            div.className = 'wikilink-result' + (i === selectedIdx ? ' selected' : '');
-            const title = document.createElement('strong');
-            title.textContent = entry.title;
-            div.appendChild(title);
-            if (entry.summary) {
-                const s = document.createElement('span');
-                s.className = 'wikilink-summary';
-                s.textContent = entry.summary;
-                div.appendChild(s);
+            div.className = 'wikilink-result' + (i === selectedIdx ? ' selected' : '') +
+                (entry.create ? ' wikilink-result-create' : '');
+            if (entry.create) {
+                div.textContent = 'Create new entry: "' + entry.title + '"';
+            } else {
+                const title = document.createElement('strong');
+                title.textContent = entry.title;
+                div.appendChild(title);
+                if (entry.summary) {
+                    const s = document.createElement('span');
+                    s.className = 'wikilink-summary';
+                    s.textContent = entry.summary;
+                    div.appendChild(s);
+                }
             }
             div.addEventListener('mousedown', e => {
                 e.preventDefault();
@@ -220,21 +226,40 @@ function buildWikiLinkPlugin() {
 
     function positionPopup(view, cursorPos) {
         if (!popup) return;
-        const coords = view.coordsAtPos(cursorPos);
-        const popW = popup.offsetWidth || 260;
-        let left = coords.left + window.scrollX;
-        let top = coords.bottom + window.scrollY + 4;
-        left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
-        popup.style.left = left + 'px';
-        popup.style.top = top + 'px';
+        positionFloatingPopup(popup, view, cursorPos);
     }
 
     function insertWikiLink(view, entry) {
         if (queryStart === null) return;
-        const { state, dispatch } = view;
+        const { state } = view;
+        const start = queryStart;
         const to = state.selection.from;
+
+        if (entry.create) {
+            closePopup();
+            fetch('/api/entries/quick-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                body: JSON.stringify({ title: entry.title }),
+            })
+                .then(r => r.json().then(data => ({ ok: r.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) {
+                        if (window.showToast) showToast('error', data.error || 'Could not create entry.');
+                        return;
+                    }
+                    const linkMark = schema.marks.link.create({ href: `/${data.slug}/` });
+                    view.dispatch(view.state.tr.replaceWith(start, to, schema.text(data.title, [linkMark])));
+                    view.focus();
+                })
+                .catch(() => {
+                    if (window.showToast) showToast('error', 'Could not create entry.');
+                });
+            return;
+        }
+
         const linkMark = schema.marks.link.create({ href: `/${entry.slug}/` });
-        dispatch(state.tr.replaceWith(queryStart, to, schema.text(entry.title, [linkMark])));
+        view.dispatch(state.tr.replaceWith(start, to, schema.text(entry.title, [linkMark])));
         closePopup();
         view.focus();
     }
@@ -251,6 +276,7 @@ function buildWikiLinkPlugin() {
 
                     const query = match[1];
                     queryStart = $from.pos - query.length - 2;
+                    currentQuery = query;
 
                     if (!popup) {
                         popup = document.createElement('div');
@@ -271,7 +297,9 @@ function buildWikiLinkPlugin() {
                         fetch(`/api/entries/search?q=${encodeURIComponent(query)}`)
                             .then(r => r.json())
                             .then(data => {
-                                results = data;
+                                if (query !== currentQuery) return;
+                                const exactMatch = data.some(e => e.title.toLowerCase() === query.toLowerCase());
+                                results = exactMatch ? data : data.concat([{ create: true, title: query }]);
                                 selectedIdx = 0;
                                 renderPopup(view);
                                 positionPopup(view, view.state.selection.$from.pos);
@@ -447,6 +475,16 @@ function setupToolbar(toolbar, view) {
     };
 }
 
+function positionFloatingPopup(popup, view, pos) {
+    const coords = view.coordsAtPos(pos);
+    const popW = popup.offsetWidth || 300;
+    let left = coords.left + window.scrollX;
+    let top = coords.bottom + window.scrollY + 4;
+    left = Math.max(8, Math.min(left, window.innerWidth - popW - 8));
+    popup.style.left = left + "px";
+    popup.style.top = top + "px";
+}
+
 function showLinkDialog(view) {
     const existing = document.querySelector(".link-dialog");
     if (existing) existing.remove();
@@ -454,23 +492,45 @@ function showLinkDialog(view) {
     const dialog = document.createElement("div");
     dialog.className = "link-dialog";
     dialog.innerHTML = `
-        <div class="link-dialog-backdrop"></div>
-        <div class="link-dialog-content">
-            <label>Search entries or paste URL:</label>
-            <input type="text" class="link-dialog-input" placeholder="Start typing…" autofocus>
-            <div class="link-dialog-results"></div>
-            <div class="link-dialog-actions">
-                <button type="button" class="link-dialog-cancel">Cancel</button>
-                <button type="button" class="link-dialog-insert">Insert Link</button>
-            </div>
-        </div>
+        <input type="text" class="link-dialog-input" placeholder="Search entries or paste URL…" autofocus>
+        <div class="link-dialog-results"></div>
     `;
     document.body.appendChild(dialog);
+
+    const anchorPos = view.state.selection.from;
+    positionFloatingPopup(dialog, view, anchorPos);
 
     const input = dialog.querySelector(".link-dialog-input");
     const results = dialog.querySelector(".link-dialog-results");
     let selectedUrl = null;
+    let selectedTitle = null;
     let debounceTimer = null;
+    let creating = false;
+
+    function quickCreateAndInsert(title) {
+        if (creating) return;
+        creating = true;
+        fetch("/api/entries/quick-create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+            body: JSON.stringify({ title }),
+        })
+            .then(r => r.json().then(data => ({ ok: r.ok, data })))
+            .then(({ ok, data }) => {
+                creating = false;
+                if (!ok) {
+                    if (window.showToast) showToast("error", data.error || "Could not create entry.");
+                    return;
+                }
+                selectedUrl = `/${data.slug}/`;
+                selectedTitle = data.title;
+                insertLink();
+            })
+            .catch(() => {
+                creating = false;
+                if (window.showToast) showToast("error", "Could not create entry.");
+            });
+    }
 
     input.addEventListener("input", () => {
         clearTimeout(debounceTimer);
@@ -479,6 +539,7 @@ function showLinkDialog(view) {
 
         if (q.startsWith("http://") || q.startsWith("https://") || q.startsWith("/")) {
             selectedUrl = q;
+            selectedTitle = null;
             results.innerHTML = `<div class="link-result selected">Use: ${q}</div>`;
             return;
         }
@@ -487,19 +548,36 @@ function showLinkDialog(view) {
             fetch(`/api/entries/search?q=${encodeURIComponent(q)}`)
                 .then(r => r.json())
                 .then(entries => {
-                    if (entries.length === 0) {
-                        results.innerHTML = `<div class="link-result-empty">No entries found. You can paste a full URL instead.</div>`;
-                        selectedUrl = null;
-                        return;
-                    }
-                    results.innerHTML = entries.map(e =>
-                        `<div class="link-result" data-slug="${e.slug}">
+                    let html = entries.map(e =>
+                        `<div class="link-result" data-slug="${e.slug}" data-title="${escapeHtml(e.title)}">
                             <strong>${escapeHtml(e.title)}</strong>
                             ${e.summary ? `<span class="link-result-summary">${escapeHtml(e.summary)}</span>` : ""}
                         </div>`
                     ).join("");
-                    selectedUrl = `/${entries[0].slug}/`;
-                    results.querySelector(".link-result").classList.add("selected");
+
+                    const exactMatch = entries.some(e => e.title.toLowerCase() === q.toLowerCase());
+                    if (!exactMatch) {
+                        html += `<div class="link-result link-result-create" data-create="${escapeHtml(q)}">Create new entry: "${escapeHtml(q)}"</div>`;
+                    }
+
+                    if (!html) {
+                        results.innerHTML = `<div class="link-result-empty">No entries found. You can paste a full URL instead.</div>`;
+                        selectedUrl = null;
+                        selectedTitle = null;
+                        return;
+                    }
+
+                    results.innerHTML = html;
+                    const first = results.querySelector(".link-result");
+                    first.classList.add("selected");
+                    if (entries.length) {
+                        selectedUrl = `/${entries[0].slug}/`;
+                        selectedTitle = entries[0].title;
+                    } else {
+                        selectedUrl = null;
+                        selectedTitle = null;
+                    }
+                    positionFloatingPopup(dialog, view, anchorPos);
                 });
         }, 200);
     });
@@ -507,10 +585,16 @@ function showLinkDialog(view) {
     results.addEventListener("click", e => {
         const item = e.target.closest(".link-result");
         if (!item) return;
+        if (item.dataset.create) {
+            quickCreateAndInsert(item.dataset.create);
+            return;
+        }
         results.querySelectorAll(".link-result").forEach(r => r.classList.remove("selected"));
         item.classList.add("selected");
         const slug = item.dataset.slug;
         selectedUrl = slug ? `/${slug}/` : input.value;
+        selectedTitle = item.dataset.title || null;
+        insertLink();
     });
 
     function insertLink() {
@@ -522,7 +606,7 @@ function showLinkDialog(view) {
         const linkMark = schema.marks.link.create({ href: url });
 
         if (empty) {
-            const linkText = url.startsWith("/") ? url.replace(/\//g, "").replace(/-/g, " ") : url;
+            const linkText = selectedTitle || (url.startsWith("/") ? url.replace(/\//g, "").replace(/-/g, " ") : url);
             const textNode = schema.text(linkText, [linkMark]);
             dispatch(state.tr.replaceSelectionWith(textNode));
         } else {
@@ -532,16 +616,27 @@ function showLinkDialog(view) {
         view.focus();
     }
 
+    function onOutsideClick(e) {
+        if (!dialog.contains(e.target)) close();
+    }
+
     function close() {
+        document.removeEventListener("mousedown", onOutsideClick);
         dialog.remove();
     }
 
-    dialog.querySelector(".link-dialog-backdrop").addEventListener("click", close);
-    dialog.querySelector(".link-dialog-cancel").addEventListener("click", close);
-    dialog.querySelector(".link-dialog-insert").addEventListener("click", insertLink);
+    setTimeout(() => document.addEventListener("mousedown", onOutsideClick), 0);
 
     input.addEventListener("keydown", e => {
-        if (e.key === "Enter") { e.preventDefault(); insertLink(); }
+        if (e.key === "Enter") {
+            e.preventDefault();
+            const active = results.querySelector(".link-result.selected");
+            if (active && active.dataset.create) {
+                quickCreateAndInsert(active.dataset.create);
+            } else {
+                insertLink();
+            }
+        }
         if (e.key === "Escape") close();
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
@@ -554,8 +649,14 @@ function showLinkDialog(view) {
             items.forEach(r => r.classList.remove("selected"));
             items[idx].classList.add("selected");
             items[idx].scrollIntoView({ block: "nearest" });
-            const slug = items[idx].dataset.slug;
-            selectedUrl = slug ? `/${slug}/` : input.value;
+            if (items[idx].dataset.create) {
+                selectedUrl = null;
+                selectedTitle = null;
+            } else {
+                const slug = items[idx].dataset.slug;
+                selectedUrl = slug ? `/${slug}/` : input.value;
+                selectedTitle = items[idx].dataset.title || null;
+            }
         }
     });
 

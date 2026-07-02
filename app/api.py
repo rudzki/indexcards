@@ -5,8 +5,10 @@ from datetime import datetime, timezone, timedelta
 from flask import Blueprint, jsonify, request, current_app, url_for
 from flask_login import login_required, current_user
 
-from app.models import Entry, Alias, SiteSettings, EditLock
+from app.models import Entry, Alias, SiteSettings, EditLock, make_slug, log_audit
 from app.markdown import render_markdown
+from app.search import update_fts_entry
+from app.views.admin import RESERVED_SLUGS
 from app import db, limiter, csrf
 
 LOCK_TTL = 60  # seconds
@@ -105,8 +107,18 @@ def search_entries():
     if err:
         return err
     q = request.args.get('q', '').strip().lower()
-    if not q or len(q) < 1:
-        return jsonify([])
+
+    if not q:
+        entries = (Entry.query
+                   .filter(Entry.is_draft == False)  # noqa: E712
+                   .order_by(Entry.sort_title)
+                   .limit(20).all())
+        return jsonify([{
+            'id': entry.id,
+            'title': entry.title,
+            'slug': entry.slug,
+            'summary': entry.summary,
+        } for entry in entries])
 
     q_escaped = q.replace('%', r'\%').replace('_', r'\_')
 
@@ -143,6 +155,43 @@ def search_entries():
             })
 
     return jsonify(results[:15])
+
+
+@api_bp.route('/entries/quick-create', methods=['POST'])
+@login_required
+def quick_create_entry():
+    if not current_user.can_write:
+        return jsonify({'error': 'Forbidden'}), 403
+
+    data = request.get_json(silent=True) or request.form
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'error': 'Title is required.'}), 400
+
+    slug = make_slug(title)
+    if not slug or slug in RESERVED_SLUGS:
+        return jsonify({'error': 'That title cannot be used.'}), 400
+
+    existing = Entry.query.filter_by(slug=slug).first()
+    if existing:
+        return jsonify({'id': existing.id, 'title': existing.title, 'slug': existing.slug})
+    existing_alias = Alias.query.filter_by(slug=slug).first()
+    if existing_alias:
+        return jsonify({
+            'id': existing_alias.entry_id,
+            'title': existing_alias.entry.title,
+            'slug': existing_alias.entry.slug,
+        })
+
+    entry = Entry(slug=slug, title=title, is_draft=True, created_by=current_user.id)
+    entry.update_sort_title()
+    db.session.add(entry)
+    db.session.commit()
+
+    update_fts_entry(entry)
+    log_audit('entry_created', detail=entry.title, user_id=current_user.id)
+
+    return jsonify({'id': entry.id, 'title': entry.title, 'slug': entry.slug}), 201
 
 
 @api_bp.route('/entry/<slug>/preview')

@@ -348,6 +348,10 @@ def settings():
         site_settings.show_authors = 'show_authors' in request.form
         site_settings.show_history = 'show_history' in request.form
         site_settings.alpha_jump_enabled = 'alpha_jump_enabled' in request.form
+
+        valid_subpage_display = {'separate', 'nested', 'both'}
+        raw_subpage_display = request.form.get('subpage_display', 'both')
+        site_settings.subpage_display = raw_subpage_display if raw_subpage_display in valid_subpage_display else 'both'
         site_settings.feeds_enabled = 'feeds_enabled' in request.form
         site_settings.site_icon = request.form.get('site_icon', '').strip()
 

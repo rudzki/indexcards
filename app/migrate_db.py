@@ -163,5 +163,8 @@ def run_migrations():
             )
         """)
 
+    if has_table('site_settings') and not has_column('site_settings', 'subpage_display'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN subpage_display TEXT DEFAULT 'both'")
+
     conn.commit()
     conn.close()

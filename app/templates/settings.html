@@ -119,6 +119,27 @@
                 </label>
             </div>
             <div class="field">
+                <label>Subpages on index</label>
+                <p class="field-hint mb-0">Controls how subpages appear in the main index list.</p>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="subpage_display" value="separate"
+                               {% if settings.subpage_display == 'separate' %}checked{% endif %}>
+                        Show subpages as their own item
+                    </label>
+                    <label>
+                        <input type="radio" name="subpage_display" value="nested"
+                               {% if settings.subpage_display == 'nested' %}checked{% endif %}>
+                        Show subpages under their parent page
+                    </label>
+                    <label>
+                        <input type="radio" name="subpage_display" value="both"
+                               {% if not settings.subpage_display or settings.subpage_display == 'both' %}checked{% endif %}>
+                        Both
+                    </label>
+                </div>
+            </div>
+            <div class="field">
                 <label>Site visibility</label>
                 <p class="field-hint mb-0">Controls who can access this site. Set to Registered to restrict all content to logged-in users only.</p>
                 <div class="radio-group">

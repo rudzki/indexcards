@@ -247,6 +247,7 @@ class SiteSettings(db.Model):
     show_authors = db.Column(db.Boolean, default=False)
     show_history = db.Column(db.Boolean, default=True)
     alpha_jump_enabled = db.Column(db.Boolean, default=True)
+    subpage_display = db.Column(db.Text, default='both')
     feeds_enabled = db.Column(db.Boolean, default=True)
     site_icon = db.Column(db.Text, default='')
     site_image = db.Column(db.Text, default='')

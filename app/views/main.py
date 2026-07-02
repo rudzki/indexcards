@@ -24,6 +24,9 @@ def index():
                .order_by(Entry.sort_title)
                .all())
 
+    site_settings = SiteSettings.query.get(1)
+    subpage_display = site_settings.subpage_display if site_settings and site_settings.subpage_display else 'both'
+
     children_by_parent = defaultdict(list)
     for entry in entries:
         if entry.parent_id:
@@ -31,8 +34,14 @@ def index():
 
     index_items = []
     for entry in entries:
+        # Only hide an entry when it will actually be reachable by nesting it
+        # under its parent (the index only nests one level deep), so entries
+        # more than one level deep aren't dropped from the list entirely.
+        if subpage_display == 'nested' and entry.parent_id and not entry.parent.parent_id:
+            continue
+        show_children = children_by_parent.get(entry.id, []) if subpage_display != 'separate' else []
         index_items.append({'type': 'entry', 'entry': entry, 'sort_title': entry.sort_title,
-                            'children': children_by_parent.get(entry.id, [])})
+                            'children': show_children})
         for alias in entry.aliases:
             index_items.append({'type': 'alias', 'entry': entry, 'alias': alias,
                                 'sort_title': sort_key(alias.title)})

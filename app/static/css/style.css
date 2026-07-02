@@ -289,11 +289,16 @@ a.site-title:hover {
   justify-content: center;
   background: none;
   border: none;
-  color: var(--ink);
-  font-size: 1.25rem;
+  color: var(--ink-3);
+  font-size: 1.125rem;
   line-height: 1;
   margin-left: auto;
   cursor: pointer;
+}
+
+.nav-toggle[aria-expanded="true"] .toc-icon-plus,
+.nav-toggle[aria-expanded="false"] .toc-icon-minus {
+  display: none;
 }
 
 .site-search {
@@ -1926,11 +1931,12 @@ a.index-child-link,
 }
 
 .admin-title .nav-toggle {
+  order: 1;
   margin-left: 0;
 }
 
 .admin-nav {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   padding-bottom: 0;
   border-bottom: 1px solid var(--line);
   font-size: 0.875rem;
@@ -2843,6 +2849,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
   .site-nav {
     display: none;
+
     flex-direction: column;
     gap: 0;
     width: 100%;
@@ -2851,11 +2858,15 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
   .site-nav.open {
     display: flex;
-    margin-top: 0.5rem;
+    margin-top: 0.6rem;
+    margin-bottom: -0.85rem;
   }
 
   .site-nav a {
-    padding: 0.6rem 0;
+    display: block;
+    padding: 0.6rem 1.5rem;
+    margin-left: calc(50% - 50vw);
+    width: 100vw;
     border-top: 1px solid var(--line);
   }
 
@@ -2882,6 +2893,10 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
   .admin-nav a {
     padding: 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .admin-nav .admin-nav-links.open a.active {
     border-bottom: 1px solid var(--line);
   }
 }

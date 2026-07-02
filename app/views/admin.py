@@ -643,11 +643,15 @@ def export_json():
 class _HTMLToMarkdown(HTMLParser):
     def __init__(self):
         super().__init__()
-        self._out = []
+        self._out_stack = [[]]
         self._stack = []
         self._li_count = []
         self._href = None
         self._pre = False
+
+    @property
+    def _out(self):
+        return self._out_stack[-1]
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -683,7 +687,8 @@ class _HTMLToMarkdown(HTMLParser):
             else:
                 self._out.append('- ')
         elif tag == 'blockquote':
-            self._out.append('\n\n> ')
+            self._out.append('\n\n')
+            self._out_stack.append([])
         elif tag == 'pre':
             self._pre = True
             self._out.append('\n\n```\n')
@@ -710,6 +715,12 @@ class _HTMLToMarkdown(HTMLParser):
             self._out.append('\n')
         elif tag == 'li':
             self._out.append('\n')
+        elif tag == 'blockquote':
+            import re
+            buf = self._out_stack.pop()
+            text = re.sub(r'\n{3,}', '\n\n', ''.join(buf)).strip('\n')
+            quoted = '\n'.join(('> ' + line if line else '>') for line in text.split('\n'))
+            self._out.append('\n\n' + quoted + '\n\n')
         elif tag == 'pre':
             self._pre = False
             self._out.append('\n```\n')

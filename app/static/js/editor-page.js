@@ -116,7 +116,15 @@
         results.forEach(function(item) {
             var div = document.createElement('div');
             div.className = 'parent-result';
-            div.textContent = item.title;
+            var title = document.createElement('strong');
+            title.textContent = item.title;
+            div.appendChild(title);
+            if (item.summary) {
+                var s = document.createElement('span');
+                s.className = 'parent-result-summary';
+                s.textContent = item.summary;
+                div.appendChild(s);
+            }
             div.addEventListener('mousedown', function(e) {
                 e.preventDefault();
                 selectResult(item);

@@ -3039,14 +3039,29 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   overflow-y: auto;
 }
 .parent-result {
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.75rem;
   cursor: pointer;
-  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 .parent-result:hover,
 .parent-result.selected { background: var(--surface-2); }
+.parent-result strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.parent-result-summary {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .parent-result-create {
   color: var(--brand);
+  font-size: 0.875rem;
   border-top: 1px solid var(--line);
 }
 

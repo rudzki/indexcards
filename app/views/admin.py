@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from functools import wraps
 
+import html as html_lib
 import io
 import json
 import os
@@ -667,6 +668,14 @@ class _HTMLToMarkdown(HTMLParser):
             self._out.append('**')
         elif tag == 'em' or tag == 'i':
             self._out.append('*')
+        elif tag == 'cite' or tag == 'q':
+            self._out.append(f'<{tag}>')
+        elif tag == 'abbr':
+            title = attrs.get('title', '')
+            if title:
+                self._out.append(f'<abbr title="{html_lib.escape(title, quote=True)}">')
+            else:
+                self._out.append('<abbr>')
         elif tag == 'a':
             self._href = attrs.get('href', '')
             self._out.append('[')
@@ -706,6 +715,8 @@ class _HTMLToMarkdown(HTMLParser):
             self._out.append('**')
         elif tag in ('em', 'i'):
             self._out.append('*')
+        elif tag in ('cite', 'q', 'abbr'):
+            self._out.append(f'</{tag}>')
         elif tag == 'a':
             self._out.append(f']({self._href})')
             self._href = None

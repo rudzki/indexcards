@@ -9,12 +9,14 @@ ALLOWED_TAGS = [
     'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote',
     'pre', 'code', 'hr', 'sup', 'section', 'img',
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'cite', 'q', 'abbr',
 ]
 ALLOWED_ATTRS = {
     'a': ['href', 'title', 'class', 'data-footnote'],
     'img': ['src', 'alt', 'title'],
     'sup': ['class', 'id'],
     'section': ['class'],
+    'abbr': ['title'],
     '*': ['id'],
 }
 

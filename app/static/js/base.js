@@ -91,6 +91,23 @@ function confirmDialog(message, label, onConfirm) {
     });
 })();
 
+(function() {
+    document.querySelectorAll('.nav-toggle').forEach(function(btn) {
+        var target = document.getElementById(btn.getAttribute('aria-controls'));
+        if (!target) return;
+        btn.addEventListener('click', function() {
+            var isOpen = target.classList.toggle('open');
+            btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+        target.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A') {
+                target.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+})();
+
 function askConfirm(e) {
     e.preventDefault();
     var el = e.currentTarget || e.target;

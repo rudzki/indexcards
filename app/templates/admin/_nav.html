@@ -1,14 +1,16 @@
 {% set ep = request.endpoint %}
 {% if current_user.is_admin or current_user.is_editor %}
 <nav class="admin-nav" aria-label="Admin navigation">
-    <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if ep in ('admin.dashboard', 'admin.new_entry', 'admin.edit_entry', 'admin.preview_entry', 'admin.bulk_entries') }}">Entries</a>
-    <a href="{{ url_for('admin.pages_list') }}" class="{{ 'active' if ep in ('admin.pages_list', 'admin.new_page', 'admin.edit_page') }}">Pages</a>
-    {% if current_user.is_admin %}
-        {% if site_settings.multiuser_enabled %}<a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep in ('admin.users', 'admin.change_role', 'admin.delete_user', 'admin.resend_invite', 'admin.revoke_invite') }}">Users</a>{% endif %}
-        <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if ep in ('admin.settings', 'admin.upload_site_image', 'admin.remove_site_image') }}">Settings</a>
-        <a href="{{ url_for('admin.integrations') }}" class="{{ 'active' if ep == 'admin.integrations' }}">Integrations</a>
-        <a href="{{ url_for('admin.data') }}" class="{{ 'active' if ep in ('admin.data', 'admin.export_markdown', 'admin.export_json', 'admin.import_json', 'admin.import_wordpress', 'admin.add_test_data', 'admin.remove_test_data') }}">Data</a>
-        <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if ep == 'admin.logs' }}">Logs</a>
-    {% endif %}
+    <div class="admin-nav-links" id="admin-nav-links">
+        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if ep in ('admin.dashboard', 'admin.new_entry', 'admin.edit_entry', 'admin.preview_entry', 'admin.bulk_entries') }}">Entries</a>
+        <a href="{{ url_for('admin.pages_list') }}" class="{{ 'active' if ep in ('admin.pages_list', 'admin.new_page', 'admin.edit_page') }}">Pages</a>
+        {% if current_user.is_admin %}
+            {% if site_settings.multiuser_enabled %}<a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep in ('admin.users', 'admin.change_role', 'admin.delete_user', 'admin.resend_invite', 'admin.revoke_invite') }}">Users</a>{% endif %}
+            <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if ep in ('admin.settings', 'admin.upload_site_image', 'admin.remove_site_image') }}">Settings</a>
+            <a href="{{ url_for('admin.integrations') }}" class="{{ 'active' if ep == 'admin.integrations' }}">Integrations</a>
+            <a href="{{ url_for('admin.data') }}" class="{{ 'active' if ep in ('admin.data', 'admin.export_markdown', 'admin.export_json', 'admin.import_json', 'admin.import_wordpress', 'admin.add_test_data', 'admin.remove_test_data') }}">Data</a>
+            <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if ep == 'admin.logs' }}">Logs</a>
+        {% endif %}
+    </div>
 </nav>
 {% endif %}

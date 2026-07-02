@@ -242,6 +242,7 @@ img {
   display: flex;
   gap: 0.4rem 1.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .site-title {
@@ -280,6 +281,19 @@ a.site-title:hover {
 .site-nav a.active {
   color: var(--ink);
 
+}
+
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--ink);
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-left: auto;
+  cursor: pointer;
 }
 
 .site-search {
@@ -1905,13 +1919,26 @@ a.index-child-link,
   justify-content: space-between;
 }
 
-.admin-nav {
+.admin-title {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-title .nav-toggle {
+  margin-left: 0;
+}
+
+.admin-nav {
   margin-bottom: 1.5rem;
   padding-bottom: 0;
   border-bottom: 1px solid var(--line);
   font-size: 0.875rem;
+}
+
+.admin-nav-links {
+  display: flex;
+  gap: 2px;
 }
 
 .admin-nav a {
@@ -2791,10 +2818,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     width: 100%
   }
 
-  .index-jump {
-    gap: 0
-  }
-
   .entry-toc {
     width: 100%;
   }
@@ -2811,6 +2834,56 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 @media screen and (max-width: 768px) {
   .admin-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .col-title{max-width:180px}
+}
+
+@media (max-width: 700px) {
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .site-nav {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    order: 2;
+  }
+
+  .site-nav.open {
+    display: flex;
+    margin-top: 0.5rem;
+  }
+
+  .site-nav a {
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .site-search {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .site-search input {
+    width: 100%;
+  }
+
+  .admin-nav-links {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  .admin-nav-links.open {
+    display: flex;
+  }
+
+  .admin-nav a {
+    padding: 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+  }
 }
 
 /* ── Print ───────────────────────────────────────────────── */

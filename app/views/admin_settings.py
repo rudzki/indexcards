@@ -49,6 +49,10 @@ def settings():
         raw_theme = request.form.get('site_theme', 'default').strip()
         site_settings.site_theme = raw_theme if raw_theme in valid_themes else 'default'
 
+        valid_color_modes = {'auto', 'light', 'dark'}
+        raw_color_mode = request.form.get('default_color_mode', 'dark').strip()
+        site_settings.default_color_mode = raw_color_mode if raw_color_mode in valid_color_modes else 'dark'
+
         site_settings.digest_include_edits = 'digest_include_edits' in request.form
         day = request.form.get('digest_day', '0')
         site_settings.digest_day = int(day) if day else 0

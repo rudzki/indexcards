@@ -81,6 +81,27 @@
                 <p class="field-hint field-hint-mt mb-0">Sets the color palette for the site. The dark/light toggle still works within any theme.</p>
             </div>
             <div class="field">
+                <label>Default Appearance</label>
+                <p class="field-hint mb-0">Controls whether the site starts in light or dark mode for visitors who haven't made a choice yet. Anyone can still switch it with the light/dark toggle.</p>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="default_color_mode" value="auto"
+                               {% if (settings.default_color_mode or 'dark') == 'auto' %}checked{% endif %}>
+                        Match browser setting
+                    </label>
+                    <label>
+                        <input type="radio" name="default_color_mode" value="light"
+                               {% if (settings.default_color_mode or 'dark') == 'light' %}checked{% endif %}>
+                        Light
+                    </label>
+                    <label>
+                        <input type="radio" name="default_color_mode" value="dark"
+                               {% if (settings.default_color_mode or 'dark') == 'dark' %}checked{% endif %}>
+                        Dark
+                    </label>
+                </div>
+            </div>
+            <div class="field">
                 <label for="footer_text">Footer Text</label>
                 <textarea id="footer_text" name="footer_text" rows="3">{{ settings.footer_text }}</textarea>
             </div>

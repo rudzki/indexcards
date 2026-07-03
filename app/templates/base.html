@@ -32,7 +32,17 @@
     {% endif %}
     <link rel="stylesheet" href="{{ static_url('css/style.css') }}">
     <link rel="stylesheet" href="{{ static_url('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
-    <script>(function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+    <script>(function(){
+        var t = localStorage.getItem('theme');
+        var mode = "{{ site_settings.default_color_mode or 'dark' }}";
+        if (!t) {
+            t = mode === 'auto'
+                ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark')
+                : mode;
+        }
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.setAttribute('data-color-mode-default', mode);
+    })();</script>
     {% block head_extra %}{% endblock %}
     {% if site_settings.custom_css %}
     <style>{{ site_settings.custom_css|safe }}</style>

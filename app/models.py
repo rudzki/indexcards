@@ -259,6 +259,7 @@ class SiteSettings(db.Model):
     smtp_from_address = db.Column(db.Text)
 
     site_theme = db.Column(db.Text, default='default')
+    default_color_mode = db.Column(db.Text, default='dark')
     custom_css = db.Column(db.Text, default='')
     custom_head_html = db.Column(db.Text, default='')
     custom_footer_html = db.Column(db.Text, default='')

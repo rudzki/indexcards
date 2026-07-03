@@ -92,6 +92,17 @@ function confirmDialog(message, label, onConfirm) {
 })();
 
 (function() {
+    // Live-follow the OS theme when the admin default is "auto" and the
+    // visitor hasn't made an explicit choice via the toggle.
+    var mode = document.documentElement.getAttribute('data-color-mode-default');
+    if (mode !== 'auto' || localStorage.getItem('theme') || !window.matchMedia) return;
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(e) {
+        if (localStorage.getItem('theme')) return;
+        document.documentElement.setAttribute('data-theme', e.matches ? 'light' : 'dark');
+    });
+})();
+
+(function() {
     document.querySelectorAll('.nav-toggle').forEach(function(btn) {
         var target = document.getElementById(btn.getAttribute('aria-controls'));
         if (!target) return;

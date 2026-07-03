@@ -1,7 +1,7 @@
 # Index Cards — Technical Documentation
 
-This document covers architecture, data model, routes, deployment topology,
-and known issues. For a product overview and quick start, see [README.md](README.md).
+This document covers architecture, data model, routes, and deployment
+topology. For a product overview and quick start, see [README.md](README.md).
 
 ## 1. Tech stack
 
@@ -11,7 +11,7 @@ and known issues. For a product overview and quick start, see [README.md](README
 | ORM | Flask-SQLAlchemy 3.1 |
 | Auth | Flask-Login, passwordless (email magic links) |
 | CSRF | Flask-WTF |
-| Rate limiting | Flask-Limiter (in-memory storage — see [Accepted limitations](#9-accepted-limitations-not-fixed)) |
+| Rate limiting | Flask-Limiter (in-memory storage, per-process) |
 | Database | SQLite (file-based, `instance/indexcards.db`) + SQLite FTS5 for search |
 | Markdown | `mistune` for rendering, `bleach` for HTML sanitization |
 | Frontend | Server-rendered Jinja2 + vanilla JS, no SPA framework |
@@ -23,13 +23,11 @@ and known issues. For a product overview and quick start, see [README.md](README
 ## 2. Application structure
 
 Routes (`app/views/`) are kept thin — each view module imports its business
-logic from a same-named or feature-named module at the top of `app/`. This
-split happened in the "big refactor and re-organization" pass: `admin.py`
-used to be a single ~1250-line blueprint holding every `/dashboard` route
-and its logic; it's now a decorator/blueprint shell plus five focused view
-modules, backed by standalone logic modules that don't import Flask
-blueprints and are shared across views (e.g. `revisions.py` is used by both
-entry and page history).
+logic from a same-named or feature-named module at the top of `app/`.
+`admin.py` is a decorator/blueprint shell plus five focused view modules,
+backed by standalone logic modules that don't import Flask blueprints and
+are shared across views (e.g. `revisions.py` is used by both entry and page
+history).
 
 ```
 app/
@@ -111,10 +109,9 @@ All models live in `app/models.py`.
   CSS/head/footer HTML, search/subscribe/feeds toggles, multi-user and
   registration configuration (`invite` / `domain` / `open` methods,
   `default_role`, `registration_domain`), `site_visibility`
-  (`public` / `registered`), SMTP credentials, and Mailchimp/Slack/outgoing
-  webhook credentials including a webhook HMAC secret. **SMTP password and
-  integration secrets are stored in cleartext** — see
-  [Accepted limitations](#9-accepted-limitations-not-fixed).
+  (`public` / `registered`), SMTP credentials (stored in cleartext, no
+  encryption at rest), and Mailchimp/Slack/outgoing webhook credentials
+  including a webhook HMAC secret.
 
 ## 4. Routes
 
@@ -210,10 +207,6 @@ Table creation on a **brand-new** database runs via two mechanisms:
   three tables it also needs to backfill data into: `page`, `edit_lock`,
   `page_revision`
 
-(`db.create_all()` used to be gated behind `FLASK_DEBUG`, which meant a
-fresh production database never got most of its tables — see
-[Known issues fixed in this pass](#9-known-issues--fixed-in-this-pass).)
-
 Because the migration logic is raw SQLite DDL, it is not portable to any
 other `DATABASE_URL` backend (Postgres, MySQL) — `DATABASE_URL` is
 configurable in `config.py`, but only SQLite is actually supported in practice.
@@ -270,16 +263,3 @@ the example in the docs below):
   `/uploads/` aliasing, proxies everything else to gunicorn.
 - **`upgrade.sh`** — `git pull` + `pip install` + `chown` + `systemctl restart`,
   run from inside the deployed checkout.
-
-## 9. Accepted limitations
-
-- **In-memory rate limiter isn't multi-worker-safe.**
-  `Limiter(storage_uri="memory://")` keeps counters per-process, and
-  `indexcards.service` runs gunicorn with 3 workers, so effective limits on
-  `/login`, `/signup`, `/subscribe`, and the public API are roughly 3x the
-  configured value and reset on worker restart.
-
-- **SMTP password and integration secrets are stored in cleartext** in
-  `SiteSettings`, with no encryption at rest. A leaked database backup or
-  the admin-only `/dashboard/export/json/` endpoint would expose SMTP
-  credentials, Mailchimp keys, and the webhook HMAC secret in plaintext.

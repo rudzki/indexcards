@@ -18,8 +18,8 @@ Mailchimp, and webhooks.
 - **Static pages** — Pages with their own nav placement and history
 - **Themeable** — several built-in color themes plus custom CSS/head/footer injection
 
-See [TECHNICAL.md](TECHNICAL.md) for architecture details, the data model, the
-full route inventory, and known issues.
+See [TECHNICAL.md](TECHNICAL.md) for architecture details, the data model, and
+the full route inventory.
 
 ## Requirements
 

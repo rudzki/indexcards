@@ -22,16 +22,39 @@ and known issues. For a product overview and quick start, see [README.md](README
 
 ## 2. Application structure
 
+Routes (`app/views/`) are kept thin — each view module imports its business
+logic from a same-named or feature-named module at the top of `app/`. This
+split happened in the "big refactor and re-organization" pass: `admin.py`
+used to be a single ~1250-line blueprint holding every `/dashboard` route
+and its logic; it's now a decorator/blueprint shell plus five focused view
+modules, backed by standalone logic modules that don't import Flask
+blueprints and are shared across views (e.g. `revisions.py` is used by both
+entry and page history).
+
 ```
 app/
   __init__.py       app factory: extension init, blueprint registration,
                      before_request guards (first-run setup, private-site gate),
                      startup DB bootstrap (see §5)
   models.py          SQLAlchemy models (§3)
-  views/
-    auth.py          public auth blueprint — login, signup, setup wizard
-    main.py           public site blueprint — entries, pages, search, feeds, uploads
-    admin.py           /dashboard blueprint — the CMS (entries, pages, users, settings)
+  views/                   routes only — thin, delegate to the logic modules below
+    auth.py                 public auth blueprint — login, signup, setup wizard
+    account.py                /account — user profile (own blueprint)
+    main.py                     public site blueprint — entries, pages, search, feeds, uploads
+    admin.py                     /dashboard blueprint shell: admin_bp +
+                                  admin_required / writer_required / editor_required decorators
+    admin_entries.py               entry CRUD, publish, bulk actions, history — registers onto admin_bp
+    admin_pages.py                  page CRUD, publish, history — registers onto admin_bp
+    admin_users.py                   users, roles, registrations, audit logs — registers onto admin_bp
+    admin_settings.py                 site settings, theme, image upload — registers onto admin_bp
+    admin_import_export.py             markdown/JSON export, JSON/WordPress import — registers onto admin_bp
+  entries.py           entry save/validate logic, backlink sync, JSON import, reserved-slug list
+  pages.py             page save/validate logic
+  revisions.py          diff/history-building helpers shared by entries and pages
+  locks.py               soft edit-locking (EditLock) — acquire/release/active_locks
+  registration.py          invite/signup role resolution (VALID_ROLES, create_registration)
+  feeds.py                RSS/Atom/JSON feed data assembly, used by main.py
+  wordpress_import.py      WordPress export XML → Entry import, used by admin_import_export.py
   api.py              /api blueprint — JSON endpoints, CSRF-exempt as a whole
   markdown.py         mistune render → footnote processing → bleach sanitize → heading IDs
   search.py           SQLite FTS5 index maintenance and querying
@@ -44,6 +67,12 @@ app/
   templates/          Jinja2 templates (public, admin/, email/, errors/)
   static/             CSS, JS, vendored ProseMirror bundle, Bootstrap Icons font
 ```
+
+`admin_bp` is defined once in `app/views/admin.py`; the four `admin_*`
+sibling modules import it and attach their own `@admin_bp.route(...)`
+handlers, so all five are registered explicitly in `create_app()`
+(`app/__init__.py`) — importing `admin.py` alone is not enough to wire up
+the full `/dashboard` route table.
 
 There is no `tests/` directory or automated test suite in this repository.
 
@@ -99,7 +128,12 @@ All models live in `app/models.py`.
 | `/setup` | GET, POST | only usable while zero users exist |
 | `/signup` | GET, POST | gated on multi-user + open registration; rate-limited 10/min |
 | `/signup/<token>` | GET, POST | consumes an invite token |
-| `/account` | GET, POST | requires login |
+
+### `account_bp` (no prefix) — `app/views/account.py`
+
+| Route | Methods | Notes |
+|---|---|---|
+| `/account` | GET, POST | requires login — display name, bio, link |
 
 ### `main_bp` (no prefix) — `app/views/main.py`
 
@@ -117,26 +151,33 @@ All models live in `app/models.py`.
 | `/feed.xml`, `/feed.json` | GET | gated on `site_visibility=public` and `feeds_enabled` |
 | `/uploads/<filename>` | GET | filename validated against a regex |
 
-### `admin_bp` (`/dashboard`) — `app/views/admin.py`
+### `admin_bp` (`/dashboard`) — defined in `app/views/admin.py`, routes attached across five modules
 
-Gated by three decorators: `writer_required` (admin/editor/author),
-`editor_required` (admin/editor), `admin_required` (admin only). Entry and
-page mutations additionally check `User.can_modify()` per-object.
+Gated by three decorators (defined in `app/views/admin.py`, imported by the
+other four): `writer_required` (admin/editor/author), `editor_required`
+(admin/editor), `admin_required` (admin only). Entry and page mutations
+additionally check `User.can_modify()` per-object.
 
-- `/` — dashboard (writer)
-- `/entry/new/`, `/entry/<id>/edit/`, `/entry/<id>/delete/` — writer + `can_modify`
-- `/entries/<id>/publish/`, `/preview/<id>/` — login required + `can_modify`
-- `/entry/<id>/history/`, `.../history/<log_id>/restore/` — writer + `can_modify`
-- `/entries/bulk/` — admin; publish/unpublish/delete, each still checked per-entry via `can_modify`
-- `/pages/`, `/pages/new/` — editor
-- `/pages/<id>/edit/`, `/pages/<id>/publish/` — editor
-- `/pages/<id>/delete/` — admin
-- `/pages/<id>/history/`, `.../history/<rev_id>/restore/` — editor
-- `/settings/`, `/settings/upload-image/`, `/settings/remove-image/` — admin
-- `/users/`, `/users/<id>/role/`, `/users/<id>/delete/`, `/users/registration/<id>/resend|revoke/` — admin
-- `/export/markdown/`, `/export/json/`, `/import/json/`, `/import/wordpress/` — admin
-- `/test-data/add|remove/`, `/data/` — admin
-- `/subscribers/`, `/logs/`, `/integrations/` — admin
+- `app/views/admin_entries.py` (business logic in `app/entries.py` / `app/revisions.py` / `app/locks.py`)
+  - `/` — dashboard (writer)
+  - `/entry/new/`, `/entry/<id>/edit/`, `/entry/<id>/delete/` — writer + `can_modify`
+  - `/entries/<id>/publish/`, `/preview/<id>/` — login required + `can_modify`
+  - `/entry/<id>/history/`, `.../history/<log_id>/restore/` — writer + `can_modify`
+  - `/entries/bulk/` — admin; publish/unpublish/delete, each still checked per-entry via `can_modify`
+- `app/views/admin_pages.py` (business logic in `app/pages.py` / `app/revisions.py` / `app/locks.py`)
+  - `/pages/`, `/pages/new/` — editor
+  - `/pages/<id>/edit/`, `/pages/<id>/publish/` — editor
+  - `/pages/<id>/delete/` — admin
+  - `/pages/<id>/history/`, `.../history/<rev_id>/restore/` — editor
+- `app/views/admin_users.py` (business logic in `app/registration.py`)
+  - `/users/`, `/users/<id>/role/`, `/users/<id>/delete/`, `/users/registration/<id>/resend|revoke/` — admin
+  - `/subscribers/`, `/logs/` — admin
+- `app/views/admin_settings.py`
+  - `/settings/`, `/settings/upload-image/`, `/settings/remove-image/` — admin
+  - `/integrations/` — admin
+- `app/views/admin_import_export.py` (business logic in `app/entries.py` / `app/wordpress_import.py`)
+  - `/export/markdown/`, `/export/json/`, `/import/json/`, `/import/wordpress/` — admin
+  - `/test-data/add|remove/`, `/data/` — admin
 
 ### `api_bp` (`/api`) — `app/api.py`
 

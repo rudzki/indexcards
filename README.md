@@ -61,18 +61,34 @@ sudo bash deploy/setup.sh
 
 ```
 app/
-  views/          auth, public site, and /dashboard admin blueprints
-  api.py          JSON API (public read endpoints + editor helpers)
-  models.py       SQLAlchemy models
-  markdown.py     Markdown rendering + sanitization
-  search.py       SQLite FTS5 full-text search
-  digest.py       weekly digest CLI command
-  mail.py         SMTP sending (falls back to console output if unconfigured)
-  integrations.py Slack / Mailchimp / webhook outbound integrations
-  templates/       Jinja2 templates
-  static/          CSS, JS, vendored ProseMirror bundle
-deploy/            setup/upgrade scripts, systemd units (app + digest timer), nginx config
-migrations/        (placeholder — see TECHNICAL.md, schema changes are hand-rolled)
+  views/               blueprints (routes only — business logic lives in the modules below)
+    auth.py             login, signup, setup wizard
+    account.py           /account — user profile
+    main.py               public site — entries, pages, search, feeds, uploads
+    admin.py               /dashboard blueprint + admin_required/writer_required/editor_required decorators
+    admin_entries.py        entry CRUD, publish, history
+    admin_pages.py           page CRUD, publish, history
+    admin_users.py            users, roles, registrations
+    admin_settings.py          site settings, image upload
+    admin_import_export.py      markdown/JSON export, JSON/WordPress import
+  entries.py           entry save/validate/import logic + backlink sync
+  pages.py             page save/validate logic
+  revisions.py          shared diff/history helpers used by entries and pages
+  locks.py               soft edit-locking (EditLock)
+  registration.py          invite/signup role resolution
+  feeds.py                RSS/Atom/JSON feed data
+  wordpress_import.py      WordPress export XML parser
+  api.py               JSON API (public read endpoints + editor helpers)
+  models.py             SQLAlchemy models
+  markdown.py           Markdown rendering + sanitization
+  search.py             SQLite FTS5 full-text search
+  digest.py             weekly digest CLI command
+  mail.py               SMTP sending (falls back to console output if unconfigured)
+  integrations.py       Slack / Mailchimp / webhook outbound integrations
+  templates/            Jinja2 templates (admin/ for the /dashboard CMS, email/, errors/)
+  static/               CSS, JS, vendored ProseMirror bundle
+deploy/                setup/upgrade scripts, systemd units (app + digest timer), nginx config
+migrations/            (placeholder — see TECHNICAL.md, schema changes are hand-rolled)
 ```
 
 ## License

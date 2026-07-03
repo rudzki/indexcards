@@ -110,7 +110,6 @@
             '<ul class="heatmap-tip-list">' +
             entries.map(e =>
                 '<li><a href="' + e.url + '">' + e.title + '</a>' +
-                (e.is_new ? ' <span class="heatmap-tip-new">new</span>' : '') +
                 (e.changelog ? '<span class="heatmap-tip-log"> — ' + e.changelog + '</span>' : '') +
                 '</li>'
             ).join('') +

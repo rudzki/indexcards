@@ -2582,11 +2582,11 @@ a.index-child-link,
 }
 
 .stub-banner {
-  background: var(--info-bg);
-  color: var(--info);
+  background: var(--surface-2);
+  color: var(--ink-2);
   font-size: 0.8125rem;
   padding: 0.5rem 1.5rem;
-  border-bottom: 1px solid var(--info-dim);
+  border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: center;

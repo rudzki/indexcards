@@ -35,11 +35,18 @@ def create_app():
     login_manager.login_view = 'auth.login'
 
     from app.views.auth import auth_bp
+    from app.views.account import account_bp
     from app.views.main import main_bp
     from app.views.admin import admin_bp
+    from app.views import admin_entries  # noqa: F401 - registers routes on admin_bp
+    from app.views import admin_pages  # noqa: F401 - registers routes on admin_bp
+    from app.views import admin_users  # noqa: F401 - registers routes on admin_bp
+    from app.views import admin_settings  # noqa: F401 - registers routes on admin_bp
+    from app.views import admin_import_export  # noqa: F401 - registers routes on admin_bp
     from app.api import api_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(account_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)

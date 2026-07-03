@@ -1,0 +1,100 @@
+from datetime import datetime, timezone
+
+from flask import render_template, redirect, url_for, request, flash
+from flask_login import current_user
+
+from app import db
+from app.models import Page, PageRevision, log_audit
+from app.markdown import render_markdown
+from app.locks import acquire_lock, active_locks
+from app.pages import save_page
+from app.revisions import build_revisions
+from app.views.admin import admin_bp, admin_required, editor_required
+
+
+@admin_bp.route('/pages/')
+@editor_required
+def pages_list():
+    pages = Page.query.order_by(Page.sort_title).all()
+    locked_pages = active_locks('page')
+    return render_template('admin/pages.html', pages=pages, locked_pages=locked_pages)
+
+
+@admin_bp.route('/pages/new/', methods=['GET', 'POST'])
+@editor_required
+def new_page():
+    if request.method == 'POST':
+        return save_page(None)
+    return render_template('admin/page_editor.html', page=None)
+
+
+@admin_bp.route('/pages/<int:page_id>/edit/', methods=['GET', 'POST'])
+@editor_required
+def edit_page(page_id):
+    page = Page.query.get_or_404(page_id)
+    if request.method == 'POST':
+        return save_page(page)
+    blocker = acquire_lock('page', page_id)
+    if blocker:
+        flash(f'"{page.title}" is currently being edited by {blocker}.', 'warning')
+        return redirect(url_for('admin.pages_list'))
+    return render_template('admin/page_editor.html', page=page, lock_type='page', lock_id=page_id)
+
+
+@admin_bp.route('/pages/<int:page_id>/delete/', methods=['POST'])
+@admin_required
+def delete_page(page_id):
+    page = Page.query.get_or_404(page_id)
+    page_title = page.title
+    db.session.delete(page)
+    db.session.commit()
+    log_audit('page_deleted', detail=page_title, user_id=current_user.id)
+    flash('Page deleted.', 'success')
+    return redirect(url_for('admin.pages_list'))
+
+
+@admin_bp.route('/pages/<int:page_id>/publish/', methods=['POST'])
+@editor_required
+def publish_page(page_id):
+    page = Page.query.get_or_404(page_id)
+    page.is_draft = not page.is_draft
+    if not page.is_draft and not page.published_at:
+        page.published_at = datetime.now(timezone.utc)
+    db.session.commit()
+    status = 'unpublished' if page.is_draft else 'published'
+    flash(f'"{page.title}" {status}.', 'success')
+    return redirect(url_for('admin.edit_page', page_id=page.id))
+
+
+@admin_bp.route('/pages/<int:page_id>/history/')
+@editor_required
+def page_history(page_id):
+    page = Page.query.get_or_404(page_id)
+    revs = (PageRevision.query
+            .filter_by(page_id=page_id)
+            .order_by(PageRevision.edited_at.desc())
+            .all())
+    revisions = build_revisions(revs)
+    return render_template('admin/page_history.html', page=page, revisions=revisions)
+
+
+@admin_bp.route('/pages/<int:page_id>/history/<int:rev_id>/restore/', methods=['POST'])
+@editor_required
+def restore_page_revision(page_id, rev_id):
+    page = Page.query.get_or_404(page_id)
+    rev = PageRevision.query.filter_by(id=rev_id, page_id=page_id).first_or_404()
+    if not rev.body_snapshot:
+        flash('This revision has no saved content to restore.', 'error')
+        return redirect(url_for('admin.page_history', page_id=page_id))
+    page.body_markdown = rev.body_snapshot
+    page.body_html = render_markdown(rev.body_snapshot)
+    restore_note = f'Restored from revision on {rev.edited_at.strftime("%Y-%m-%d %H:%M")}'
+    db.session.add(PageRevision(
+        page_id=page.id,
+        user_id=current_user.id,
+        body_snapshot=rev.body_snapshot,
+        changelog=restore_note,
+    ))
+    db.session.commit()
+    flash('Page restored to selected revision.', 'success')
+    return redirect(url_for('admin.edit_page', page_id=page_id))

@@ -13,6 +13,7 @@ from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, sort_key
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.search import search_entries
 from app.mail import send_email, render_email
+from app.feeds import feeds_available, feed_entries
 
 main_bp = Blueprint('main', __name__)
 
@@ -291,45 +292,12 @@ def favicon():
     return Response(svg, mimetype='image/svg+xml', headers={'Cache-Control': 'public, max-age=3600'})
 
 
-def _feeds_available(settings):
-    return settings and settings.site_visibility == 'public' and settings.feeds_enabled
-
-
-def _feed_entries():
-    db_entries = (Entry.query
-                  .filter_by(is_draft=False)
-                  .filter(Entry.published_at.isnot(None))
-                  .order_by(Entry.updated_at.desc())
-                  .limit(20)
-                  .all())
-
-    def fmt(dt):
-        if not dt:
-            return ''
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    entries = [{
-        'title': e.title,
-        'url': url_for('main.entry_page', slug=e.slug, _external=True),
-        'published': fmt(e.published_at),
-        'updated': fmt(e.updated_at),
-        'summary': e.summary or '',
-        'body_html': e.body_html or '',
-        'author': e.author.display_name if e.author else '',
-    } for e in db_entries]
-
-    most_recent = fmt(db_entries[0].updated_at) if db_entries else fmt(datetime.now(timezone.utc))
-    return entries, most_recent
-
-
 @main_bp.route('/feed.xml')
 def feed():
     settings = SiteSettings.query.get(1)
-    if not _feeds_available(settings):
+    if not feeds_available(settings):
         abort(404)
-    entries, most_recent = _feed_entries()
+    entries, most_recent = feed_entries()
     xml = render_template('feed.xml',
                           site_title=(settings.site_title if settings else None) or 'Index Cards',
                           feed_url=url_for('main.feed', _external=True),
@@ -343,9 +311,9 @@ def feed():
 @main_bp.route('/feed.json')
 def feed_json():
     settings = SiteSettings.query.get(1)
-    if not _feeds_available(settings):
+    if not feeds_available(settings):
         abort(404)
-    entries, _ = _feed_entries()
+    entries, _ = feed_entries()
     site_title = (settings.site_title if settings else None) or 'Index Cards'
     payload = {
         'version': 'https://jsonfeed.org/version/1.1',

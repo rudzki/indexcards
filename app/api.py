@@ -8,7 +8,7 @@ from flask_login import login_required, current_user
 from app.models import Entry, Alias, SiteSettings, EditLock, make_slug, log_audit
 from app.markdown import render_markdown
 from app.search import update_fts_entry
-from app.views.admin import RESERVED_SLUGS
+from app.entries import RESERVED_SLUGS
 from app import db, limiter, csrf
 
 LOCK_TTL = 60  # seconds

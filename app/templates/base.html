@@ -53,7 +53,7 @@
                     {% if current_user.can_write %}
                         <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.blueprint == 'admin' }}">Dashboard</a>
                     {% endif %}
-                    <a href="{{ url_for('auth.account') }}" class="{{ 'active' if request.endpoint == 'auth.account' }}">Account</a>
+                    <a href="{{ url_for('account.account') }}" class="{{ 'active' if request.endpoint == 'account.account' }}">Account</a>
                     <a href="{{ url_for('auth.logout') }}">Log out</a>
                 {% elif site_settings.multiuser_enabled and site_settings.registration_method != 'invite' %}
                     <a href="{{ url_for('auth.signup_form') }}">Register</a>

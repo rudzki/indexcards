@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
-from flask_login import login_user, logout_user, login_required, current_user
+from flask_login import login_user, logout_user, login_required
 
 from app import db, limiter
 from app.models import User, Registration, SiteSettings, log_audit
 from app.mail import send_email, render_email
+from app.registration import resolve_role, create_registration
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -105,8 +106,7 @@ def signup_form():
             flash('A signup link has already been sent to this email. Check your inbox.', 'info')
             return render_template('signup_form.html', settings=settings)
 
-        reg = Registration(email=email, invited_by=None)
-        db.session.add(reg)
+        reg = create_registration(email, invited_by=None)
         db.session.commit()
         log_audit('user_registered', detail=email)
 
@@ -133,12 +133,7 @@ def signup_token(token):
             flash('Display name is required.', 'error')
             return render_template('signup.html', invite=reg)
 
-        if reg.role and reg.role in ('viewer', 'author', 'editor', 'admin'):
-            default_role = reg.role
-        else:
-            default_role = (settings.default_role if settings else 'author') or 'author'
-            if default_role not in ('viewer', 'author', 'editor'):
-                default_role = 'author'
+        default_role = resolve_role(reg, settings)
 
         user = User.query.filter_by(email=reg.email).first()
         if user:
@@ -155,27 +150,3 @@ def signup_token(token):
         return redirect(url_for('main.index'))
 
     return render_template('signup.html', invite=reg)
-
-
-@auth_bp.route('/account', methods=['GET', 'POST'])
-@login_required
-def account():
-    if request.method == 'POST':
-        display_name = request.form.get('display_name', '').strip()
-        bio = request.form.get('bio', '').strip()
-        link = request.form.get('link', '').strip()
-        subscribed = 'subscribed' in request.form
-
-        if not display_name:
-            flash('Display name is required.', 'error')
-            return render_template('account.html')
-
-        current_user.display_name = display_name
-        current_user.bio = bio
-        current_user.link = link
-        current_user.subscribed = subscribed
-        db.session.commit()
-        flash('Account updated.', 'success')
-        return redirect(url_for('auth.account'))
-
-    return render_template('account.html')

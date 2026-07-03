@@ -40,6 +40,7 @@ def create_app():
     from app.views.admin import admin_bp
     from app.views import admin_entries  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_pages  # noqa: F401 - registers routes on admin_bp
+    from app.views import admin_notes  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_users  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_settings  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_import_export  # noqa: F401 - registers routes on admin_bp

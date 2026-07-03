@@ -139,14 +139,20 @@
             <legend>Options</legend>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="search_enabled" {% if settings.search_enabled %}checked{% endif %}>
-                    Enable search
+                    <input type="checkbox" name="notes_enabled" {% if settings.notes_enabled %}checked{% endif %}>
+                    Enable notes and timeline
                 </label>
             </div>
             <div class="field field-inline">
                 <label>
                     <input type="checkbox" name="subscribe_enabled" {% if settings.subscribe_enabled %}checked{% endif %}>
                     Enable email subscriptions
+                </label>
+            </div>
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="search_enabled" {% if settings.search_enabled %}checked{% endif %}>
+                    Enable search
                 </label>
             </div>
             <div class="field field-inline">
@@ -164,7 +170,7 @@
             <div class="field field-inline">
                 <label>
                     <input type="checkbox" name="alpha_jump_enabled" {% if settings.alpha_jump_enabled %}checked{% endif %}>
-                    Enable alphabetical jump links
+                    Enable alphabetical jump links on index
                 </label>
             </div>
             <div class="field">

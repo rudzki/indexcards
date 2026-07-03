@@ -112,7 +112,8 @@ def preview_entry(entry_id):
                      .first())
     last_editor = last_edit_log.user if last_edit_log else None
     return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                           backlinks=backlinks, toc=toc, is_preview=True, last_editor=last_editor,
+                           backlinks=backlinks, note_backlinks=[], toc=toc, is_preview=True,
+                           last_editor=last_editor,
                            ancestors=[], children=[], prev_entry=None, next_entry=None)
 
 

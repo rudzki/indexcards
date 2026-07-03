@@ -109,6 +109,7 @@ def run_migrations():
                 body_markdown TEXT DEFAULT '',
                 body_html TEXT DEFAULT '',
                 is_draft BOOLEAN DEFAULT 0,
+                is_stub BOOLEAN DEFAULT 0,
                 published_at DATETIME,
                 created_at DATETIME,
                 updated_at DATETIME,
@@ -168,6 +169,38 @@ def run_migrations():
 
     if has_table('site_settings') and not has_column('site_settings', 'default_color_mode'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN default_color_mode TEXT DEFAULT 'dark'")
+
+    if has_table('entry') and not has_column('entry', 'is_stub'):
+        cursor.execute("ALTER TABLE entry ADD COLUMN is_stub BOOLEAN DEFAULT 0")
+
+    if has_table('page') and not has_column('page', 'is_stub'):
+        cursor.execute("ALTER TABLE page ADD COLUMN is_stub BOOLEAN DEFAULT 0")
+
+    if has_table('site_settings') and not has_column('site_settings', 'notes_enabled'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN notes_enabled BOOLEAN DEFAULT 0")
+
+    if not has_table('note'):
+        cursor.execute("""
+            CREATE TABLE note (
+                id INTEGER PRIMARY KEY,
+                body_markdown TEXT DEFAULT '',
+                body_html TEXT DEFAULT '',
+                is_draft BOOLEAN DEFAULT 0,
+                published_at DATETIME,
+                created_at DATETIME,
+                updated_at DATETIME,
+                created_by INTEGER REFERENCES user(id)
+            )
+        """)
+
+    if not has_table('note_backlink'):
+        cursor.execute("""
+            CREATE TABLE note_backlink (
+                id INTEGER PRIMARY KEY,
+                note_id INTEGER NOT NULL REFERENCES note(id),
+                target_entry_id INTEGER NOT NULL REFERENCES entry(id)
+            )
+        """)
 
     conn.commit()
     conn.close()

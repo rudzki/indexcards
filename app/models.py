@@ -37,6 +37,7 @@ class Entry(db.Model):
     body_markdown = db.Column(db.Text, default='')
     body_html = db.Column(db.Text, default='')
     is_draft = db.Column(db.Boolean, default=False)
+    is_stub = db.Column(db.Boolean, default=False)
     published_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
@@ -203,6 +204,7 @@ class Page(db.Model):
     body_markdown = db.Column(db.Text, default='')
     body_html = db.Column(db.Text, default='')
     is_draft = db.Column(db.Boolean, default=False)
+    is_stub = db.Column(db.Boolean, default=False)
     published_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
@@ -249,6 +251,7 @@ class SiteSettings(db.Model):
     alpha_jump_enabled = db.Column(db.Boolean, default=True)
     subpage_display = db.Column(db.Text, default='both')
     feeds_enabled = db.Column(db.Boolean, default=True)
+    notes_enabled = db.Column(db.Boolean, default=False)
     site_icon = db.Column(db.Text, default='')
     site_image = db.Column(db.Text, default='')
     smtp_host = db.Column(db.Text)
@@ -285,6 +288,27 @@ class SiteSettings(db.Model):
     @property
     def smtp_configured(self):
         return bool(self.smtp_host and self.smtp_from_address)
+
+
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    body_markdown = db.Column(db.Text, default='')
+    body_html = db.Column(db.Text, default='')
+    is_draft = db.Column(db.Boolean, default=False)
+    published_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    author = db.relationship('User', backref='notes')
+    outgoing_links = db.relationship('NoteBacklink', backref='source_note', cascade='all, delete-orphan')
+
+
+class NoteBacklink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    note_id = db.Column(db.Integer, db.ForeignKey('note.id'), nullable=False)
+    target_entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
 
 
 # Self-referential adjacency list for Entry hierarchy

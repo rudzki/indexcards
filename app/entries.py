@@ -22,6 +22,7 @@ def save_entry(entry):
     aliases_raw = request.form.get('aliases', '').strip()
     changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
+    is_stub = 'is_stub' in request.form
     parent_id_raw = request.form.get('parent_id', '').strip()
 
     if not title:
@@ -59,6 +60,7 @@ def save_entry(entry):
     entry.body_markdown = body_markdown
     entry.body_html = render_markdown(body_markdown)
     entry.is_draft = is_draft
+    entry.is_stub = is_stub
     entry.update_sort_title()
 
     if not is_draft and not entry.published_at:

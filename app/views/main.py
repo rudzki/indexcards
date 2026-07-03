@@ -9,7 +9,7 @@ from flask_login import current_user, login_user
 from markupsafe import Markup
 
 from app import db, limiter
-from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, sort_key
+from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, Note, sort_key
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.search import search_entries
 from app.mail import send_email, render_email
@@ -48,34 +48,22 @@ def index():
                                 'sort_title': sort_key(alias.title)})
     index_items.sort(key=lambda x: x['sort_title'])
 
-    today = datetime.now(timezone.utc)
-    start_month = today.month - 11
-    start_year = today.year
-    if start_month <= 0:
-        start_month += 12
-        start_year -= 1
-    cutoff = datetime(start_year, start_month, 1)
-    all_logs = (
-        db.session.query(EditLog, Entry)
-        .join(Entry, EditLog.entry_id == Entry.id)
-        .filter(Entry.is_draft == False)  # noqa: E712
-        .filter(EditLog.edited_at >= cutoff)
-        .order_by(EditLog.edited_at.desc())
-        .all()
-    )
-
-    day_map = defaultdict(OrderedDict)
-    for log, entry in all_logs:
-        date_str = log.edited_at.strftime('%Y-%m-%d')
-        if entry.id not in day_map[date_str]:
-            day_map[date_str][entry.id] = {
-                'title': entry.title,
-                'slug': entry.slug,
-                'changelog': log.changelog or '',
-                'is_new': log.changelog is None and len(entry.edit_logs) <= 1,
-            }
-
-    heatmap_data = {ds: list(items.values()) for ds, items in day_map.items()}
+    show_history = bool(site_settings and site_settings.show_history)
+    heatmap_data = {}
+    if show_history:
+        today = datetime.now(timezone.utc)
+        start_month = today.month - 11
+        start_year = today.year
+        if start_month <= 0:
+            start_month += 12
+            start_year -= 1
+        cutoff = datetime(start_year, start_month, 1)
+        events = _build_activity_events(
+            since=cutoff,
+            notes_enabled=bool(site_settings and site_settings.notes_enabled),
+            show_history=True,
+        )
+        heatmap_data = _group_events_by_day(events)
 
     return render_template('index.html', entries=entries, index_items=index_items, heatmap_data=heatmap_data)
 
@@ -98,6 +86,13 @@ def entry_page(slug):
                          Entry.is_draft == False  # noqa: E712
                      )
                      .all())
+        note_backlinks = (Note.query
+                          .join(Note.outgoing_links)
+                          .filter(
+                              Note.outgoing_links.any(target_entry_id=entry.id),
+                              Note.is_draft == False  # noqa: E712
+                          )
+                          .all())
         toc = extract_toc(body_html)
         last_edit_log = (EditLog.query
                          .filter_by(entry_id=entry.id)
@@ -134,7 +129,8 @@ def entry_page(slug):
                     .all())
 
         return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                               backlinks=backlinks, toc=toc, last_editor=last_editor,
+                               backlinks=backlinks, note_backlinks=note_backlinks, toc=toc,
+                               last_editor=last_editor,
                                prev_entry=prev_entry, next_entry=next_entry,
                                ancestors=ancestors, children=children)
 
@@ -150,6 +146,142 @@ def entry_page(slug):
         return redirect(url_for('admin.new_entry', title=slug))
 
     abort(404)
+
+
+def _notes_enabled(site_settings):
+    return bool(site_settings and site_settings.notes_enabled)
+
+
+def _build_activity_events(since=None, notes_enabled=False, show_history=True):
+    """Build the unified activity feed — note publications plus entry
+    publish/edit events — shared by the homepage heatmap and the /notes/
+    timeline so both draw from the same source instead of independent
+    heuristics for what counts as "new" vs "edited"."""
+    events = []
+
+    if notes_enabled:
+        note_q = Note.query.filter_by(is_draft=False)
+        if since:
+            note_q = note_q.filter(Note.published_at >= since)
+        for note in note_q.all():
+            events.append({'kind': 'note', 'ts': note.published_at, 'note': note})
+
+    entry_q = Entry.query.filter_by(is_draft=False)
+    if since:
+        entry_q = entry_q.filter(Entry.published_at >= since)
+    entries = entry_q.all()
+
+    logs_by_entry = defaultdict(list)
+    if entries:
+        log_q = EditLog.query.filter(EditLog.entry_id.in_([e.id for e in entries]))
+        if since:
+            log_q = log_q.filter(EditLog.edited_at >= since)
+        for log in log_q.order_by(EditLog.edited_at.asc()).all():
+            logs_by_entry[log.entry_id].append(log)
+
+    for entry in entries:
+        entry_logs = logs_by_entry.get(entry.id, [])
+        first_log = entry_logs[0] if entry_logs else None
+        events.append({'kind': 'published', 'ts': entry.published_at, 'entry': entry,
+                       'changelog': first_log.changelog if first_log else None})
+        if show_history:
+            for log in entry_logs[1:]:
+                events.append({'kind': 'edited', 'ts': log.edited_at, 'entry': entry,
+                               'changelog': log.changelog})
+
+    events.sort(key=lambda x: x['ts'] or datetime.min, reverse=True)
+    return _collapse_activity_events(events)
+
+
+def _collapse_activity_events(events):
+    """Merge consecutive 'published'/'edited' events for the same entry
+    that land on the same calendar day into one event (folding in any
+    distinct changelog messages), so a flurry of same-day saves doesn't
+    spam the feed with near-identical entries."""
+    collapsed = []
+    for event in events:
+        if event['kind'] in ('published', 'edited') and collapsed:
+            prev = collapsed[-1]
+            same_status = (prev['kind'] == event['kind']
+                          and prev.get('entry') and event.get('entry')
+                          and prev['entry'].id == event['entry'].id
+                          and prev['ts'] and event['ts']
+                          and prev['ts'].date() == event['ts'].date())
+            if same_status:
+                if event['changelog'] and event['changelog'] not in prev['changelogs']:
+                    prev['changelogs'].append(event['changelog'])
+                continue
+        merged = dict(event)
+        if event['kind'] in ('published', 'edited'):
+            merged['changelogs'] = [event['changelog']] if event.get('changelog') else []
+        collapsed.append(merged)
+    return collapsed
+
+
+def _group_events_by_day(events):
+    """Group activity events by calendar day for the heatmap, keeping at
+    most one cell entry per entry/note per day (the most recent event that
+    day, since events are already sorted newest-first)."""
+    day_map = defaultdict(OrderedDict)
+    for event in events:
+        if not event['ts']:
+            continue
+        date_str = event['ts'].strftime('%Y-%m-%d')
+        if event['kind'] == 'note':
+            key = ('note', event['note'].id)
+            if key in day_map[date_str]:
+                continue
+            excerpt = (event['note'].body_markdown or '').strip().replace('\n', ' ')
+            title = (excerpt[:60] + '…') if len(excerpt) > 60 else (excerpt or 'Note')
+            day_map[date_str][key] = {
+                'title': title,
+                'url': url_for('main.note_page', note_id=event['note'].id),
+                'changelog': '',
+                'is_new': True,
+            }
+        else:
+            key = ('entry', event['entry'].id)
+            if key in day_map[date_str]:
+                continue
+            day_map[date_str][key] = {
+                'title': event['entry'].title,
+                'url': url_for('main.entry_page', slug=event['entry'].slug),
+                'changelog': ' · '.join(event.get('changelogs') or []),
+                'is_new': event['kind'] == 'published',
+            }
+    return {ds: list(items.values()) for ds, items in day_map.items()}
+
+
+@main_bp.route('/notes/')
+def notes_list():
+    site_settings = SiteSettings.query.get(1)
+    if not _notes_enabled(site_settings):
+        abort(404)
+
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    show_history = bool(site_settings.show_history)
+
+    items = _build_activity_events(notes_enabled=True, show_history=show_history)
+    total = len(items)
+    start = (page - 1) * per_page
+    page_items = items[start:start + per_page]
+
+    heatmap_data = _group_events_by_day(items) if show_history else {}
+
+    return render_template('timeline.html', items=page_items, page=page,
+                           has_next=start + per_page < total, has_prev=page > 1,
+                           heatmap_data=heatmap_data)
+
+
+@main_bp.route('/notes/<int:note_id>/')
+def note_page(note_id):
+    site_settings = SiteSettings.query.get(1)
+    if not _notes_enabled(site_settings):
+        abort(404)
+
+    note = Note.query.filter_by(id=note_id, is_draft=False).first_or_404()
+    return render_template('note.html', note=note)
 
 
 @main_bp.route('/search')

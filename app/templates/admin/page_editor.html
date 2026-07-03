@@ -65,6 +65,12 @@
                     </div>
                     <div class="field field-inline">
                         <label>
+                            <input type="checkbox" name="is_stub" {% if page and page.is_stub %}checked{% endif %}>
+                            Stub <span class="field-hint">(shows "This page is a stub and still being written" banner)</span>
+                        </label>
+                    </div>
+                    <div class="field field-inline">
+                        <label>
                             <input type="checkbox" name="show_in_nav" id="show_in_nav" {% if page and page.show_in_nav %}checked{% endif %}>
                             Show in navigation menu
                         </label>

@@ -15,6 +15,11 @@
     </form>
 </div>
 {% endif %}
+{% if entry.is_stub %}
+<div class="stub-banner">
+    <span>This entry is a stub and still being written.</span>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -80,7 +85,7 @@
         {% endif %}
     </footer>
 
-    {% if backlinks %}
+    {% if backlinks or note_backlinks %}
     <nav class="entry-backlinks" aria-label="Referenced by">
         <h2>Referenced by</h2>
         <ul>
@@ -88,6 +93,11 @@
                 <li class="h-cite">
                     <a class="u-url p-name" href="{{ url_for('main.entry_page', slug=bl.slug) }}">{{ bl.title }}</a>
                     {% if bl.summary %}<span class="backlink-summary p-summary"> — {{ bl.summary }}</span>{% endif %}
+                </li>
+            {% endfor %}
+            {% for nbl in note_backlinks %}
+                <li class="h-cite">
+                    <a class="u-url" href="{{ url_for('main.note_page', note_id=nbl.id) }}">Note from {{ nbl.published_at|timeago if nbl.published_at else '' }}</a>
                 </li>
             {% endfor %}
         </ul>

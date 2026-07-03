@@ -15,6 +15,7 @@ def save_page(page):
     body_markdown = request.form.get('body_markdown', '')
     changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
+    is_stub = 'is_stub' in request.form
     show_in_nav = 'show_in_nav' in request.form
     nav_position_raw = request.form.get('nav_position', '').strip()
     nav_position = int(nav_position_raw) if nav_position_raw.isdigit() else None
@@ -50,6 +51,7 @@ def save_page(page):
     page.body_markdown = body_markdown
     page.body_html = render_markdown(body_markdown)
     page.is_draft = is_draft
+    page.is_stub = is_stub
     page.show_in_nav = show_in_nav
     page.nav_position = nav_position if show_in_nav else None
     page.update_sort_title()

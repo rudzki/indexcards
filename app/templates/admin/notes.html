@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Notes — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <div class="admin-title">
+            {% include 'admin/_nav_toggle.html' %}
+            <h1>Notes</h1>
+        </div>
+        <a href="{{ url_for('admin.new_note') }}" class="btn btn-primary btn-xs">New Note</a>
+    </div>
+
+    {% include 'admin/_nav.html' %}
+
+    {% if notes %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th class="col-title col-primary">Content</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-updated">Created</th>
+                    <th class="admin-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for note in notes %}
+                <tr>
+                    <td class="col-nowrap col-truncate col-title col-primary">
+                        <a href="{{ url_for('admin.edit_note', note_id=note.id) }}">{{ note.body_markdown[:80] or '(empty note)' }}</a>
+                        {% if note.id in locked_notes %}
+                            <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_notes[note.id] }}"></i>
+                        {% endif %}
+                    </td>
+                    <td class="col-status">
+                        {% if note.is_draft %}
+                            <span class="badge badge-warning">Draft</span>
+                        {% else %}
+                            <span class="badge badge-published">Published</span>
+                        {% endif %}
+                    </td>
+                    <td class="col-updated col-nowrap">{{ note.created_at|timeago }}</td>
+                    <td class="admin-actions">
+                        <div class="admin-actions-wrap">
+                            {% if not note.is_draft %}
+                                <a href="{{ url_for('main.note_page', note_id=note.id) }}" class="btn-small" title="View" aria-label="View note"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                            {% endif %}
+                            <a href="{{ url_for('admin.edit_note', note_id=note.id) }}" class="btn-small" title="Edit" aria-label="Edit note"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                            {% if current_user.is_admin %}
+                                <button type="submit" form="delete-note-{{ note.id }}" class="btn-small btn-danger" title="Delete" aria-label="Delete note"
+                                        data-confirm="Delete this note?" data-confirm-label="Delete"
+                                        onclick="return askConfirm(event)"><i class="bi bi-trash3" aria-hidden="true"></i></button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if current_user.is_admin %}
+            {% for note in notes %}
+            <form method="post" action="{{ url_for('admin.delete_note', note_id=note.id) }}" id="delete-note-{{ note.id }}" style="display:none">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+            {% endfor %}
+        {% endif %}
+
+        {% if pagination.pages > 1 %}
+        <nav class="pagination" aria-label="Page navigation">
+            <ul>
+            {% if pagination.has_prev %}
+                <li><a href="{{ url_for('admin.notes_list', page=pagination.prev_num) }}" aria-label="Previous page">&laquo;</a></li>
+            {% endif %}
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                    <li><a href="{{ url_for('admin.notes_list', page=p) }}"
+                       class="{{ 'pagination-active' if p == pagination.page }}"
+                       {% if p == pagination.page %}aria-current="page"{% endif %}>{{ p }}</a></li>
+                {% else %}
+                    <li><span class="pagination-gap" aria-hidden="true">…</span></li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+                <li><a href="{{ url_for('admin.notes_list', page=pagination.next_num) }}" aria-label="Next page">&raquo;</a></li>
+            {% endif %}
+            </ul>
+            <span class="pagination-count">{{ pagination.total }} notes</span>
+        </nav>
+        {% endif %}
+    {% else %}
+        <p>No notes yet. <a href="{{ url_for('admin.new_note') }}">Create your first note.</a></p>
+    {% endif %}
+</div>
+{% endblock %}

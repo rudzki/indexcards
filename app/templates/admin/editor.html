@@ -92,6 +92,12 @@
                             Draft
                         </label>
                     </div>
+                    <div class="field field-inline">
+                        <label>
+                            <input type="checkbox" name="is_stub" {% if entry and entry.is_stub %}checked{% endif %}>
+                            Stub <span class="field-hint">(shows "This entry is a stub and still being written" banner)</span>
+                        </label>
+                    </div>
                 </div>
                 {% if entry and current_user.can_modify(entry) %}
                     <button type="submit" form="delete-entry-form" class="btn-small btn-danger" title="Delete entry"

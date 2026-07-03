@@ -5,6 +5,14 @@
 {% block meta_description %}{% if page.summary %}<meta name="description" content="{{ page.summary }}">{% endif %}{% endblock %}
 {% block og_description %}{% if page.summary %}<meta property="og:description" content="{{ page.summary }}">{% endif %}{% endblock %}
 
+{% block banner %}
+{% if page.is_stub %}
+<div class="stub-banner">
+    <span>This page is a stub and still being written.</span>
+</div>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <article class="entry-page">
     <header class="entry-header">

@@ -14,7 +14,7 @@
         {% endif %}
     </div>
 
-    <form method="post" class="editor-form"
+    <form method="post" class="editor-form" data-entry-id="page-{{ page.id if page else 'new' }}"
           {% if lock_type and lock_id %}data-lock-type="{{ lock_type }}" data-lock-id="{{ lock_id }}"{% endif %}>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="editor-meta-top">

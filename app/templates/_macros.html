@@ -1,0 +1,10 @@
+{% macro author_name(user, p_name=False) %}
+    {%- set name_class = 'p-name author-name' if p_name else 'author-name' -%}
+    {%- if user.bio or user.link -%}
+        <span class="{{ name_class }}" data-bio="{{ user.bio }}" data-link="{{ user.link or '' }}">{{ user.display_name }}</span>
+    {%- elif p_name -%}
+        <span class="p-name">{{ user.display_name }}</span>
+    {%- else -%}
+        {{ user.display_name }}
+    {%- endif -%}
+{% endmacro %}

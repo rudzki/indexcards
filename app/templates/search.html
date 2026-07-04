@@ -12,7 +12,7 @@
             <ul>
                 {% for item in results %}
                     <li class="search-result-item">
-                        <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.highlighted_title if item.highlighted_title else item.entry.title }}</a>
+                        <a href="{{ entry_url(item.entry) }}">{{ item.highlighted_title if item.highlighted_title else item.entry.title }}</a>
                         {% if item.entry.summary %}
                             <p class="search-result-summary">{{ item.highlighted_summary if item.highlighted_summary else item.entry.summary }}</p>
                         {% endif %}

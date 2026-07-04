@@ -41,6 +41,9 @@
                                 {{ entry.title }}
                             {% endif %}
                             {% if entry.parent_id %} &nbsp;<span class="parent" aria-hidden="true">↳ {{ entry.parent.title }}</span>{% endif %}
+                            {% if entry.is_stub %}
+                                <span class="entry-stub-label">Stub</span>
+                            {% endif %}
                             {% if entry.id in locked_entries %}
                                 <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_entries[entry.id] }}"></i>
                             {% endif %}
@@ -52,7 +55,7 @@
                                 {% if entry.is_draft %}
                                     <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="btn-small" title="Preview" aria-label="Preview {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
                                 {% else %}
-                                    <a href="{{ url_for('main.entry_page', slug=entry.slug) }}" class="btn-small" title="View" aria-label="View {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                    <a href="{{ entry_url(entry) }}" class="btn-small" title="View" aria-label="View {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
                                 {% endif %}
                                 {% if current_user.can_modify(entry) %}
                                     <button type="submit" form="delete-{{ entry.id }}" class="btn-small btn-danger" title="Delete" aria-label="Delete {{ entry.title }}"

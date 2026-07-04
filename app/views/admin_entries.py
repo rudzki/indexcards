@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, log_audit
+from app.models import Entry, EditLog, log_audit, entry_url
 from app.markdown import render_markdown
 from app.search import delete_fts_entry, update_fts_entry
 from app.locks import acquire_lock, active_locks
@@ -89,7 +89,7 @@ def publish_entry(entry_id):
         entry.published_at = datetime.now(timezone.utc)
     db.session.commit()
     flash(f'"{entry.title}" published.', 'success')
-    return redirect(url_for('main.entry_page', slug=entry.slug))
+    return redirect(entry_url(entry))
 
 
 @admin_bp.route('/preview/<int:entry_id>/')
@@ -108,6 +108,7 @@ def preview_entry(entry_id):
                  .all())
     last_edit_log = (EditLog.query
                      .filter_by(entry_id=entry.id)
+                     .filter(EditLog.is_import == False)  # noqa: E712
                      .order_by(EditLog.edited_at.desc())
                      .first())
     last_editor = last_edit_log.user if last_edit_log else None

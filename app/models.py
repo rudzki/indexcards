@@ -2,6 +2,7 @@ import re
 import secrets
 from datetime import datetime, timezone, timedelta
 
+from flask import url_for
 from flask_login import UserMixin
 
 from app import db, login_manager
@@ -55,8 +56,23 @@ class Entry(db.Model):
                                      backref='target_entry', cascade='all, delete-orphan')
     author = db.relationship('User', backref='entries')
 
+    __table_args__ = (
+        db.Index('ix_entry_parent_id', 'parent_id'),
+        db.Index('ix_entry_created_by', 'created_by'),
+    )
+
     def update_sort_title(self):
         self.sort_title = sort_key(self.title)
+
+
+def entry_url(obj, external=False):
+    """Build the canonical URL for an Entry (or Page). A child entry (one with
+    a parent) is addressed as /<parent-slug>/<child-slug>/ instead of the flat
+    /<slug>/ so the URL reflects the hierarchy already present in the data."""
+    parent = getattr(obj, 'parent', None)
+    if parent:
+        return url_for('main.child_entry_page', parent_slug=parent.slug, slug=obj.slug, _external=external)
+    return url_for('main.entry_page', slug=obj.slug, _external=external)
 
 
 class Alias(db.Model):
@@ -72,15 +88,25 @@ class EditLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     changelog = db.Column(db.Text)
     body_snapshot = db.Column(db.Text, nullable=True)
+    is_import = db.Column(db.Boolean, default=False)
     edited_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = db.relationship('User')
+
+    __table_args__ = (
+        db.Index('ix_edit_log_entry_id', 'entry_id'),
+    )
 
 
 class Backlink(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     source_entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
     target_entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
+
+    __table_args__ = (
+        db.Index('ix_backlink_source_entry_id', 'source_entry_id'),
+        db.Index('ix_backlink_target_entry_id', 'target_entry_id'),
+    )
 
 
 class EditLock(db.Model):

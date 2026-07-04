@@ -69,7 +69,8 @@ def save_entry(entry):
     if parent_id_raw and parent_id_raw.isdigit():
         proposed_parent_id = int(parent_id_raw)
         parent_entry = Entry.query.get(proposed_parent_id)
-        if parent_entry and parent_entry.id != (entry.id or -1):
+        if (parent_entry and parent_entry.id != (entry.id or -1) and not parent_entry.parent_id
+                and not _creates_cycle(entry, parent_entry)):
             entry.parent_id = parent_entry.id
         else:
             entry.parent_id = None
@@ -126,6 +127,26 @@ def save_entry(entry):
     return redirect(url_for('admin.edit_entry', entry_id=entry.id))
 
 
+def _creates_cycle(entry, proposed_parent):
+    """Return True if proposed_parent is entry itself or one of its
+    descendants — adopting it as a parent would create a cycle in the
+    hierarchy."""
+    if entry.id is None:
+        return False
+    cursor = proposed_parent
+    seen = set()
+    for _ in range(50):
+        if cursor.id == entry.id:
+            return True
+        if cursor.id in seen or not cursor.parent_id:
+            return False
+        seen.add(cursor.id)
+        cursor = Entry.query.get(cursor.parent_id)
+        if not cursor:
+            return False
+    return False
+
+
 def sync_aliases(entry, aliases_raw):
     new_aliases = [a.strip() for a in aliases_raw.split(',') if a.strip()]
     new_slugs = {make_slug(a) for a in new_aliases}
@@ -161,13 +182,10 @@ def _fire_integrations(entry, is_new, changelog):
     site_settings = SiteSettings.query.get(1)
     if not site_settings:
         return
-    base_url = request.host_url.rstrip('/')
     event = 'entry.published' if is_new else 'entry.updated'
-    notify_slack_entry(entry, is_new=is_new, changelog=changelog,
-                       settings=site_settings, base_url=base_url)
+    notify_slack_entry(entry, is_new=is_new, changelog=changelog, settings=site_settings)
     if site_settings.site_visibility == 'public':
-        fire_outgoing_webhook(entry, event=event, changelog=changelog,
-                              settings=site_settings, base_url=base_url)
+        fire_outgoing_webhook(entry, event=event, changelog=changelog, settings=site_settings)
 
 
 def import_entry(title, slug, body_markdown, summary='', is_draft=False, published_at=None):
@@ -189,6 +207,7 @@ def import_entry(title, slug, body_markdown, summary='', is_draft=False, publish
     db.session.add(entry)
     db.session.flush()
     sync_backlinks(entry)
-    db.session.add(EditLog(entry_id=entry.id, user_id=current_user.id, changelog='Imported'))
-    update_fts_entry(entry)
+    db.session.add(EditLog(entry_id=entry.id, user_id=current_user.id,
+                           changelog='Imported', is_import=True))
+    update_fts_entry(entry, commit=False)
     return entry

@@ -150,7 +150,7 @@
     }
 
     function runSearch(q) {
-        fetch('/api/entries/search?q=' + encodeURIComponent(q))
+        fetch('/api/entries/search?for_parent=1&q=' + encodeURIComponent(q))
             .then(function(r) { return r.json(); })
             .then(function(results) { renderResults(results, q); });
     }

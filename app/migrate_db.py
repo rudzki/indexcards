@@ -202,5 +202,23 @@ def run_migrations():
             )
         """)
 
+    if has_table('edit_log') and not has_column('edit_log', 'is_import'):
+        cursor.execute("ALTER TABLE edit_log ADD COLUMN is_import BOOLEAN DEFAULT 0")
+        cursor.execute("UPDATE edit_log SET is_import = 1 WHERE changelog = 'Imported'")
+
+    def ensure_index(name, table, column):
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name=?", (name,))
+        if not cursor.fetchone():
+            cursor.execute(f"CREATE INDEX {name} ON {table} ({column})")
+
+    if has_table('backlink'):
+        ensure_index('ix_backlink_source_entry_id', 'backlink', 'source_entry_id')
+        ensure_index('ix_backlink_target_entry_id', 'backlink', 'target_entry_id')
+    if has_table('edit_log'):
+        ensure_index('ix_edit_log_entry_id', 'edit_log', 'entry_id')
+    if has_table('entry'):
+        ensure_index('ix_entry_parent_id', 'entry', 'parent_id')
+        ensure_index('ix_entry_created_by', 'entry', 'created_by')
+
     conn.commit()
     conn.close()

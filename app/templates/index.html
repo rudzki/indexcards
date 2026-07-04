@@ -33,19 +33,19 @@
                     {% endif %}
                     {% if item.type == 'entry' %}
                         <li class="index-entry h-entry">
-                            <a class="u-url p-name" href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.entry.title }}</a>
+                            <a class="u-url p-name" href="{{ entry_url(item.entry) }}">{{ item.entry.title }}</a>
                             {% if item.entry.summary %}
                                 <span class="index-summary p-summary"> — {{ item.entry.summary }}</span>
                             {% endif %}
                             {% if item.entry.parent %}
-                                <span class="index-parent-link">(<a href="{{ url_for('main.entry_page', slug=item.entry.parent.slug) }}">{{ item.entry.parent.title }}</a>)</span>
+                                <span class="index-parent-link">(<a href="{{ entry_url(item.entry.parent) }}">{{ item.entry.parent.title }}</a>)</span>
                             {% endif %}
                             {% if item.children %}
                                 <ul class="index-children">
                                     {% for child in item.children %}
                                         <li class="index-entry h-entry">
                                             <span class="index-child" aria-hidden="true">↳</span>
-                                            <a class="u-url p-name index-child-link" href="{{ url_for('main.entry_page', slug=child.slug) }}">{{ child.title }}</a>
+                                            <a class="u-url p-name index-child-link" href="{{ entry_url(child) }}">{{ child.title }}</a>
                                             {% if child.summary %}
                                                 <span class="index-summary p-summary"> — {{ child.summary }}</span>
                                             {% endif %}
@@ -56,7 +56,7 @@
                         </li>
                     {% else %}
                         <li class="index-entry index-alias">
-                            <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.alias.title }}</a>
+                            <a href="{{ entry_url(item.entry) }}">{{ item.alias.title }}</a>
                             <span class="index-see">See also: {{ item.entry.title }}</span>
                         </li>
                     {% endif %}

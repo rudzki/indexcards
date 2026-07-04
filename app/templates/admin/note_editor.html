@@ -35,7 +35,7 @@
                         </label>
                     </div>
                 </div>
-                {% if note and current_user.is_admin %}
+                {% if note and current_user.can_modify(note) %}
                     <button type="submit" form="delete-note-form" class="btn-small btn-danger" title="Delete note"
                             data-confirm="Delete this note?" data-confirm-label="Delete"
                             onclick="return askConfirm(event)"><i class="bi bi-trash3"></i></button>
@@ -44,7 +44,7 @@
         </div>
     </form>
 
-    {% if note and current_user.is_admin %}
+    {% if note and current_user.can_modify(note) %}
     <form method="post" action="{{ url_for('admin.delete_note', note_id=note.id) }}" id="delete-note-form" style="display:none">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     </form>

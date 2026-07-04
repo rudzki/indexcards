@@ -10,7 +10,7 @@
             {% if entry.is_draft %}
                 <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="editor-view-link" target="_blank"><i class="bi bi-eye"></i> Preview</a>
             {% else %}
-                <a href="{{ url_for('main.entry_page', slug=entry.slug) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
+                <a href="{{ entry_url(entry) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
             {% endif %}
             <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
             {% if site_settings.show_authors and entry.author %}

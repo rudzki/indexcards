@@ -23,6 +23,8 @@ ALLOWED_ATTRS = {
 INTERNAL_LINK_RE = re.compile(r'href=["\']/([\w-]+)/["\']')
 FOOTNOTE_DEF_RE = re.compile(r'^\[\^(\w+)\]:\s*(.+)$', re.MULTILINE)
 FOOTNOTE_REF_RE = re.compile(r'\[\^(\w+)\](?!:)')
+FENCE_LINE_RE = re.compile(r'^\s*```')
+PRE_BLOCK_RE = re.compile(r'(<pre>.*?</pre>)', re.DOTALL)
 
 
 def render_markdown(text):
@@ -31,8 +33,13 @@ def render_markdown(text):
 
     body_lines = []
     footnotes = {}
+    in_fence = False
     for line in text.split('\n'):
-        m = FOOTNOTE_DEF_RE.match(line)
+        if FENCE_LINE_RE.match(line):
+            in_fence = not in_fence
+            body_lines.append(line)
+            continue
+        m = None if in_fence else FOOTNOTE_DEF_RE.match(line)
         if m:
             footnotes[m.group(1)] = m.group(2)
         else:
@@ -58,7 +65,17 @@ def render_markdown(text):
             )
         return m.group(0)
 
-    html = FOOTNOTE_REF_RE.sub(replace_ref, html)
+    def replace_refs_outside_code(html_text):
+        # Leave anything inside a rendered <pre>...</pre> (fenced code) block
+        # untouched, so a code sample that documents footnote syntax isn't
+        # turned into a live footnote link.
+        parts = PRE_BLOCK_RE.split(html_text)
+        return ''.join(
+            part if PRE_BLOCK_RE.match(part) else FOOTNOTE_REF_RE.sub(replace_ref, part)
+            for part in parts
+        )
+
+    html = replace_refs_outside_code(html)
 
     if footnotes:
         html += '\n<section class="entry-footnotes"><h2>Footnotes</h2><ol>'

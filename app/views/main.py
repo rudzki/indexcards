@@ -9,7 +9,7 @@ from flask_login import current_user, login_user
 from markupsafe import Markup
 
 from app import db, limiter
-from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, Note, sort_key
+from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, PageRevision, Note, sort_key, entry_url
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.search import search_entries
 from app.mail import send_email, render_email
@@ -72,67 +72,9 @@ def index():
 def entry_page(slug):
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if entry:
-        linked_slugs = set(INTERNAL_LINK_RE.findall(entry.body_html or ''))
-        if linked_slugs:
-            existing_slugs = {r[0] for r in Entry.query.with_entities(Entry.slug)
-                              .filter(Entry.slug.in_(linked_slugs)).all()}
-        else:
-            existing_slugs = set()
-        body_html = mark_missing_links(entry.body_html, existing_slugs)
-        backlinks = (Entry.query
-                     .join(Entry.outgoing_links)
-                     .filter(
-                         Entry.outgoing_links.any(target_entry_id=entry.id),
-                         Entry.is_draft == False  # noqa: E712
-                     )
-                     .all())
-        note_backlinks = (Note.query
-                          .join(Note.outgoing_links)
-                          .filter(
-                              Note.outgoing_links.any(target_entry_id=entry.id),
-                              Note.is_draft == False  # noqa: E712
-                          )
-                          .all())
-        toc = extract_toc(body_html)
-        last_edit_log = (EditLog.query
-                         .filter_by(entry_id=entry.id)
-                         .order_by(EditLog.edited_at.desc())
-                         .first())
-        last_editor = last_edit_log.user if last_edit_log else None
-
-        prev_entry = (Entry.query
-                      .filter(Entry.is_draft == False,  # noqa: E712
-                              Entry.sort_title < entry.sort_title)
-                      .order_by(Entry.sort_title.desc())
-                      .first())
-        next_entry = (Entry.query
-                      .filter(Entry.is_draft == False,  # noqa: E712
-                              Entry.sort_title > entry.sort_title)
-                      .order_by(Entry.sort_title.asc())
-                      .first())
-
-        ancestors = []
-        cursor = entry
-        for _ in range(10):
-            if not cursor.parent_id:
-                break
-            p = Entry.query.get(cursor.parent_id)
-            if not p or p.id in {a.id for a in ancestors}:
-                break
-            ancestors.append(p)
-            cursor = p
-        ancestors.reverse()
-
-        children = (Entry.query
-                    .filter_by(parent_id=entry.id, is_draft=False)
-                    .order_by(Entry.sort_title)
-                    .all())
-
-        return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                               backlinks=backlinks, note_backlinks=note_backlinks, toc=toc,
-                               last_editor=last_editor,
-                               prev_entry=prev_entry, next_entry=next_entry,
-                               ancestors=ancestors, children=children)
+        if entry.parent_id:
+            return redirect(entry_url(entry), code=301)
+        return _render_entry_page(entry)
 
     alias = Alias.query.filter_by(slug=slug).first()
     if alias:
@@ -140,12 +82,92 @@ def entry_page(slug):
 
     page = Page.query.filter_by(slug=slug, is_draft=False).first()
     if page:
-        return render_template('page.html', page=page)
+        last_revision = (PageRevision.query
+                         .filter_by(page_id=page.id)
+                         .order_by(PageRevision.edited_at.desc())
+                         .first())
+        last_editor = last_revision.user if last_revision else None
+        return render_template('page.html', page=page, last_editor=last_editor)
 
     if current_user.is_authenticated and current_user.can_write:
         return redirect(url_for('admin.new_entry', title=slug))
 
     abort(404)
+
+
+@main_bp.route('/<parent_slug>/<slug>/')
+def child_entry_page(parent_slug, slug):
+    entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
+    if not entry or not entry.parent_id:
+        abort(404)
+    if entry.parent.slug != parent_slug:
+        return redirect(entry_url(entry), code=301)
+    return _render_entry_page(entry)
+
+
+def _render_entry_page(entry):
+    linked_slugs = set(INTERNAL_LINK_RE.findall(entry.body_html or ''))
+    if linked_slugs:
+        existing_slugs = {r[0] for r in Entry.query.with_entities(Entry.slug)
+                          .filter(Entry.slug.in_(linked_slugs)).all()}
+    else:
+        existing_slugs = set()
+    body_html = mark_missing_links(entry.body_html, existing_slugs)
+    backlinks = (Entry.query
+                 .join(Entry.outgoing_links)
+                 .filter(
+                     Entry.outgoing_links.any(target_entry_id=entry.id),
+                     Entry.is_draft == False  # noqa: E712
+                 )
+                 .all())
+    note_backlinks = (Note.query
+                      .join(Note.outgoing_links)
+                      .filter(
+                          Note.outgoing_links.any(target_entry_id=entry.id),
+                          Note.is_draft == False  # noqa: E712
+                      )
+                      .all())
+    toc = extract_toc(body_html)
+    last_edit_log = (EditLog.query
+                     .filter_by(entry_id=entry.id)
+                     .filter(EditLog.is_import == False)  # noqa: E712
+                     .order_by(EditLog.edited_at.desc())
+                     .first())
+    last_editor = last_edit_log.user if last_edit_log else None
+
+    prev_entry = (Entry.query
+                  .filter(Entry.is_draft == False,  # noqa: E712
+                          Entry.sort_title < entry.sort_title)
+                  .order_by(Entry.sort_title.desc())
+                  .first())
+    next_entry = (Entry.query
+                  .filter(Entry.is_draft == False,  # noqa: E712
+                          Entry.sort_title > entry.sort_title)
+                  .order_by(Entry.sort_title.asc())
+                  .first())
+
+    ancestors = []
+    cursor = entry
+    for _ in range(10):
+        if not cursor.parent_id:
+            break
+        p = Entry.query.get(cursor.parent_id)
+        if not p or p.id in {a.id for a in ancestors}:
+            break
+        ancestors.append(p)
+        cursor = p
+    ancestors.reverse()
+
+    children = (Entry.query
+                .filter_by(parent_id=entry.id, is_draft=False)
+                .order_by(Entry.sort_title)
+                .all())
+
+    return render_template('entry.html', entry=entry, body_html=Markup(body_html),
+                           backlinks=backlinks, note_backlinks=note_backlinks, toc=toc,
+                           last_editor=last_editor,
+                           prev_entry=prev_entry, next_entry=next_entry,
+                           ancestors=ancestors, children=children)
 
 
 def _notes_enabled(site_settings):
@@ -173,7 +195,8 @@ def _build_activity_events(since=None, notes_enabled=False, show_history=True):
 
     logs_by_entry = defaultdict(list)
     if entries:
-        log_q = EditLog.query.filter(EditLog.entry_id.in_([e.id for e in entries]))
+        log_q = EditLog.query.filter(EditLog.entry_id.in_([e.id for e in entries]),
+                                      EditLog.is_import == False)  # noqa: E712
         if since:
             log_q = log_q.filter(EditLog.edited_at >= since)
         for log in log_q.order_by(EditLog.edited_at.asc()).all():
@@ -245,7 +268,7 @@ def _group_events_by_day(events):
                 continue
             day_map[date_str][key] = {
                 'title': event['entry'].title,
-                'url': url_for('main.entry_page', slug=event['entry'].slug),
+                'url': entry_url(event['entry']),
                 'changelog': ' · '.join(event.get('changelogs') or []),
                 'is_new': event['kind'] == 'published',
             }
@@ -329,7 +352,7 @@ def random_entry():
     from sqlalchemy.sql.expression import func
     entry = Entry.query.filter_by(is_draft=False).order_by(func.random()).first()
     if entry:
-        return redirect(url_for('main.entry_page', slug=entry.slug))
+        return redirect(entry_url(entry))
     return redirect(url_for('main.index'))
 
 

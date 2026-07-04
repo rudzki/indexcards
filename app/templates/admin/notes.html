@@ -28,7 +28,11 @@
                 {% for note in notes %}
                 <tr>
                     <td class="col-nowrap col-truncate col-title col-primary">
-                        <a href="{{ url_for('admin.edit_note', note_id=note.id) }}">{{ note.body_markdown[:80] or '(empty note)' }}</a>
+                        {% if current_user.can_modify(note) %}
+                            <a href="{{ url_for('admin.edit_note', note_id=note.id) }}">{{ note.body_markdown[:80] or '(empty note)' }}</a>
+                        {% else %}
+                            {{ note.body_markdown[:80] or '(empty note)' }}
+                        {% endif %}
                         {% if note.id in locked_notes %}
                             <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_notes[note.id] }}"></i>
                         {% endif %}
@@ -46,8 +50,8 @@
                             {% if not note.is_draft %}
                                 <a href="{{ url_for('main.note_page', note_id=note.id) }}" class="btn-small" title="View" aria-label="View note"><i class="bi bi-eye" aria-hidden="true"></i></a>
                             {% endif %}
-                            <a href="{{ url_for('admin.edit_note', note_id=note.id) }}" class="btn-small" title="Edit" aria-label="Edit note"><i class="bi bi-pencil" aria-hidden="true"></i></a>
-                            {% if current_user.is_admin %}
+                            {% if current_user.can_modify(note) %}
+                                <a href="{{ url_for('admin.edit_note', note_id=note.id) }}" class="btn-small" title="Edit" aria-label="Edit note"><i class="bi bi-pencil" aria-hidden="true"></i></a>
                                 <button type="submit" form="delete-note-{{ note.id }}" class="btn-small btn-danger" title="Delete" aria-label="Delete note"
                                         data-confirm="Delete this note?" data-confirm-label="Delete"
                                         onclick="return askConfirm(event)"><i class="bi bi-trash3" aria-hidden="true"></i></button>
@@ -59,13 +63,11 @@
             </tbody>
         </table>
 
-        {% if current_user.is_admin %}
-            {% for note in notes %}
-            <form method="post" action="{{ url_for('admin.delete_note', note_id=note.id) }}" id="delete-note-{{ note.id }}" style="display:none">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            </form>
-            {% endfor %}
-        {% endif %}
+        {% for note in notes %}{% if current_user.can_modify(note) %}
+        <form method="post" action="{{ url_for('admin.delete_note', note_id=note.id) }}" id="delete-note-{{ note.id }}" style="display:none">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        </form>
+        {% endif %}{% endfor %}
 
         {% if pagination.pages > 1 %}
         <nav class="pagination" aria-label="Page navigation">

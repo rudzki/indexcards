@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import url_for
-
-from app.models import Entry
+from app.models import Entry, entry_url
 
 
 def feeds_available(settings):
@@ -26,7 +24,7 @@ def feed_entries():
 
     entries = [{
         'title': e.title,
-        'url': url_for('main.entry_page', slug=e.slug, _external=True),
+        'url': entry_url(e, external=True),
         'published': fmt(e.published_at),
         'updated': fmt(e.updated_at),
         'summary': e.summary or '',

@@ -24,6 +24,7 @@
                         </a>
                         <span class="timeline-sep">·</span>
                         <a href="{{ url_for('main.note_page', note_id=item.note.id) }}">Note</a>
+                        {% if site_settings.show_authors and item.note.author %}<span class="timeline-sep">·</span><span class="p-author h-card"><span class="p-name">{{ item.note.author.display_name }}</span></span>{% endif %}
                     </div>
                     <div class="timeline-body e-content">{{ item.note.body_html|safe }}</div>
                 </li>
@@ -31,7 +32,7 @@
                 <li class="timeline-item timeline-status">
                     <time class="timeline-date" datetime="{{ item.ts.isoformat() if item.ts else '' }}">{{ item.ts|timeago if item.ts else '' }}</time>
                     <div class="timeline-body">
-                        New entry published: <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.entry.title }}</a>
+                        New entry published: <a href="{{ entry_url(item.entry) }}">{{ item.entry.title }}</a>
                         {% if item.changelogs %}<span class="timeline-changelog"> — {{ item.changelogs|join(' · ') }}</span>{% endif %}
                     </div>
                 </li>
@@ -39,7 +40,7 @@
                 <li class="timeline-item timeline-status">
                     <time class="timeline-date" datetime="{{ item.ts.isoformat() if item.ts else '' }}">{{ item.ts|timeago if item.ts else '' }}</time>
                     <div class="timeline-body">
-                        <a href="{{ url_for('main.entry_page', slug=item.entry.slug) }}">{{ item.entry.title }}</a> edited
+                        <a href="{{ entry_url(item.entry) }}">{{ item.entry.title }}</a> edited
                         {% if item.changelogs %}<span class="timeline-changelog"> — {{ item.changelogs|join(' · ') }}</span>{% endif %}
                     </div>
                 </li>

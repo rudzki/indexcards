@@ -11,7 +11,7 @@ def create_fts_table():
     db.session.commit()
 
 
-def update_fts_entry(entry):
+def update_fts_entry(entry, commit=True):
     aliases = ', '.join(a.title for a in entry.aliases)
     body = strip_markdown(entry.body_markdown)
 
@@ -22,7 +22,8 @@ def update_fts_entry(entry):
         'INSERT INTO entry_fts(rowid, title, aliases, body) '
         'VALUES (:id, :title, :aliases, :body)'
     ), {'id': entry.id, 'title': entry.title, 'aliases': aliases, 'body': body})
-    db.session.commit()
+    if commit:
+        db.session.commit()
 
 
 def delete_fts_entry(entry_id):
@@ -54,7 +55,7 @@ def search_entries(query, limit=50):
     fts_query = ' '.join(f'"{t}"*' for t in terms)
 
     results = db.session.execute(db.text(
-        'SELECT rowid, rank, snippet(entry_fts, 2, "<mark>", "</mark>", "…", 30) as excerpt '
+        'SELECT rowid, rank, snippet(entry_fts, -1, "<mark>", "</mark>", "…", 30) as excerpt '
         'FROM entry_fts WHERE entry_fts MATCH :query '
         'ORDER BY rank LIMIT :limit'
     ), {'query': fts_query, 'limit': limit}).fetchall()

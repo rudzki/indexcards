@@ -38,7 +38,7 @@ def send_digest(force):
     edited_entries = []
     if settings.digest_include_edits:
         logs = (EditLog.query
-                .filter(EditLog.edited_at >= since)
+                .filter(EditLog.edited_at >= since, EditLog.is_import == False)  # noqa: E712
                 .order_by(EditLog.edited_at.desc())
                 .all())
         seen = {e.id for e in new_entries}

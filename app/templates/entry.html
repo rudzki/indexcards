@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
 
 {% block title %}{{ entry.title }} — {{ site_settings.site_title }}{% endblock %}
 {% block og_type %}article{% endblock %}
@@ -29,7 +30,7 @@
         <ol>
             <li><a href="{{ url_for('main.index') }}">Contents</a></li>
             {% for ancestor in ancestors %}
-            <li><a href="{{ url_for('main.entry_page', slug=ancestor.slug) }}">{{ ancestor.title }}</a></li>
+            <li><a href="{{ entry_url(ancestor) }}">{{ ancestor.title }}</a></li>
             {% endfor %}
             <li aria-current="page">{{ entry.title }}</li>
         </ol>
@@ -66,10 +67,10 @@
 
     <footer class="entry-meta">
         {% if entry.published_at %}
-            <span class="entry-published">Published <time class="dt-published" datetime="{{ entry.published_at.isoformat() }}">{{ entry.published_at|timeago }}</time>{% if site_settings.show_authors and entry.author %} by <span class="p-author h-card">{% if entry.author.bio or entry.author.link %}<span class="p-name author-name" data-bio="{{ entry.author.bio }}" data-link="{{ entry.author.link or '' }}">{{ entry.author.display_name }}</span>{% else %}<span class="p-name">{{ entry.author.display_name }}</span>{% endif %}</span>{% endif %}</span>
+            <span class="entry-published">Published <time class="dt-published" datetime="{{ entry.published_at.isoformat() }}">{{ entry.published_at|timeago }}</time>{% if site_settings.show_authors and entry.author %} by <span class="p-author h-card">{{ macros.author_name(entry.author, p_name=True) }}</span>{% endif %}</span>
         {% endif %}
         {% if site_settings.show_history and entry.updated_at and entry.updated_at != entry.published_at %}
-            <span class="entry-updated">Last edited <time class="dt-updated" datetime="{{ entry.updated_at.isoformat() }}">{{ entry.updated_at|timeago }}</time>{% if site_settings.show_authors and last_editor %} by {% if last_editor.bio or last_editor.link %}<span class="author-name" data-bio="{{ last_editor.bio }}" data-link="{{ last_editor.link or '' }}">{{ last_editor.display_name }}</span>{% else %}{{ last_editor.display_name }}{% endif %}{% endif %}</span>
+            <span class="entry-updated">Last edited <time class="dt-updated" datetime="{{ entry.updated_at.isoformat() }}">{{ entry.updated_at|timeago }}</time>{% if site_settings.show_authors and last_editor %} by {{ macros.author_name(last_editor) }}{% endif %}</span>
         {% endif %}
         <button class="btn-small copy-link-btn" title="Copy link" aria-label="Copy link" onclick="copyEntryLink(this)"><i class="bi bi-link-45deg" aria-hidden="true"></i></button>
         {% if current_user.is_authenticated and current_user.can_modify(entry) %}
@@ -91,7 +92,7 @@
         <ul>
             {% for bl in backlinks %}
                 <li class="h-cite">
-                    <a class="u-url p-name" href="{{ url_for('main.entry_page', slug=bl.slug) }}">{{ bl.title }}</a>
+                    <a class="u-url p-name" href="{{ entry_url(bl) }}">{{ bl.title }}</a>
                     {% if bl.summary %}<span class="backlink-summary p-summary"> — {{ bl.summary }}</span>{% endif %}
                 </li>
             {% endfor %}
@@ -110,7 +111,7 @@
         <ul>
             {% for child in children %}
             <li>
-                <a href="{{ url_for('main.entry_page', slug=child.slug) }}">{{ child.title }}</a>
+                <a href="{{ entry_url(child) }}">{{ child.title }}</a>
                 {% if child.summary %}<span class="backlink-summary"> — {{ child.summary }}</span>{% endif %}
             </li>
             {% endfor %}
@@ -119,9 +120,9 @@
     {% endif %}
 
     <nav class="entry-nav-arrows">
-        <span class="entry-nav-prev">{% if prev_entry %}<a href="{{ url_for('main.entry_page', slug=prev_entry.slug) }}">← {{ prev_entry.title }}</a>{% endif %}</span>
+        <span class="entry-nav-prev">{% if prev_entry %}<a href="{{ entry_url(prev_entry) }}">← {{ prev_entry.title }}</a>{% endif %}</span>
         <span class="entry-nav-center"><a href="{{ url_for('main.index') }}">Contents</a></span>
-        <span class="entry-nav-next">{% if next_entry %}<a href="{{ url_for('main.entry_page', slug=next_entry.slug) }}">{{ next_entry.title }} →</a>{% endif %}</span>
+        <span class="entry-nav-next">{% if next_entry %}<a href="{{ entry_url(next_entry) }}">{{ next_entry.title }} →</a>{% endif %}</span>
     </nav>
 </article>
 {% endblock %}

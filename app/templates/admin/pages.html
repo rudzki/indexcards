@@ -33,6 +33,9 @@
                 <tr>
                     <td class="col-nowrap col-truncate col-title col-primary">
                         <a href="{{ url_for('admin.edit_page', page_id=page.id) }}">{{ page.title }}</a>
+                        {% if page.is_stub %}
+                            <span class="entry-stub-label">Stub</span>
+                        {% endif %}
                         {% if page.id in locked_pages %}
                             <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_pages[page.id] }}"></i>
                         {% endif %}

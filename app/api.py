@@ -1,17 +1,15 @@
 import os
 import secrets
-from datetime import datetime, timezone, timedelta
 
-from flask import Blueprint, jsonify, request, current_app, url_for
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
-from app.models import Entry, Alias, SiteSettings, EditLock, make_slug, log_audit
+from app.models import Entry, Alias, SiteSettings, make_slug, log_audit, entry_url
 from app.markdown import render_markdown
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
+from app import locks
 from app import db, limiter, csrf
-
-LOCK_TTL = 60  # seconds
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -41,7 +39,7 @@ def _entry_summary(entry):
         'summary': entry.summary or '',
         'published_at': _fmt(entry.published_at),
         'updated_at': _fmt(entry.updated_at),
-        'url': url_for('main.entry_page', slug=entry.slug, _external=True),
+        'url': entry_url(entry, external=True),
     }
 
 
@@ -107,12 +105,15 @@ def search_entries():
     if err:
         return err
     q = request.args.get('q', '').strip().lower()
+    # Entries already nested under a parent can't themselves take a child
+    # (hierarchy is capped at two levels), so the "pick a parent" UI excludes them.
+    for_parent = request.args.get('for_parent') == '1'
 
     if not q:
-        entries = (Entry.query
-                   .filter(Entry.is_draft == False)  # noqa: E712
-                   .order_by(Entry.sort_title)
-                   .limit(20).all())
+        entry_q = Entry.query.filter(Entry.is_draft == False)  # noqa: E712
+        if for_parent:
+            entry_q = entry_q.filter(Entry.parent_id.is_(None))
+        entries = entry_q.order_by(Entry.sort_title).limit(20).all()
         return jsonify([{
             'id': entry.id,
             'title': entry.title,
@@ -122,10 +123,13 @@ def search_entries():
 
     q_escaped = q.replace('%', r'\%').replace('_', r'\_')
 
-    entries = Entry.query.filter(
+    entry_q = Entry.query.filter(
         Entry.title.ilike(f'%{q_escaped}%', escape='\\'),
         Entry.is_draft == False  # noqa: E712
-    ).limit(10).all()
+    )
+    if for_parent:
+        entry_q = entry_q.filter(Entry.parent_id.is_(None))
+    entries = entry_q.limit(10).all()
 
     aliases = Alias.query.filter(
         Alias.title.ilike(f'%{q_escaped}%', escape='\\')
@@ -145,7 +149,7 @@ def search_entries():
             })
 
     for alias in aliases:
-        if alias.entry_id not in seen and not alias.entry.is_draft:
+        if alias.entry_id not in seen and not alias.entry.is_draft and not (for_parent and alias.entry.parent_id):
             seen.add(alias.entry_id)
             results.append({
                 'id': alias.entry_id,
@@ -230,36 +234,16 @@ def acquire_lock(content_type, content_id):
     if content_type not in ('entry', 'page'):
         return jsonify({'error': 'Invalid type'}), 400
 
-    now = datetime.now(timezone.utc)
-    now_naive = now.replace(tzinfo=None)
-    expires_naive = (now + timedelta(seconds=LOCK_TTL)).replace(tzinfo=None)
-
-    EditLock.query.filter(EditLock.expires_at < now_naive).delete()
-
-    existing = EditLock.query.filter_by(content_type=content_type, content_id=content_id).first()
-    if existing and existing.user_id != current_user.id:
-        exp = existing.expires_at.replace(tzinfo=timezone.utc) if existing.expires_at.tzinfo is None else existing.expires_at
-        if exp > now:
-            name = existing.user.display_name if existing.user else 'Someone'
-            return jsonify({'error': 'locked', 'locked_by': name}), 423
-
-    if existing:
-        existing.user_id = current_user.id
-        existing.expires_at = expires_naive
-    else:
-        db.session.add(EditLock(content_type=content_type, content_id=content_id,
-                                user_id=current_user.id, expires_at=expires_naive))
-    db.session.commit()
+    blocker = locks.acquire_lock(content_type, content_id)
+    if blocker:
+        return jsonify({'error': 'locked', 'locked_by': blocker}), 423
     return jsonify({'ok': True})
 
 
 @api_bp.route('/lock/<content_type>/<int:content_id>/release', methods=['POST'])
 @login_required
 def release_lock(content_type, content_id):
-    EditLock.query.filter_by(
-        content_type=content_type, content_id=content_id, user_id=current_user.id
-    ).delete()
-    db.session.commit()
+    locks.release_lock(content_type, content_id)
     return jsonify({'ok': True})
 
 

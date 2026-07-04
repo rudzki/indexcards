@@ -45,7 +45,7 @@ def notify_mailchimp_subscribe(email, settings):
         logger.warning('Mailchimp returned %s for %s: %s', status, email, body)
 
 
-def notify_slack_entry(entry, is_new, changelog, settings, base_url=''):
+def notify_slack_entry(entry, is_new, changelog, settings):
     """Post a new or updated entry announcement to the configured Slack webhook."""
     if not settings.slack_configured:
         return
@@ -59,8 +59,8 @@ def notify_slack_entry(entry, is_new, changelog, settings, base_url=''):
     else:
         action = 'Updated entry'
 
-    entry_url = f'{base_url.rstrip("/")}/entry/{entry.slug}' if base_url else f'/entry/{entry.slug}'
-    text = f'{action}: <{entry_url}|{entry.title}>'
+    from app.models import entry_url
+    text = f'{action}: <{entry_url(entry, external=True)}|{entry.title}>'
     if entry.summary:
         text += f'\n{entry.summary}'
     if not is_new and changelog:
@@ -69,19 +69,19 @@ def notify_slack_entry(entry, is_new, changelog, settings, base_url=''):
     _post_json(settings.slack_webhook_url, {'text': text})
 
 
-def fire_outgoing_webhook(entry, event, changelog, settings, base_url=''):
+def fire_outgoing_webhook(entry, event, changelog, settings):
     """POST entry data to the configured outgoing webhook URL."""
     if not settings.outgoing_webhook_url:
         return
 
-    entry_url = f'{base_url.rstrip("/")}/entry/{entry.slug}' if base_url else f'/entry/{entry.slug}'
+    from app.models import entry_url
     payload = {
         'event': event,
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'entry': {
             'title': entry.title,
             'slug': entry.slug,
-            'url': entry_url,
+            'url': entry_url(entry, external=True),
             'summary': entry.summary or '',
             'changelog': changelog or '',
         },

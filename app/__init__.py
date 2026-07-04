@@ -151,6 +151,11 @@ def create_app():
         return dict(nav_pages=pages)
 
     @app.context_processor
+    def inject_entry_url():
+        from app.models import entry_url
+        return dict(entry_url=entry_url)
+
+    @app.context_processor
     def inject_static_url():
         import os as _os2
         def static_url(filename):

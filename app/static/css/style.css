@@ -1344,6 +1344,14 @@ a.index-child-link,
   border-radius: 4px;
 }
 
+.entry-body a { color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.entry-body a:hover { color: var(--ink); text-decoration: none; }
+
+.entry-body a.missing {
+  color: var(--danger); border-bottom: 1px dashed var(--danger);
+  text-decoration: none; cursor: help;
+}
+
 /* Category label (mono, brand-colored, uppercase) */
 .cat {
   font-family: var(--mono);

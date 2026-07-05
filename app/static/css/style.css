@@ -923,7 +923,7 @@ select {
 }
 
 .index-entry {
-  padding: 0.25rem 0;
+  margin: 0.25rem 0;
 }
 
 .recent-entry:last-of-type,

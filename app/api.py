@@ -24,11 +24,9 @@ def _check_visibility():
 
 
 def _fmt(dt):
+    # Timestamps are naive UTC (storage convention); the literal Z marks it.
     if not dt:
         return None
-    from datetime import timezone
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
     return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
@@ -231,7 +229,7 @@ def upload_image():
 @api_bp.route('/lock/<content_type>/<int:content_id>', methods=['POST'])
 @login_required
 def acquire_lock(content_type, content_id):
-    if content_type not in ('entry', 'page'):
+    if content_type not in ('entry', 'page', 'note'):
         return jsonify({'error': 'Invalid type'}), 400
 
     blocker = locks.acquire_lock(content_type, content_id)

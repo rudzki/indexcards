@@ -274,7 +274,7 @@
                 </div>
                 <div class="field">
                     <label for="smtp_password">Password</label>
-                    <input type="password" id="smtp_password" name="smtp_password" value="{{ settings.smtp_password or '' }}" autocomplete="new-password">
+                    <input type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="{% if settings.smtp_password %}••••••••  (leave blank to keep){% endif %}">
                 </div>
             </div>
             <div class="field">

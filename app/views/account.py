@@ -19,6 +19,12 @@ def account():
             flash('Display name is required.', 'error')
             return render_template('account.html')
 
+        # Only allow http(s) website links — a javascript:/data: URL here would
+        # become a clickable link on every entry the user authored.
+        if link and not link.lower().startswith(('http://', 'https://')):
+            flash('Website link must start with http:// or https://.', 'error')
+            return render_template('account.html')
+
         current_user.display_name = display_name
         current_user.bio = bio
         current_user.link = link

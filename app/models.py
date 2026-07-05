@@ -10,6 +10,16 @@ from app import db, login_manager
 STOP_WORDS = {'the', 'a', 'an'}
 
 
+def utcnow():
+    """The single datetime convention: naive UTC at the storage boundary.
+
+    SQLite (via SQLAlchemy's DateTime) drops tzinfo on write and returns naive
+    values on read, so reloaded rows are always naive. Producing naive UTC here
+    too means in-memory objects match reloaded ones — no more mixing aware
+    (`+00:00`) and naive values, and no per-call-site tzinfo re-attachment."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def make_slug(title):
     slug = title.lower().strip()
     slug = re.sub(r'[^\w\s-]', '', slug)
@@ -40,9 +50,9 @@ class Entry(db.Model):
     is_draft = db.Column(db.Boolean, default=False)
     is_stub = db.Column(db.Boolean, default=False)
     published_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow,
+                           onupdate=utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     sort_title = db.Column(db.Text, default='')
     parent_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=True)
@@ -63,6 +73,15 @@ class Entry(db.Model):
 
     def update_sort_title(self):
         self.sort_title = sort_key(self.title)
+
+    @property
+    def edited_after_publish(self):
+        """True only if the entry was meaningfully edited after publication.
+        published_at and updated_at are written microseconds apart on the first
+        save, so a plain inequality is always true — require a real gap."""
+        if not self.updated_at or not self.published_at:
+            return False
+        return (self.updated_at - self.published_at).total_seconds() > 60
 
 
 def entry_url(obj, external=False):
@@ -89,7 +108,7 @@ class EditLog(db.Model):
     changelog = db.Column(db.Text)
     body_snapshot = db.Column(db.Text, nullable=True)
     is_import = db.Column(db.Boolean, default=False)
-    edited_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    edited_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User')
 
@@ -135,7 +154,7 @@ class User(UserMixin, db.Model):
                                   default=lambda: secrets.token_urlsafe(32))
     login_token = db.Column(db.Text, unique=True)
     login_token_expires = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     @property
     def is_admin(self):
@@ -168,7 +187,7 @@ class User(UserMixin, db.Model):
 
     def generate_login_token(self):
         self.login_token = secrets.token_urlsafe(32)
-        self.login_token_expires = datetime.now(timezone.utc) + timedelta(minutes=15)
+        self.login_token_expires = utcnow() + timedelta(minutes=15)
         return self.login_token
 
     def clear_login_token(self):
@@ -179,17 +198,15 @@ class User(UserMixin, db.Model):
     def token_valid(self):
         if not self.login_token or not self.login_token_expires:
             return False
-        now = datetime.now(timezone.utc)
-        expires = self.login_token_expires
-        if expires.tzinfo is None:
-            from datetime import timezone as tz
-            expires = expires.replace(tzinfo=tz.utc)
-        return now < expires
+        return utcnow() < self.login_token_expires
 
 
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+REGISTRATION_TTL = timedelta(days=14)
 
 
 class Registration(db.Model):
@@ -201,9 +218,20 @@ class Registration(db.Model):
     invited_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     role = db.Column(db.Text, nullable=True)
     accepted = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     inviter = db.relationship('User')
+
+    @property
+    def is_expired(self):
+        """Invite/signup tokens are only valid for REGISTRATION_TTL after
+        creation — a leaked old invite email must not stay a usable
+        account-creation credential forever."""
+        if self.accepted:
+            return True
+        if not self.created_at:
+            return False
+        return utcnow() > self.created_at + REGISTRATION_TTL
 
 
 class AuditLog(db.Model):
@@ -211,7 +239,7 @@ class AuditLog(db.Model):
     action = db.Column(db.Text, nullable=False)
     detail = db.Column(db.Text, default='')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User')
 
@@ -232,9 +260,9 @@ class Page(db.Model):
     is_draft = db.Column(db.Boolean, default=False)
     is_stub = db.Column(db.Boolean, default=False)
     published_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow,
+                           onupdate=utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     sort_title = db.Column(db.Text, default='')
     show_in_nav = db.Column(db.Boolean, default=False)
@@ -254,7 +282,7 @@ class PageRevision(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     body_snapshot = db.Column(db.Text, default='')
     changelog = db.Column(db.Text)
-    edited_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    edited_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User')
 
@@ -322,9 +350,9 @@ class Note(db.Model):
     body_html = db.Column(db.Text, default='')
     is_draft = db.Column(db.Boolean, default=False)
     published_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow,
+                           onupdate=utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
 
     author = db.relationship('User', backref='notes')

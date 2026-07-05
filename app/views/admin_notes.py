@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
-
 from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import current_user
 
 from app import db
-from app.models import Note, SiteSettings, log_audit
+from app.models import Note, SiteSettings, log_audit, utcnow
 from app.locks import acquire_lock, active_locks
 from app.notes import save_note
 from app.views.admin import admin_bp, writer_required
@@ -81,7 +79,7 @@ def publish_note(note_id):
         abort(403)
     note.is_draft = not note.is_draft
     if not note.is_draft and not note.published_at:
-        note.published_at = datetime.now(timezone.utc)
+        note.published_at = utcnow()
     db.session.commit()
     status = 'unpublished' if note.is_draft else 'published'
     flash(f'Note {status}.', 'success')

@@ -64,6 +64,14 @@ def setup():
 
         user = User(email=email, display_name=display_name, role='admin')
         db.session.add(user)
+        db.session.flush()
+
+        # Guard against two concurrent /setup POSTs both creating an admin:
+        # if another user slipped in between the count check and here, bail out.
+        if User.query.count() > 1:
+            db.session.rollback()
+            flash('Setup has already been completed.', 'info')
+            return redirect(url_for('auth.login'))
 
         if site_title:
             settings = SiteSettings.query.get(1)
@@ -102,7 +110,7 @@ def signup_form():
             return redirect(url_for('auth.login'))
 
         existing_reg = Registration.query.filter_by(email=email, accepted=False).first()
-        if existing_reg:
+        if existing_reg and not existing_reg.is_expired:
             flash('A signup link has already been sent to this email. Check your inbox.', 'info')
             return render_template('signup_form.html', settings=settings)
 
@@ -124,6 +132,9 @@ def signup_form():
 @auth_bp.route('/signup/<token>', methods=['GET', 'POST'])
 def signup_token(token):
     reg = Registration.query.filter_by(token=token, accepted=False).first_or_404()
+    if reg.is_expired:
+        flash('This signup link has expired. Please request a new invitation.', 'error')
+        return redirect(url_for('auth.login'))
     settings = SiteSettings.query.get(1)
 
     if request.method == 'POST':

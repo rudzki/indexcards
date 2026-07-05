@@ -1,11 +1,11 @@
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 
 import click
 from flask import current_app
 from flask.cli import with_appcontext
 
 from app import db
-from app.models import Entry, EditLog, User, SiteSettings
+from app.models import Entry, EditLog, User, SiteSettings, utcnow
 from app.mail import send_email, render_email
 
 
@@ -23,12 +23,12 @@ def send_digest(force):
         click.echo('No site settings found.')
         return
 
-    today = datetime.now(timezone.utc).weekday()  # Monday=0 .. Sunday=6, matches digest_day
+    today = utcnow().weekday()  # Monday=0 .. Sunday=6, matches digest_day
     if not force and settings.digest_day != today:
         click.echo(f'Not the configured digest day (today={today}, configured={settings.digest_day}). Skipping.')
         return
 
-    since = datetime.now(timezone.utc) - timedelta(days=7)
+    since = utcnow() - timedelta(days=7)
 
     new_entries = (Entry.query
                    .filter(Entry.published_at >= since, Entry.is_draft == False)  # noqa: E712

@@ -1,96 +1,96 @@
 # Index Cards
 
-Index Cards is a mindfully designed self-hosted web app for keeping a personal or small-team knowledge base. Pages link to each other like a wiki (aliases, backlinks, hierarchy), but entries are drafted, published, and shipped out over feeds and a weekly email digest, like a blog.
+A self-hosted personal wiki and blog engine. Every entry is one card: it
+links to other cards, knows which cards link back to it, and keeps its own
+edit history. The whole thing is one Flask app and one SQLite file.
 
-Passwordless login (email magic links), full-text search, a modern WYSIWYG
-editor with Markdown import/export, and optional integrations with Slack,
-Mailchimp, and webhooks.
+For architecture and developer documentation, see
+[TECHNICAL.md](TECHNICAL.md).
 
-## Features
+## What it does
 
-- **Wiki-style entries** — titles, aliases, automatic backlinks, optional parent/child hierarchy
-- **Blog-style publishing** — drafts, publish dates, edit history with restore, RSS/Atom/JSON feeds
-- **Passwordless auth** — magic-link login by email, roles: admin / editor / author / viewer
-- **Full-text search** — SQLite FTS5 with ranked results and highlighted snippets
-- **WYSIWYG editing** — Modern ProseMirror-based editor with Markdown import/export
-- **Email digest** — weekly roundup of new/updated entries for subscribers
-- **Integrations** — Slack announcements, Mailchimp subscriber sync, outgoing webhooks (HMAC-signed)
-- **Static pages** — Pages with their own nav placement and history
-- **Themeable** — several built-in color themes plus custom CSS/head/footer injection
+- **Linked entries with backlinks.** Wiki-style internal links; every entry
+  lists what references it. Links to entries that don't exist yet render as
+  *red links* — click one and you're already writing it.
+- **Aliases and hierarchy.** Alternate titles redirect to the real entry;
+  entries can nest one level under a parent, with nested URLs
+  (`/parent/child/`) and breadcrumbs.
+- **Full-text search.** SQLite FTS5 over titles, aliases, and bodies, with
+  ranked results and highlighted excerpts.
+- **Revision history.** Every save is a revision — view line diffs, restore
+  any version. Soft edit-locks keep two people from clobbering each other.
+- **Notes timeline.** Optional short-form posts alongside the wiki, with
+  their own timeline page and an edit-activity heatmap on the homepage.
+- **Publishing.** Drafts, stubs, scheduled-looking published dates, Atom and
+  JSON feeds, a weekly email digest for subscribers, and a read-only JSON
+  API.
+- **Integrations.** Slack announcements on publish, Mailchimp subscriber
+  sync, and HMAC-signed outgoing webhooks.
+- **Passwordless auth.** Login is an email magic link — no passwords are
+  ever stored. Optional multi-user mode with roles (admin / editor / author
+  / viewer), invites or domain-restricted/open registration, and an audit
+  log.
+- **Private mode.** Flip the whole site to registered-readers-only.
+- **Import & export.** Import from WordPress export XML or JSON; export
+  everything as Markdown files with front-matter or as JSON.
+- **Themes.** Five built-in color themes, dark/light modes, custom CSS, and
+  custom head/footer HTML.
 
-See [TECHNICAL.md](TECHNICAL.md) for architecture details, the data model, and
-the full route inventory.
+## Quick start (local)
 
-## Requirements
-
-- Python 3.11+
-- SQLite (bundled with Python; no separate server needed)
-
-## Local development
+Requires Python 3.11+.
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+git clone <this-repo> indexcards && cd indexcards
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-cp env.example .env
-# generate a SECRET_KEY and paste it into .env:
-python3 -c "import secrets; print(secrets.token_hex(32))"
-
-python3 run.py
+python run.py
 ```
 
-Open `http://localhost:5000`. The first request routes you to a setup wizard
-that creates the initial admin account. Database tables are created
-automatically on first boot — no manual migration step needed.
+Open <http://localhost:5000> — the first visit walks you through creating
+the admin account. Emails (login links, invites) print to the console until
+you configure SMTP in **Dashboard → Settings**.
 
-## Deployment
+Optionally seed demo content from **Dashboard → Data → Add test data**.
 
-`deploy/setup.sh` provisions a standalone Ubuntu/Debian server: nginx, gunicorn,
-systemd (including a timer for the weekly digest), and a Let's Encrypt
-certificate. Works from any install path — clone or copy the repo to wherever
-you want it to live, then run the script from inside that checkout. See
-[deploy/README.md](deploy/README.md) for the full walkthrough and
-[TECHNICAL.md](TECHNICAL.md) for architecture details.
+## Deploying to a server
+
+A complete single-server setup for Ubuntu/Debian lives in
+[`deploy/`](deploy/):
 
 ```bash
-sudo bash deploy/setup.sh
+sudo git clone <this-repo> /srv/indexcards
+cd /srv/indexcards/deploy && sudo ./setup.sh
 ```
 
-## Project layout
+`setup.sh` installs nginx, gunicorn, and certbot, creates a service user,
+writes an `.env` with a random `SECRET_KEY`, installs the systemd service
+and the daily digest timer, and obtains a TLS certificate. See
+[`deploy/README.md`](deploy/README.md) for details and
+[`upgrade.sh`](deploy/upgrade.sh) for updates.
 
-```
-app/
-  views/               blueprints (routes only — business logic lives in the modules below)
-    auth.py             login, signup, setup wizard
-    account.py           /account — user profile
-    main.py               public site — entries, pages, search, feeds, uploads
-    admin.py               /dashboard blueprint + admin_required/writer_required/editor_required decorators
-    admin_entries.py        entry CRUD, publish, history
-    admin_pages.py           page CRUD, publish, history
-    admin_users.py            users, roles, registrations
-    admin_settings.py          site settings, image upload
-    admin_import_export.py      markdown/JSON export, JSON/WordPress import
-  entries.py           entry save/validate/import logic + backlink sync
-  pages.py             page save/validate logic
-  revisions.py          shared diff/history helpers used by entries and pages
-  locks.py               soft edit-locking (EditLock)
-  registration.py          invite/signup role resolution
-  feeds.py                RSS/Atom/JSON feed data
-  wordpress_import.py      WordPress export XML parser
-  api.py               JSON API (public read endpoints + editor helpers)
-  models.py             SQLAlchemy models
-  markdown.py           Markdown rendering + sanitization
-  search.py             SQLite FTS5 full-text search
-  digest.py             weekly digest CLI command
-  mail.py               SMTP sending (falls back to console output if unconfigured)
-  integrations.py       Slack / Mailchimp / webhook outbound integrations
-  templates/            Jinja2 templates (admin/ for the /dashboard CMS, email/, errors/)
-  static/               CSS, JS, vendored ProseMirror bundle
-deploy/                setup/upgrade scripts, systemd units (app + digest timer), nginx config
-migrations/            (placeholder — see TECHNICAL.md, schema changes are hand-rolled)
+## Configuration
+
+Environment variables (see [`env.example`](env.example)):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `SECRET_KEY` | Flask session/CSRF key — **required in production** | dev-only fallback |
+| `SITE_URL` | Public base URL, used in emails and feeds | `http://localhost:5000` |
+| `DATABASE_URL` | SQLAlchemy database URL | `sqlite:///instance/indexcards.db` |
+| `FLASK_DEBUG` | Enable dev mode | off |
+
+Everything else — site title, themes, SMTP, registration policy, visibility,
+integrations, digest schedule — is configured in the admin dashboard and
+stored in the database.
+
+## CLI
+
+```bash
+flask send-digest [--force]   # email the weekly digest (timer-driven in deploy)
+flask rebuild-fts             # rebuild the full-text search index
 ```
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+See [LICENSE](LICENSE).

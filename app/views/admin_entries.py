@@ -1,11 +1,9 @@
-from datetime import datetime, timezone
-
 from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, log_audit, entry_url
+from app.models import Entry, EditLog, log_audit, entry_url, utcnow
 from app.markdown import render_markdown
 from app.search import delete_fts_entry, update_fts_entry
 from app.locks import acquire_lock, active_locks
@@ -70,6 +68,10 @@ def delete_entry(entry_id):
     if not current_user.can_modify(entry):
         abort(403)
     entry_title = entry.title
+    # Detach children first — SQLite FK enforcement is off, so a dangling
+    # parent_id would otherwise persist and 500 pages that dereference
+    # entry.parent.
+    Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
     delete_fts_entry(entry.id)
     db.session.delete(entry)
     db.session.commit()
@@ -84,10 +86,17 @@ def publish_entry(entry_id):
     entry = Entry.query.get_or_404(entry_id)
     if not current_user.can_modify(entry):
         abort(403)
+    was_unpublished = entry.is_draft
+    is_first_publish = entry.published_at is None
     entry.is_draft = False
     if not entry.published_at:
-        entry.published_at = datetime.now(timezone.utc)
+        entry.published_at = utcnow()
     db.session.commit()
+    # Announce to Slack / webhooks — the common draft-then-publish flow never
+    # goes through save_entry() as non-draft, so integrations must fire here too.
+    if was_unpublished:
+        from app.entries import _fire_integrations
+        _fire_integrations(entry, is_new=is_first_publish, changelog=None)
     flash(f'"{entry.title}" published.', 'success')
     return redirect(entry_url(entry))
 
@@ -99,7 +108,9 @@ def preview_entry(entry_id):
     if not current_user.can_modify(entry):
         abort(403)
     from app.markdown import mark_missing_links, extract_toc
+    from app.models import Alias
     existing_slugs = {e.slug for e in Entry.query.with_entities(Entry.slug).all()}
+    existing_slugs |= {a.slug for a in Alias.query.with_entities(Alias.slug).all()}
     body_html = mark_missing_links(entry.body_html, existing_slugs)
     toc = extract_toc(body_html)
     backlinks = (Entry.query
@@ -132,13 +143,19 @@ def bulk_entries():
     count = 0
 
     if action == 'publish':
+        newly_published = []
         for entry in entries:
             if current_user.can_modify(entry):
+                if entry.is_draft:
+                    newly_published.append((entry, entry.published_at is None))
                 entry.is_draft = False
                 if not entry.published_at:
-                    entry.published_at = datetime.now(timezone.utc)
+                    entry.published_at = utcnow()
                 count += 1
         db.session.commit()
+        from app.entries import _fire_integrations
+        for entry, is_first in newly_published:
+            _fire_integrations(entry, is_new=is_first, changelog=None)
         flash(f'{count} entries published.', 'success')
     elif action == 'unpublish':
         for entry in entries:
@@ -150,7 +167,10 @@ def bulk_entries():
     elif action == 'delete':
         for entry in entries:
             if current_user.can_modify(entry):
-                delete_fts_entry(entry.id)
+                # Detach children and defer the FTS commit so the whole batch
+                # commits atomically with the entry deletions.
+                Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
+                delete_fts_entry(entry.id, commit=False)
                 db.session.delete(entry)
                 count += 1
         db.session.commit()

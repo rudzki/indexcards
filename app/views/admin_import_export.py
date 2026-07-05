@@ -21,10 +21,13 @@ def export_markdown():
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for entry in entries:
             def _yaml_str(s):
-                return (s or '').replace('\\', '\\\\').replace('"', '\\"')
+                # Double-quoted YAML scalar: escape backslash/quote and fold
+                # newlines so a title/alias containing them can't corrupt the
+                # frontmatter.
+                return (s or '').replace('\\', '\\\\').replace('"', '\\"').replace('\n', ' ').replace('\r', ' ')
             frontmatter = f'---\ntitle: "{_yaml_str(entry.title)}"\nsummary: "{_yaml_str(entry.summary)}"\nslug: {entry.slug}\n'
             if entry.aliases:
-                aliases = ', '.join(a.title for a in entry.aliases)
+                aliases = ', '.join(f'"{_yaml_str(a.title)}"' for a in entry.aliases)
                 frontmatter += f'aliases: [{aliases}]\n'
             if entry.published_at:
                 frontmatter += f'published: {entry.published_at.isoformat()}\n'
@@ -86,13 +89,23 @@ def import_json():
             body_markdown = item.get('body_markdown', '')
             summary = item.get('summary', '')
             is_draft = item.get('is_draft', False)
-            published_at = None
-            if item.get('published_at'):
+
+            def _parse_dt(value):
+                if not value:
+                    return None
                 try:
-                    published_at = datetime.fromisoformat(item['published_at'])
-                except ValueError:
-                    pass
-            if import_entry(title, slug, body_markdown, summary, is_draft, published_at):
+                    return datetime.fromisoformat(value)
+                except (ValueError, TypeError):
+                    return None
+
+            aliases = item.get('aliases') or []
+            if not isinstance(aliases, list):
+                aliases = []
+            if import_entry(title, slug, body_markdown, summary, is_draft,
+                            published_at=_parse_dt(item.get('published_at')),
+                            aliases=aliases,
+                            created_at=_parse_dt(item.get('created_at')),
+                            updated_at=_parse_dt(item.get('updated_at'))):
                 count += 1
         db.session.commit()
     except Exception:

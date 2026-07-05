@@ -6,7 +6,7 @@ import mistune
 
 ALLOWED_TAGS = [
     'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote',
+    'strong', 'em', 'del', 'a', 'ul', 'ol', 'li', 'blockquote',
     'pre', 'code', 'hr', 'sup', 'section', 'img',
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
     'cite', 'q', 'abbr',
@@ -20,11 +20,19 @@ ALLOWED_ATTRS = {
     '*': ['id'],
 }
 
-INTERNAL_LINK_RE = re.compile(r'href=["\']/([\w-]+)/["\']')
+# The final path segment is the entry slug, so both flat (/slug/) and
+# canonical child (/parent/child/) URLs are recognized as internal links.
+INTERNAL_LINK_RE = re.compile(r'href=["\']/(?:[\w-]+/)?([\w-]+)/["\']')
 FOOTNOTE_DEF_RE = re.compile(r'^\[\^(\w+)\]:\s*(.+)$', re.MULTILINE)
 FOOTNOTE_REF_RE = re.compile(r'\[\^(\w+)\](?!:)')
 FENCE_LINE_RE = re.compile(r'^\s*```')
 PRE_BLOCK_RE = re.compile(r'(<pre>.*?</pre>)', re.DOTALL)
+
+MISTUNE_PLUGINS = ['table', 'strikethrough']
+
+
+def _new_markdown():
+    return mistune.create_markdown(escape=False, plugins=MISTUNE_PLUGINS)
 
 
 def render_markdown(text):
@@ -47,7 +55,7 @@ def render_markdown(text):
 
     body_text = '\n'.join(body_lines)
 
-    md = mistune.create_markdown(escape=False)
+    md = _new_markdown()
     html = md(body_text)
 
     def replace_ref(m):
@@ -97,7 +105,7 @@ def render_markdown(text):
 def extract_internal_links(markdown_text):
     if not markdown_text:
         return set()
-    md = mistune.create_markdown(escape=False)
+    md = _new_markdown()
     html = md(markdown_text)
     return set(INTERNAL_LINK_RE.findall(html))
 

@@ -1,6 +1,4 @@
-from datetime import datetime, timezone
-
-from app.models import Entry, entry_url
+from app.models import Entry, entry_url, utcnow
 
 
 def feeds_available(settings):
@@ -16,10 +14,9 @@ def feed_entries():
                   .all())
 
     def fmt(dt):
+        # Timestamps are naive UTC (storage convention); the literal Z marks it.
         if not dt:
             return ''
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
         return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     entries = [{
@@ -32,5 +29,5 @@ def feed_entries():
         'author': e.author.display_name if e.author else '',
     } for e in db_entries]
 
-    most_recent = fmt(db_entries[0].updated_at) if db_entries else fmt(datetime.now(timezone.utc))
+    most_recent = fmt(db_entries[0].updated_at) if db_entries else fmt(utcnow())
     return entries, most_recent

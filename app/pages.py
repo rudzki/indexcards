@@ -1,11 +1,9 @@
-from datetime import datetime, timezone
-
 from flask import flash, render_template, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
 from app.entries import RESERVED_SLUGS
-from app.models import Page, PageRevision, make_slug, log_audit
+from app.models import Page, PageRevision, Entry, Alias, make_slug, log_audit, utcnow
 from app.markdown import render_markdown
 
 
@@ -33,16 +31,23 @@ def save_page(page):
 
     is_new = page is None
 
+    # Pages share the /<slug>/ namespace with entries and aliases; an entry
+    # slug wins in the resolver, so a page created under one would be
+    # unreachable. Reject the collision up front.
+    def _entry_conflict():
+        return (Entry.query.filter_by(slug=slug).first()
+                or Alias.query.filter_by(slug=slug).first())
+
     if is_new:
-        if Page.query.filter_by(slug=slug).first():
-            flash('A page with this slug already exists.', 'error')
+        if Page.query.filter_by(slug=slug).first() or _entry_conflict():
+            flash('A page, entry, or alias with this slug already exists.', 'error')
             return render_template('admin/page_editor.html', page=page)
         page = Page(slug=slug, created_by=current_user.id)
         db.session.add(page)
     else:
         if slug != page.slug:
-            if Page.query.filter(Page.slug == slug, Page.id != page.id).first():
-                flash('A page with this slug already exists.', 'error')
+            if Page.query.filter(Page.slug == slug, Page.id != page.id).first() or _entry_conflict():
+                flash('A page, entry, or alias with this slug already exists.', 'error')
                 return render_template('admin/page_editor.html', page=page)
             page.slug = slug
 
@@ -57,7 +62,7 @@ def save_page(page):
     page.update_sort_title()
 
     if not is_draft and not page.published_at:
-        page.published_at = datetime.now(timezone.utc)
+        page.published_at = utcnow()
 
     db.session.flush()
 

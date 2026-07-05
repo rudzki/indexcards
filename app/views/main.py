@@ -1,15 +1,15 @@
 import re
 from collections import defaultdict, OrderedDict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 import os
 
 from flask import Blueprint, render_template, redirect, request, flash, url_for, abort, jsonify, Response, send_file, make_response, current_app
 from flask_login import current_user, login_user
-from markupsafe import Markup
+from markupsafe import Markup, escape
 
 from app import db, limiter
-from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, PageRevision, Note, sort_key, entry_url
+from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, PageRevision, Note, sort_key, entry_url, utcnow
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.search import search_entries
 from app.mail import send_email, render_email
@@ -38,7 +38,8 @@ def index():
         # Only hide an entry when it will actually be reachable by nesting it
         # under its parent (the index only nests one level deep), so entries
         # more than one level deep aren't dropped from the list entirely.
-        if subpage_display == 'nested' and entry.parent_id and not entry.parent.parent_id:
+        if (subpage_display == 'nested' and entry.parent_id
+                and entry.parent and not entry.parent.parent_id):
             continue
         show_children = children_by_parent.get(entry.id, []) if subpage_display != 'separate' else []
         index_items.append({'type': 'entry', 'entry': entry, 'sort_title': entry.sort_title,
@@ -51,7 +52,7 @@ def index():
     show_history = bool(site_settings and site_settings.show_history)
     heatmap_data = {}
     if show_history:
-        today = datetime.now(timezone.utc)
+        today = utcnow()
         start_month = today.month - 11
         start_year = today.year
         if start_month <= 0:
@@ -100,7 +101,9 @@ def child_entry_page(parent_slug, slug):
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if not entry or not entry.parent_id:
         abort(404)
-    if entry.parent.slug != parent_slug:
+    # A child whose parent was deleted (orphaned parent_id) has no canonical
+    # nested URL — fall back to its flat page instead of crashing on parent.slug.
+    if not entry.parent or entry.parent.slug != parent_slug:
         return redirect(entry_url(entry), code=301)
     return _render_entry_page(entry)
 
@@ -110,6 +113,9 @@ def _render_entry_page(entry):
     if linked_slugs:
         existing_slugs = {r[0] for r in Entry.query.with_entities(Entry.slug)
                           .filter(Entry.slug.in_(linked_slugs)).all()}
+        # Aliases resolve via a 301, so a link to an alias slug is not "missing".
+        existing_slugs |= {r[0] for r in Alias.query.with_entities(Alias.slug)
+                           .filter(Alias.slug.in_(linked_slugs)).all()}
     else:
         existing_slugs = set()
     body_html = mark_missing_links(entry.body_html, existing_slugs)
@@ -309,6 +315,9 @@ def note_page(note_id):
 
 @main_bp.route('/search')
 def search():
+    site_settings = SiteSettings.query.get(1)
+    if site_settings and not site_settings.search_enabled:
+        abort(404)
     query = request.args.get('q', '').strip()
     results = []
     if query:
@@ -329,9 +338,12 @@ def search():
         def highlight_terms(text, q):
             if not text:
                 return text
+            # Escape the source text *before* injecting <mark> so raw HTML in a
+            # title/summary can't execute when rendered as Markup (stored XSS).
+            text = str(escape(text))
             terms = q.split()
             for term in terms:
-                escaped = re.escape(term)
+                escaped = re.escape(str(escape(term)))
                 text = re.sub(
                     rf'\b({escaped})\b',
                     r'<mark>\1</mark>',

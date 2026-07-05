@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
-
 from flask import flash, render_template, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
-from app.models import Entry, Alias, Backlink, EditLog, SiteSettings, make_slug, log_audit
+from app.models import Entry, Alias, Backlink, EditLog, Page, SiteSettings, make_slug, log_audit, utcnow
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry
 
@@ -12,6 +10,7 @@ RESERVED_SLUGS = {
     'feed', 'search', 'login', 'logout', 'signup', 'subscribe',
     'confirm', 'unsubscribe', 'random', 'healthz', 'admin', 'dashboard',
     'static', 'favicon', 'site-image', 'uploads',
+    'notes', 'account', 'setup', 'api',
 }
 
 
@@ -41,8 +40,12 @@ def save_entry(entry):
     if is_new:
         existing = Entry.query.filter_by(slug=slug).first()
         existing_alias = Alias.query.filter_by(slug=slug).first()
-        if existing or existing_alias:
-            flash('An entry with this title (or slug) already exists.', 'error')
+        # Entries, aliases and pages share the /<slug>/ namespace, so a new
+        # entry must not collide with an existing page (which would silently
+        # shadow it in the resolver).
+        existing_page = Page.query.filter_by(slug=slug).first()
+        if existing or existing_alias or existing_page:
+            flash('An entry, alias, or page with this title (or slug) already exists.', 'error')
             return render_template('admin/editor.html', entry=entry)
         entry = Entry(slug=slug, created_by=current_user.id)
         db.session.add(entry)
@@ -50,8 +53,9 @@ def save_entry(entry):
         if slug != entry.slug:
             conflict = Entry.query.filter(Entry.slug == slug, Entry.id != entry.id).first()
             conflict_alias = Alias.query.filter_by(slug=slug).first()
-            if conflict or conflict_alias:
-                flash('An entry with this title (or slug) already exists.', 'error')
+            conflict_page = Page.query.filter_by(slug=slug).first()
+            if conflict or conflict_alias or conflict_page:
+                flash('An entry, alias, or page with this title (or slug) already exists.', 'error')
                 return render_template('admin/editor.html', entry=entry)
             entry.slug = slug
 
@@ -64,7 +68,7 @@ def save_entry(entry):
     entry.update_sort_title()
 
     if not is_draft and not entry.published_at:
-        entry.published_at = datetime.now(timezone.utc)
+        entry.published_at = utcnow()
 
     if parent_id_raw and parent_id_raw.isdigit():
         proposed_parent_id = int(parent_id_raw)
@@ -188,7 +192,8 @@ def _fire_integrations(entry, is_new, changelog):
         fire_outgoing_webhook(entry, event=event, changelog=changelog, settings=site_settings)
 
 
-def import_entry(title, slug, body_markdown, summary='', is_draft=False, published_at=None):
+def import_entry(title, slug, body_markdown, summary='', is_draft=False, published_at=None,
+                 aliases=None, created_at=None, updated_at=None):
     if not title or not slug:
         return None
     if Entry.query.filter_by(slug=slug).first() or Alias.query.filter_by(slug=slug).first():
@@ -203,9 +208,26 @@ def import_entry(title, slug, body_markdown, summary='', is_draft=False, publish
         published_at=published_at,
         created_by=current_user.id,
     )
+    # Preserve original timestamps on a backup/restore round-trip.
+    if created_at:
+        entry.created_at = created_at
+    if updated_at:
+        entry.updated_at = updated_at
     entry.update_sort_title()
     db.session.add(entry)
     db.session.flush()
+
+    for alias_title in (aliases or []):
+        alias_title = (alias_title or '').strip()
+        if not alias_title:
+            continue
+        alias_slug = make_slug(alias_title)
+        if not alias_slug or alias_slug == slug:
+            continue
+        if Entry.query.filter_by(slug=alias_slug).first() or Alias.query.filter_by(slug=alias_slug).first():
+            continue
+        entry.aliases.append(Alias(title=alias_title, slug=alias_slug))
+
     sync_backlinks(entry)
     db.session.add(EditLog(entry_id=entry.id, user_id=current_user.id,
                            changelog='Imported', is_import=True))

@@ -2,12 +2,28 @@ import hashlib
 import hmac
 import json
 import logging
+import threading
 import urllib.error
 import urllib.request
 from base64 import b64encode
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _dispatch(fn):
+    """Run a fire-and-forget integration call off the request thread.
+
+    The payload (including any _external URLs, which need request context) is
+    built by the caller *before* dispatch; only the blocking HTTP POST runs
+    here. This keeps a slow or unreachable endpoint from stalling Save, which
+    could previously hang for ~10s when both Slack and a webhook were fired."""
+    def _run():
+        try:
+            fn()
+        except Exception as e:  # never let a background integration crash silently-loudly
+            logger.warning('Integration dispatch error: %s', e)
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _post_json(url, payload, headers=None):
@@ -36,13 +52,29 @@ def notify_mailchimp_subscribe(email, settings):
         f'/3.0/lists/{settings.mailchimp_list_id}/members'
     )
     creds = b64encode(f'anystring:{settings.mailchimp_api_key}'.encode()).decode()
-    status, body = _post_json(
-        url,
-        {'email_address': email, 'status': 'subscribed'},
-        headers={'Authorization': f'Basic {creds}'},
-    )
-    if status and status not in (200, 400):  # 400 = already subscribed, which is fine
-        logger.warning('Mailchimp returned %s for %s: %s', status, email, body)
+    headers = {'Authorization': f'Basic {creds}'}
+    payload = {'email_address': email, 'status': 'subscribed'}
+
+    def _do():
+        status, body = _post_json(url, payload, headers=headers)
+        if status == 200:
+            return
+        # A 400 is only benign when it means the address is already a member;
+        # invalid emails, deleted lists and bad merge fields also return 400
+        # and must not be swallowed.
+        if status == 400 and _mailchimp_error_title(body) == 'Member Exists':
+            return
+        if status:
+            logger.warning('Mailchimp returned %s for %s: %s', status, email, body)
+
+    _dispatch(_do)
+
+
+def _mailchimp_error_title(body):
+    try:
+        return json.loads(body).get('title')
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 def notify_slack_entry(entry, is_new, changelog, settings):
@@ -66,7 +98,8 @@ def notify_slack_entry(entry, is_new, changelog, settings):
     if not is_new and changelog:
         text += f'\n_{changelog}_'
 
-    _post_json(settings.slack_webhook_url, {'text': text})
+    webhook_url = settings.slack_webhook_url
+    _dispatch(lambda: _post_json(webhook_url, {'text': text}))
 
 
 def fire_outgoing_webhook(entry, event, changelog, settings):
@@ -95,4 +128,5 @@ def fire_outgoing_webhook(entry, event, changelog, settings):
         ).hexdigest()
         headers['X-Webhook-Signature'] = f'sha256={sig}'
 
-    _post_json(settings.outgoing_webhook_url, payload, headers=headers)
+    webhook_url = settings.outgoing_webhook_url
+    _dispatch(lambda: _post_json(webhook_url, payload, headers=headers))

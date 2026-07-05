@@ -1,7 +1,7 @@
 import html as html_lib
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime
 from html.parser import HTMLParser
 
 from app.entries import import_entry
@@ -195,7 +195,7 @@ def import_wordpress_export(f):
             date_el = item.find('wp:post_date', WP_ALT_NS)
         if date_el is not None and date_el.text:
             try:
-                published_at = datetime.strptime(date_el.text, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                published_at = datetime.strptime(date_el.text, '%Y-%m-%d %H:%M:%S')
             except ValueError:
                 pass
 

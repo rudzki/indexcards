@@ -110,14 +110,11 @@ def create_app():
 
     @app.template_filter('timeago')
     def timeago_filter(dt):
-        from datetime import datetime, timezone
         from markupsafe import Markup
+        from app.models import utcnow
         if dt is None:
             return ''
-        now = datetime.now(timezone.utc)
-        if dt.tzinfo is None:
-            from datetime import timezone as tz
-            dt = dt.replace(tzinfo=tz.utc)
+        now = utcnow()
         diff = now - dt
         seconds = int(diff.total_seconds())
         if seconds < 60:
@@ -137,7 +134,9 @@ def create_app():
         hour = dt.hour % 12 or 12
         ampm = 'AM' if dt.hour < 12 else 'PM'
         absolute = f'{dt.strftime("%B")} {dt.day}, {dt.year} at {hour}:{dt.strftime("%M")} {ampm}'
-        iso = dt.isoformat()
+        # dt is naive UTC (the storage convention); mark the machine-readable
+        # timestamp as UTC so browsers/readers don't treat it as local time.
+        iso = dt.isoformat() + 'Z'
         return Markup(f'<time datetime="{iso}" title="{absolute}">{relative}</time>')
 
     @app.context_processor

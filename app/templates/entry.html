@@ -69,7 +69,7 @@
         {% if entry.published_at %}
             <span class="entry-published">Published <time class="dt-published" datetime="{{ entry.published_at.isoformat() }}">{{ entry.published_at|timeago }}</time>{% if site_settings.show_authors and entry.author %} by <span class="p-author h-card">{{ macros.author_name(entry.author, p_name=True) }}</span>{% endif %}</span>
         {% endif %}
-        {% if site_settings.show_history and entry.updated_at and entry.updated_at != entry.published_at %}
+        {% if site_settings.show_history and entry.edited_after_publish %}
             <span class="entry-updated">Last edited <time class="dt-updated" datetime="{{ entry.updated_at.isoformat() }}">{{ entry.updated_at|timeago }}</time>{% if site_settings.show_authors and last_editor %} by {{ macros.author_name(last_editor) }}{% endif %}</span>
         {% endif %}
         <button class="btn-small copy-link-btn" title="Copy link" aria-label="Copy link" onclick="copyEntryLink(this)"><i class="bi bi-link-45deg" aria-hidden="true"></i></button>

@@ -5,6 +5,7 @@ from flask import render_template, redirect, url_for, request, flash, current_ap
 
 from app import db
 from app.models import SiteSettings
+from app.registration import VALID_ROLES
 from app.views.admin import admin_bp, admin_required
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
@@ -22,16 +23,30 @@ def settings():
         site_settings.subscribe_enabled = 'subscribe_enabled' in request.form
 
         site_settings.multiuser_enabled = 'multiuser_enabled' in request.form
-        site_settings.registration_method = request.form.get('registration_method', 'invite')
+
+        # Validate enums against their allowlists — an unrecognized
+        # registration_method silently behaves like open registration in
+        # signup_form(), so a typo'd/tampered value must not slip through.
+        raw_reg_method = request.form.get('registration_method', 'invite')
+        site_settings.registration_method = (
+            raw_reg_method if raw_reg_method in {'invite', 'domain', 'open'} else 'invite')
         site_settings.registration_domain = request.form.get('registration_domain', '').strip()
-        site_settings.default_role = request.form.get('default_role', 'viewer')
-        site_settings.site_visibility = request.form.get('site_visibility', 'public')
+        raw_default_role = request.form.get('default_role', 'viewer')
+        site_settings.default_role = raw_default_role if raw_default_role in VALID_ROLES else 'viewer'
+        raw_visibility = request.form.get('site_visibility', 'public')
+        site_settings.site_visibility = (
+            raw_visibility if raw_visibility in {'public', 'registered'} else 'public')
 
         site_settings.smtp_host = request.form.get('smtp_host', '').strip() or None
         port = request.form.get('smtp_port', '').strip()
-        site_settings.smtp_port = int(port) if port else None
+        site_settings.smtp_port = int(port) if port.isdigit() else None
         site_settings.smtp_username = request.form.get('smtp_username', '').strip() or None
-        site_settings.smtp_password = request.form.get('smtp_password', '').strip() or None
+        # The password field is rendered blank (see settings.html); only
+        # overwrite the stored value when the admin actually types a new one,
+        # so a normal save doesn't wipe the existing password.
+        new_smtp_password = request.form.get('smtp_password', '').strip()
+        if new_smtp_password:
+            site_settings.smtp_password = new_smtp_password
         site_settings.smtp_use_tls = 'smtp_use_tls' in request.form
         site_settings.smtp_from_address = request.form.get('smtp_from_address', '').strip() or None
 
@@ -55,8 +70,8 @@ def settings():
         site_settings.default_color_mode = raw_color_mode if raw_color_mode in valid_color_modes else 'dark'
 
         site_settings.digest_include_edits = 'digest_include_edits' in request.form
-        day = request.form.get('digest_day', '0')
-        site_settings.digest_day = int(day) if day else 0
+        day = request.form.get('digest_day', '0').strip()
+        site_settings.digest_day = int(day) if (day.isdigit() and 0 <= int(day) <= 6) else 0
 
         site_settings.custom_css = request.form.get('custom_css', '')
         site_settings.custom_head_html = request.form.get('custom_head_html', '')

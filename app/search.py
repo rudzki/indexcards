@@ -1,5 +1,14 @@
+from markupsafe import escape
+
 from app import db
 from app.markdown import strip_markdown
+
+
+def _fts_text(value):
+    """HTML-escape text before it enters the FTS index. The search view renders
+    snippet() output as safe Markup, so any raw HTML in a title/body would
+    otherwise survive into results as live markup (stored XSS)."""
+    return str(escape(value or ''))
 
 
 def create_fts_table():
@@ -12,8 +21,9 @@ def create_fts_table():
 
 
 def update_fts_entry(entry, commit=True):
-    aliases = ', '.join(a.title for a in entry.aliases)
-    body = strip_markdown(entry.body_markdown)
+    aliases = _fts_text(', '.join(a.title for a in entry.aliases))
+    body = _fts_text(strip_markdown(entry.body_markdown))
+    title = _fts_text(entry.title)
 
     db.session.execute(db.text(
         'DELETE FROM entry_fts WHERE rowid = :id'
@@ -21,28 +31,30 @@ def update_fts_entry(entry, commit=True):
     db.session.execute(db.text(
         'INSERT INTO entry_fts(rowid, title, aliases, body) '
         'VALUES (:id, :title, :aliases, :body)'
-    ), {'id': entry.id, 'title': entry.title, 'aliases': aliases, 'body': body})
+    ), {'id': entry.id, 'title': title, 'aliases': aliases, 'body': body})
     if commit:
         db.session.commit()
 
 
-def delete_fts_entry(entry_id):
+def delete_fts_entry(entry_id, commit=True):
     db.session.execute(db.text(
         'DELETE FROM entry_fts WHERE rowid = :id'
     ), {'id': entry_id})
-    db.session.commit()
+    if commit:
+        db.session.commit()
 
 
 def rebuild_fts():
     from app.models import Entry
     db.session.execute(db.text('DELETE FROM entry_fts'))
     for entry in Entry.query.all():
-        aliases = ', '.join(a.title for a in entry.aliases)
-        body = strip_markdown(entry.body_markdown)
+        aliases = _fts_text(', '.join(a.title for a in entry.aliases))
+        body = _fts_text(strip_markdown(entry.body_markdown))
+        title = _fts_text(entry.title)
         db.session.execute(db.text(
             'INSERT INTO entry_fts(rowid, title, aliases, body) '
             'VALUES (:id, :title, :aliases, :body)'
-        ), {'id': entry.id, 'title': entry.title, 'aliases': aliases, 'body': body})
+        ), {'id': entry.id, 'title': title, 'aliases': aliases, 'body': body})
     db.session.commit()
 
 

@@ -672,12 +672,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const form = textarea.closest("form");
     const entryId = form.dataset.entryId || "new";
-    const autosaveKey = `autosave-${entryId}`;
+    // Namespace the key by content type as well as id: a new entry and a new
+    // note both have entryId "new", and an entry #5 and a note #5 collide too,
+    // so keying on id alone restores one editor's draft into another.
+    const scopeMatch = location.pathname.match(/\/admin\/(entry|entries|notes|pages)\b/);
+    const scope = scopeMatch ? scopeMatch[1].replace("entries", "entry") : "entry";
+    const autosaveKey = `autosave-${scope}-${entryId}`;
+
+    // Autosave captures the whole form (title/summary/aliases/changelog), not
+    // just the body, so a crash doesn't drop the metadata.
+    const AUTOSAVE_FIELDS = ["title", "summary", "aliases", "changelog"];
+    const fieldEl = name => form.querySelector(`[name="${name}"]`);
 
     const saved = localStorage.getItem(autosaveKey);
-    if (saved && saved !== textarea.value) {
-        textarea.value = saved;
-        showToast("warn", "Restored from auto-save", 8000);
+    if (saved) {
+        let data;
+        try {
+            data = JSON.parse(saved);
+        } catch (e) {
+            data = { body_markdown: saved };  // back-compat with old plain-string autosaves
+        }
+        const savedBody = data.body_markdown || "";
+        const serverBody = textarea.value;
+        // Only prompt when there's *newer* server content to protect; restoring
+        // into an empty/new editor is harmless and stays silent.
+        if (savedBody && savedBody !== serverBody) {
+            const restore = !serverBody.trim() || window.confirm(
+                "You have unsaved auto-saved changes from a previous session. " +
+                "Restore them? (Cancel keeps the currently loaded content.)");
+            if (restore) {
+                textarea.value = savedBody;
+                AUTOSAVE_FIELDS.forEach(name => {
+                    const el = fieldEl(name);
+                    if (el && data[name] != null) el.value = data[name];
+                });
+                showToast("warn", "Restored from auto-save", 8000);
+            }
+        }
     }
 
     const view = initEditor(textarea);
@@ -730,11 +761,17 @@ document.addEventListener("DOMContentLoaded", () => {
         updateStats();
     }
 
-    // Autosave every 10 seconds
+    // Autosave every 10 seconds — persist the body plus the metadata fields.
     setInterval(() => {
         const current = textarea.value;
-        if (current) {
-            localStorage.setItem(autosaveKey, current);
+        const data = { body_markdown: current };
+        AUTOSAVE_FIELDS.forEach(name => {
+            const el = fieldEl(name);
+            if (el) data[name] = el.value;
+        });
+        const hasContent = current || AUTOSAVE_FIELDS.some(name => data[name]);
+        if (hasContent) {
+            localStorage.setItem(autosaveKey, JSON.stringify(data));
             lastAutosavedContent = current;
             lastAutosaveAt = Date.now();
         }

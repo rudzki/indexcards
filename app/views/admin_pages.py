@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
-
 from flask import render_template, redirect, url_for, request, flash
 from flask_login import current_user
 
 from app import db
-from app.models import Page, PageRevision, log_audit
+from app.models import Page, PageRevision, log_audit, utcnow
 from app.markdown import render_markdown
 from app.locks import acquire_lock, active_locks
 from app.pages import save_page
@@ -59,7 +57,7 @@ def publish_page(page_id):
     page = Page.query.get_or_404(page_id)
     page.is_draft = not page.is_draft
     if not page.is_draft and not page.published_at:
-        page.published_at = datetime.now(timezone.utc)
+        page.published_at = utcnow()
     db.session.commit()
     status = 'unpublished' if page.is_draft else 'published'
     flash(f'"{page.title}" {status}.', 'success')

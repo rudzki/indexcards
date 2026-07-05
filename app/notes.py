@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
-
 from flask import flash, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
-from app.models import Note, NoteBacklink, Entry, log_audit
+from app.models import Note, NoteBacklink, Entry, log_audit, utcnow
 from app.markdown import render_markdown, extract_internal_links
 
 
@@ -23,7 +21,7 @@ def save_note(note):
     note.is_draft = is_draft
 
     if not is_draft and not note.published_at:
-        note.published_at = datetime.now(timezone.utc)
+        note.published_at = utcnow()
 
     db.session.flush()
 

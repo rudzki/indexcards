@@ -1,9 +1,9 @@
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 
 from app import db
 from app.models import (
     Entry, Alias, EditLog, Backlink, Registration, User, SiteSettings,
-    make_slug, sort_key,
+    make_slug, sort_key, utcnow,
 )
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry, delete_fts_entry
@@ -14,7 +14,7 @@ from app.testdata_content import (
 
 TEST_SLUG_PREFIX = '_test-'
 
-_now = datetime.now(timezone.utc)
+_now = utcnow()
 
 
 def _ago(**kwargs):

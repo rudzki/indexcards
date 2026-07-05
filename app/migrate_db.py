@@ -1,7 +1,38 @@
+import os
+
 from app import db
+
+try:
+    import fcntl
+except ImportError:  # non-POSIX (e.g. Windows); locking is best-effort
+    fcntl = None
 
 
 def run_migrations():
+    """Run the hand-rolled migrations under a cross-process file lock.
+
+    create_app() calls this on every boot, and gunicorn starts several worker
+    processes at once. Without a lock, two workers can both pass has_column()
+    and both ALTER TABLE, crashing one with "duplicate column name". An
+    exclusive flock serializes them: the first migrates, the rest wait and then
+    find the work already done. Covers the sort_title rewrite loop too."""
+    if fcntl is None:
+        return _run_migrations()
+
+    db_path = db.engine.url.database
+    lock_dir = os.path.dirname(os.path.abspath(db_path)) if db_path else '.'
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_path = os.path.join(lock_dir, '.migrate.lock')
+
+    with open(lock_path, 'w') as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            _run_migrations()
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
+def _run_migrations():
     conn = db.engine.raw_connection()
     cursor = conn.cursor()
 

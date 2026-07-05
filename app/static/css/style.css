@@ -2941,7 +2941,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
   .site-nav a {
     display: block;
-    padding: 0.6rem 1.5rem;
+    padding: 1rem 1.5rem;
     margin-left: calc(50% - 50vw);
     width: 100vw;
     border-top: 1px solid var(--line);

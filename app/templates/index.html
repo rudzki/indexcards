@@ -15,9 +15,13 @@
             {% endfor %}
 
             {% if site_settings.alpha_jump_enabled %}
-            <nav class="index-jump" aria-label="Jump to letter">
-                {% for letter in letters %}
-                    <a href="#letter-{{ letter }}">{{ letter }}</a>
+            <nav class="az" aria-label="Jump to letter">
+                {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#' %}
+                    {% if letter in letters %}
+                        <a href="#letter-{{ letter }}">{{ letter }}</a>
+                    {% else %}
+                        <a class="off" aria-hidden="true">{{ letter }}</a>
+                    {% endif %}
                 {% endfor %}
             </nav>
             {% endif %}

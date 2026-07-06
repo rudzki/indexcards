@@ -3,16 +3,25 @@ function csrfToken() {
     return meta ? meta.content : '';
 }
 
+var TOAST_ICONS = { success: '✓', error: '✕', warn: '⚠', info: 'ℹ' };
+
 function showToast(category, message, duration) {
     var el = document.createElement('div');
     el.className = 'toast toast-' + category;
     if (category === 'error' || category === 'warn') el.setAttribute('role', 'alert');
+    var icon = document.createElement('span');
+    icon.className = 'toast-ic';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = TOAST_ICONS[category] || TOAST_ICONS.info;
     var span = document.createElement('span');
+    span.className = 'toast-message';
     span.textContent = message;
     var closeBtn = document.createElement('button');
     closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Dismiss');
     closeBtn.innerHTML = '&times;';
     closeBtn.addEventListener('click', function() { el.remove(); });
+    el.appendChild(icon);
     el.appendChild(span);
     el.appendChild(closeBtn);
     document.getElementById('toast-container').appendChild(el);

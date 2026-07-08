@@ -3001,6 +3001,15 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   .invite-form .field-row {
     flex-direction: row
   }
+
+  .entry-nav-arrows {
+    flex-direction: column;
+  }
+
+  .entry-meta .entry-updated {
+    display: none;
+  }
+  
 }
 
 @media screen and (max-width: 768px) {

@@ -2131,7 +2131,7 @@ a.index-child-link,
   display: block;
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 0;
 }
 
 .invite-section .admin-table {

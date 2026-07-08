@@ -977,13 +977,6 @@ select {
   font-size: 0.875rem
 }
 
-.index-parent-link a,
-a.index-child-link,
-.index-parent-link {
-  font-size: 0.8125rem;
-  color: var(--ink-3)
-}
-
 .index-children {
   list-style: none;
   margin: 0.25rem 0 0;
@@ -996,9 +989,7 @@ a.index-child-link,
 }
 
 .index-child {
-  color: var(--ink-3);
   margin-right: 0.25rem;
-  font-size: 0.8125rem;
 }
 
 

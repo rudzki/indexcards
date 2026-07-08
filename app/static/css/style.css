@@ -3642,3 +3642,11 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 .entry-nav-arrows li {
   text-align: center;
 }
+
+.entry-nav-arrows li:first-of-type {
+  padding-top: 0 !important;
+}
+
+.entry-nav-arrows li:last-of-type {
+  padding-bottom: 0 !important;
+}

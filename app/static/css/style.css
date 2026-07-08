@@ -3208,10 +3208,8 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   justify-content: space-between;
   gap: 1rem;
   margin-top: 2.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--line);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: .1em;
   color: var(--ink-2);

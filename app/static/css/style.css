@@ -3002,10 +3002,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     flex-direction: row
   }
 
-  .entry-nav-arrows {
-    flex-direction: column;
-  }
-
   .entry-meta .entry-updated {
     display: none;
   }
@@ -3212,10 +3208,8 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 /* ── Arrow nav ───────────────────────────────────────────── */
 
 .entry-nav-arrows {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  display: block;
+  text-align: center;
   margin-top: 2.5rem;
   font-family: var(--mono);
   font-size: 0.875rem;
@@ -3226,8 +3220,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 .entry-nav-arrows a { color: var(--ink-2); }
 .entry-nav-arrows a:hover { color: var(--ink); }
 .entry-nav-center { color: var(--ink-3); }
-.entry-nav-prev { text-align: left; flex: 1; }
-.entry-nav-next { text-align: right; flex: 1; }
 
 /* ── Children section ────────────────────────────────────── */
 

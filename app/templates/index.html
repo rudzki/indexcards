@@ -44,6 +44,9 @@
                             {% if item.entry.parent %}
                                 <span class="index-parent-link">(<a href="{{ entry_url(item.entry.parent) }}">{{ item.entry.parent.title }}</a>)</span>
                             {% endif %}
+                            {% if item.entry.aliases %}
+                                <span class="index-see">See also: {% for alias in item.entry.aliases %}{{ alias.title }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                            {% endif %}
                             {% if item.children %}
                                 <ul class="index-children">
                                     {% for child in item.children %}

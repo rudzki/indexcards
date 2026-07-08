@@ -3210,7 +3210,11 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   margin-top: 2.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--line);
-  font-size: 0.875rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--ink-2);
 }
 .entry-nav-arrows a { color: var(--ink-2); }
 .entry-nav-arrows a:hover { color: var(--ink); }

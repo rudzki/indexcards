@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, log_audit, entry_url, utcnow
+from app.models import Entry, EditLog, NoteBacklink, log_audit, entry_url, utcnow
 from app.markdown import render_markdown
 from app.search import delete_fts_entry, update_fts_entry
 from app.locks import acquire_lock, active_locks
@@ -72,6 +72,9 @@ def delete_entry(entry_id):
     # parent_id would otherwise persist and 500 pages that dereference
     # entry.parent.
     Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
+    # Note→entry backlinks have no cascade (and SQLite FK enforcement is off),
+    # so drop them explicitly or they dangle at a deleted target.
+    NoteBacklink.query.filter_by(target_entry_id=entry.id).delete()
     delete_fts_entry(entry.id)
     db.session.delete(entry)
     db.session.commit()
@@ -170,6 +173,7 @@ def bulk_entries():
                 # Detach children and defer the FTS commit so the whole batch
                 # commits atomically with the entry deletions.
                 Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
+                NoteBacklink.query.filter_by(target_entry_id=entry.id).delete()
                 delete_fts_entry(entry.id, commit=False)
                 db.session.delete(entry)
                 count += 1

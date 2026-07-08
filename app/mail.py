@@ -17,12 +17,19 @@ def send_email(to, subject, body_text, body_html=None):
     settings = SiteSettings.query.get(1)
 
     if not settings or not settings.smtp_configured:
-        print(
-            f'\n[CONSOLE EMAIL] To: {to}\n'
-            f'Subject: {subject}\n'
-            f'---\n{body_text}\n---'
-        )
-        return True
+        # In debug, print to console — handy for grabbing magic links locally.
+        # In production, refuse: silently "succeeding" here would drop working
+        # login tokens into the server log while telling the user mail was sent.
+        if current_app.debug:
+            print(
+                f'\n[CONSOLE EMAIL] To: {to}\n'
+                f'Subject: {subject}\n'
+                f'---\n{body_text}\n---'
+            )
+            return True
+        current_app.logger.error(
+            'SMTP is not configured; cannot send email to %s (subject: %r)', to, subject)
+        return False
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject

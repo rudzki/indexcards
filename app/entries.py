@@ -70,7 +70,13 @@ def save_entry(entry):
     if not is_draft and not entry.published_at:
         entry.published_at = utcnow()
 
-    if parent_id_raw and parent_id_raw.isdigit():
+    # An entry that already has children can't itself become a child — that
+    # would create a three-level chain, and the index nesting, entry_url, and
+    # breadcrumb walk all assume the two-level cap. The picker enforces this
+    # client-side; enforce it here too so a crafted POST can't bypass it.
+    entry_has_children = (entry.id is not None
+                          and Entry.query.filter_by(parent_id=entry.id).first() is not None)
+    if parent_id_raw and parent_id_raw.isdigit() and not entry_has_children:
         proposed_parent_id = int(parent_id_raw)
         parent_entry = Entry.query.get(proposed_parent_id)
         if (parent_entry and parent_entry.id != (entry.id or -1) and not parent_entry.parent_id

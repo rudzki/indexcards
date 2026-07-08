@@ -67,7 +67,7 @@
             const cell = document.createElement('div');
             cell.className = 'heatmap-cell';
             if (!future) {
-                const level = count === 0 ? 0 : count <= 2 ? 1 : count <= 5 ? 2 : 3;
+                const level = count === 0 ? 0 : count <= 2 ? 1 : count <= 5 ? 2 : count <= 9 ? 3 : 4;
                 cell.dataset.level = level;
                 if (count > 0) {
                     cell.dataset.date = dateStr;

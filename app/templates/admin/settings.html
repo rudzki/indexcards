@@ -254,8 +254,9 @@
             </div>
         </fieldset>
 
-        <fieldset>
-            <legend>Email</legend>
+        <details class="disclosure">
+            <summary>Email configuration</summary>
+            <div class="inner">
             <p class="field-hint">Leave blank to print emails to the console instead of sending.</p>
             <div class="field-row">
                 <div class="field">
@@ -304,10 +305,12 @@
                     Include updated entries
                 </label>
             </div>
-        </fieldset>
+            </div>
+        </details>
 
-        <fieldset>
-            <legend>Custom Code</legend>
+        <details class="disclosure">
+            <summary>Custom Code</summary>
+            <div class="inner">
             <div class="field">
                 <label for="custom_css">Custom CSS</label>
                 <textarea id="custom_css" name="custom_css" rows="6" spellcheck="false">{{ settings.custom_css or '' }}</textarea>
@@ -323,7 +326,8 @@
                 <textarea id="custom_footer_html" name="custom_footer_html" rows="6" spellcheck="false">{{ settings.custom_footer_html or '' }}</textarea>
                 <p class="field-hint mb-0">Injected before &lt;/body&gt;. Use for widgets, tracking pixels, or other body-level scripts.</p>
             </div>
-        </fieldset>
+            </div>
+        </details>
 
         <button type="submit" class="btn btn-primary">Save Settings</button>
     </form>

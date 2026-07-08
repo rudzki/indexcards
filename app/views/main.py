@@ -385,22 +385,23 @@ def subscribe():
         flash('Please enter an email address.', 'error')
         return redirect(request.referrer or url_for('main.index'))
 
+    # Same message on every path below so the endpoint doesn't reveal whether
+    # an address is already a known/subscribed account (cf. /login).
+    generic_msg = 'Check your email to confirm your subscription.'
+
     user = User.query.filter_by(email=email).first()
-    if user:
-        if user.subscribed:
-            flash('This email is already subscribed.', 'info')
-            return redirect(request.referrer or url_for('main.index'))
-        token = user.generate_login_token()
-        db.session.commit()
-        confirm_url = url_for('main.confirm_subscription', token=token, _external=True)
-    else:
+    if user and user.subscribed:
+        flash(generic_msg, 'success')
+        return redirect(request.referrer or url_for('main.index'))
+
+    if not user:
         display_name = email.split('@')[0]
         user = User(email=email, display_name=display_name, role='viewer')
         db.session.add(user)
         db.session.flush()
-        token = user.generate_login_token()
-        db.session.commit()
-        confirm_url = url_for('main.confirm_subscription', token=token, _external=True)
+    token = user.generate_login_token()
+    db.session.commit()
+    confirm_url = url_for('main.confirm_subscription', token=token, _external=True)
 
     settings = SiteSettings.query.get(1)
     site_title = (settings.site_title if settings else None) or 'Index Cards'
@@ -409,7 +410,7 @@ def subscribe():
         flash('Something went wrong sending the confirmation email. Please try again later.', 'error')
         return redirect(request.referrer or url_for('main.index'))
 
-    flash('Check your email to confirm your subscription.', 'success')
+    flash(generic_msg, 'success')
     return redirect(request.referrer or url_for('main.index'))
 
 

@@ -14,6 +14,8 @@
   --info: #1747f5;
   --info-dim: #2d4a8a;
   --info-bg: rgba(23, 71, 245, .13);
+  --purple: #a371f7;
+  --purple-bg: rgba(163, 113, 247, .14);
 
   --bg: #0d1117;
   --surface: #161b22;
@@ -31,13 +33,13 @@
   --r-pill: 999px;
   --bg-code: #0a0e14;
   --ink-code: #c9d4e0;
-  --shadow: 0 4px 16px rgba(0, 0, 0, .35);
+  --shadow: 0 4px 16px rgba(44, 29, 29, 0.35);
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, .5);
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: "SF Mono", ui-monospace, "Cascadia Mono", "Roboto Mono", Menlo, monospace;
 
   /* App aliases — some consumed in Jinja templates rather than CSS */
-  --max-width: 50rem;
+  --max-width: 940px;
   --font-body: var(--font);
   --font-mono: var(--mono);
   --color-text: var(--ink);
@@ -77,6 +79,8 @@
   --info: #2563eb;
   --info-dim: #1d4ed8;
   --info-bg: rgba(37, 99, 235, .10);
+  --purple: #7c3aed;
+  --purple-bg: rgba(124, 58, 237, .10);
   --shadow: 0 4px 16px rgba(20, 30, 40, .10);
   --shadow-lg: 0 16px 48px rgba(20, 30, 40, .18);
   --color-info: #2563eb;
@@ -508,6 +512,10 @@ a.site-title:hover {
   font-size: 15.5px
 }
 
+.btn-pill {
+  border-radius: var(--r-pill)
+}
+
 .btn:disabled {
   opacity: .45;
   cursor: not-allowed;
@@ -645,8 +653,7 @@ a.site-title:hover {
 
 .badge-draft {
   background: var(--surface-2);
-  color: var(--ink-2);
-  border: 1px solid var(--line)
+  color: var(--ink-2)
 }
 
 .badge-draft .dot {
@@ -686,8 +693,8 @@ a.site-title:hover {
 }
 
 .badge-purple {
-  background: rgba(139, 92, 246, .12);
-  color: #a78bfa
+  background: var(--purple-bg);
+  color: var(--purple)
 }
 
 .badge-danger {
@@ -699,6 +706,7 @@ a.site-title:hover {
 
 fieldset {
   border: 1px solid var(--line);
+  border-radius: var(--r);
   padding: 1.5rem;
   margin: 0 0 1.5rem;
   background: var(--surface);
@@ -741,6 +749,17 @@ label {
   margin-top: 0;
 }
 
+/* Invalid field state */
+.field.error input,
+.field.error textarea,
+.field.error select {
+  border-color: var(--danger);
+}
+
+.field.error .field-hint {
+  color: var(--danger);
+}
+
 input[type="url"],
 input[type="text"],
 input[type="email"],
@@ -755,7 +774,7 @@ select {
   background-color: inherit;
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 8px;
   font-family: inherit;
   color-scheme: inherit;
 }
@@ -1154,9 +1173,10 @@ a.index-child-link,
 }
 
 .heatmap-cell[data-level="0"] { background: var(--surface-2); }
-.heatmap-cell[data-level="1"] { background: var(--line); }
-.heatmap-cell[data-level="2"] { background: var(--ink-3); }
-.heatmap-cell[data-level="3"] { background: var(--ink-2); }
+.heatmap-cell[data-level="1"] { background: color-mix(in srgb, var(--ok) 30%, var(--surface-2)); }
+.heatmap-cell[data-level="2"] { background: color-mix(in srgb, var(--ok) 55%, var(--surface-2)); }
+.heatmap-cell[data-level="3"] { background: color-mix(in srgb, var(--ok) 80%, var(--surface-2)); }
+.heatmap-cell[data-level="4"] { background: var(--ok); }
 
 .heatmap-cell[data-entries] {
   cursor: pointer;
@@ -1399,7 +1419,7 @@ a.index-child-link,
   display: flex;
   gap: 12px;
   padding: 14px 16px;
-  border-radius: 0;
+  border-radius: 10px;
   margin: 1.4em 0;
   border: 1px solid;
   align-items: flex-start
@@ -1423,7 +1443,7 @@ a.index-child-link,
 
 .callout-info {
   background: var(--info-bg);
-  border-color: var(--info-dim)
+  border-color: color-mix(in srgb, var(--info) 40%, transparent)
 }
 
 .callout-info .ic {
@@ -1432,11 +1452,29 @@ a.index-child-link,
 
 .callout-warn {
   background: var(--warn-bg);
-  border-color: var(--warn-dim)
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent)
 }
 
 .callout-warn .ic {
   color: var(--warn)
+}
+
+.callout-ok {
+  background: var(--ok-bg);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent)
+}
+
+.callout-ok .ic {
+  color: var(--ok)
+}
+
+.callout-danger {
+  background: var(--danger-bg);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent)
+}
+
+.callout-danger .ic {
+  color: var(--danger)
 }
 
 /* Shared code-block container */
@@ -1444,7 +1482,7 @@ a.index-child-link,
 .ProseMirror pre {
   background: var(--bg-code);
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: var(--r);
   overflow-x: auto;
 }
 
@@ -1547,7 +1585,7 @@ a.index-child-link,
   margin-top: 2.5rem;
   padding: 1.25rem;
   background: var(--surface);
-  border-radius: 0;
+  border-radius: var(--r);
   border: 1px solid var(--line);
 }
 
@@ -1764,6 +1802,7 @@ a.index-child-link,
   align-items: stretch;
   border: 1px solid var(--line);
   background: var(--bg);
+  border-radius: 8px;
 }
 
 .slug-input-wrapper:focus-within {
@@ -1825,11 +1864,10 @@ a.index-child-link,
   display: flex;
   gap: 0.2rem;
   padding: 0.4rem;
-
   background: var(--surface);
   border: 1px solid var(--line);
   border-bottom: none;
-  border-radius: 0;
+  border-radius: 8px 8px 0 0;
   flex-wrap: wrap;
 }
 
@@ -1941,7 +1979,7 @@ a.index-child-link,
 
 .ProseMirror-container {
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 0 0 8px 8px;
   background: var(--surface);
 }
 
@@ -2093,6 +2131,7 @@ a.index-child-link,
   display: block;
   overflow-x: auto;
   border: 1px solid var(--line);
+  border-radius: var(--r);
 }
 
 .invite-section .admin-table {
@@ -2103,6 +2142,7 @@ a.index-child-link,
   text-align: left;
   padding: 0.625rem 1rem;
   border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: .06em;
@@ -2124,10 +2164,6 @@ a.index-child-link,
 
 .admin-table tr:last-child td {
   border-bottom: none
-}
-
-.admin-table tbody tr:nth-of-type(odd) {
-  background: var(--surface);
 }
 
 .col-primary {
@@ -2196,7 +2232,7 @@ a.index-child-link,
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 0;
+  border-radius: 8px;
   color: var(--ink-2);
   text-decoration: none;
   border: 1px solid var(--line);
@@ -2231,6 +2267,49 @@ a.index-child-link,
 
 .settings-form {
   margin: 1.5rem 0
+}
+
+/* Accordion / disclosure */
+details.disclosure {
+  border: 1px solid var(--line);
+  margin: 2rem 0;
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+details.disclosure summary {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -.2px;
+  color: var(--ink);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+details.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+details.disclosure summary::before {
+  content: "›";
+  color: var(--ink-3);
+  font-size: 18px;
+  transition: transform .15s ease;
+  top: -1px;
+  position: relative;
+}
+
+details.disclosure[open] summary::before {
+  transform: rotate(90deg);
+}
+
+details.disclosure .inner {
+  padding: 0 1.5rem 1.5rem;
 }
 
 .settings-form .field {
@@ -2316,10 +2395,11 @@ a.index-child-link,
 }
 
 .webhook-payload-code {
-  background-color: #000;
+  background-color: var(--color-bg-alt);
   border: 1px solid var(--color-border);
+  border-radius: 8px;
   font-size: 0.8125rem;
-  color: var(--ink-code);
+  color: var(--ink);
   padding: 0.75rem 1rem;
   margin: 0.5rem 0 0;
   font-family: var(--mono);

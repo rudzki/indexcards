@@ -28,6 +28,20 @@ FOOTNOTE_REF_RE = re.compile(r'\[\^(\w+)\](?!:)')
 FENCE_LINE_RE = re.compile(r'^\s*```')
 PRE_BLOCK_RE = re.compile(r'(<pre>.*?</pre>)', re.DOTALL)
 
+# CommonMark renders a "loose" list (one with blank lines between items) by
+# wrapping each item's text in <p>. The ProseMirror editor emits loose markdown
+# for any list built with its toolbar/shortcuts, so entries pick up stray <p>
+# tags inside <li>. Unwrap the leading paragraph of an item, but only when it is
+# the item's sole paragraph — i.e. the </p> is followed by the item's end or a
+# nested list, not another <p> (which would be a genuine multi-paragraph item).
+LOOSE_LI_RE = re.compile(
+    r'<li>(\s*)<p>((?:(?!</p>)[\s\S])*)</p>(?=\s*(?:</li>|<[uo]l\b))'
+)
+
+
+def tighten_list_items(html):
+    return LOOSE_LI_RE.sub(lambda m: f'<li>{m.group(1)}{m.group(2)}', html)
+
 MISTUNE_PLUGINS = ['table', 'strikethrough']
 
 
@@ -57,6 +71,7 @@ def render_markdown(text):
 
     md = _new_markdown()
     html = md(body_text)
+    html = tighten_list_items(html)
 
     def replace_ref(m):
         key = m.group(1)

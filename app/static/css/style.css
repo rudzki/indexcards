@@ -2120,8 +2120,9 @@ select {
 .ProseMirror p {
   margin: 0 0 0.75rem
 }
-
-.ProseMirror li p {
+.ProseMirror li p,
+.ProseMirror li ul,
+.ProseMirror li ol {
   margin: 0;
 }
 

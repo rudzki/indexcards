@@ -87,6 +87,15 @@ def save_entry(entry):
     else:
         entry.parent_id = None
 
+    conflicts = alias_conflicts(entry, aliases_raw)
+    if conflicts:
+        joined = ', '.join(conflicts)
+        flash(f'Alias "{joined}" conflicts with an existing entry, alias, or page.', 'error')
+        # A new entry was added to the session but never committed; render the
+        # form as "new" (not the transient object) and let the POST values
+        # repopulate it. The uncommitted entry is discarded on session teardown.
+        return render_template('admin/editor.html', entry=None if is_new else entry)
+
     sync_aliases(entry, aliases_raw)
 
     db.session.flush()
@@ -157,6 +166,28 @@ def _creates_cycle(entry, proposed_parent):
     return False
 
 
+def alias_conflicts(entry, aliases_raw):
+    """Return a list of alias titles whose slug collides with an existing
+    entry slug, page slug, or another entry's alias. These can't be added,
+    so callers should surface an error rather than silently drop them."""
+    new_aliases = [a.strip() for a in aliases_raw.split(',') if a.strip()]
+    existing_slugs = {a.slug for a in entry.aliases}
+
+    conflicts = []
+    for alias_title in new_aliases:
+        alias_slug = make_slug(alias_title)
+        if alias_slug in existing_slugs or alias_slug == entry.slug:
+            continue
+        conflict = Entry.query.filter_by(slug=alias_slug).first()
+        conflict_alias = Alias.query.filter(
+            Alias.slug == alias_slug, Alias.entry_id != entry.id
+        ).first()
+        conflict_page = Page.query.filter_by(slug=alias_slug).first()
+        if conflict or conflict_alias or conflict_page:
+            conflicts.append(alias_title)
+    return conflicts
+
+
 def sync_aliases(entry, aliases_raw):
     new_aliases = [a.strip() for a in aliases_raw.split(',') if a.strip()]
     new_slugs = {make_slug(a) for a in new_aliases}
@@ -169,12 +200,7 @@ def sync_aliases(entry, aliases_raw):
     for alias_title in new_aliases:
         alias_slug = make_slug(alias_title)
         if alias_slug not in existing_slugs and alias_slug != entry.slug:
-            conflict = Entry.query.filter_by(slug=alias_slug).first()
-            conflict_alias = Alias.query.filter(
-                Alias.slug == alias_slug, Alias.entry_id != entry.id
-            ).first()
-            if not conflict and not conflict_alias:
-                db.session.add(Alias(entry_id=entry.id, title=alias_title, slug=alias_slug))
+            entry.aliases.append(Alias(title=alias_title, slug=alias_slug))
 
 
 def sync_backlinks(entry):

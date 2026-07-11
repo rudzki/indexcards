@@ -19,20 +19,24 @@
         {% endif %}
     </div>
 
+    {# On a failed save the page is re-rendered from a POST; repopulate every
+       field from the submitted form so the user's typed content survives the
+       round-trip instead of being reset to the (possibly empty) entry. #}
+    {% set posted = request.method == 'POST' %}
     <form method="post" class="editor-form" data-entry-id="{{ entry.id if entry else 'new' }}"
           {% if lock_type and lock_id %}data-lock-type="{{ lock_type }}" data-lock-id="{{ lock_id }}"{% endif %}>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="editor-meta-top">
             <div class="field">
                 <label for="title">Title</label>
-                <input type="text" id="title" name="title" value="{{ entry.title if entry else prefill_title }}" required{% if not entry %} autofocus{% endif %}>
+                <input type="text" id="title" name="title" value="{{ request.form.title if posted else (entry.title if entry else prefill_title) }}" required{% if not entry %} autofocus{% endif %}>
             </div>
             <div class="field">
                 <label for="slug">URL{% if entry %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
                 <div class="slug-input-wrapper">
                     <span class="slug-prefix">{{ request.host_url }}</span>
                     <input type="text" id="slug" name="slug"
-                           value="{{ entry.slug if entry else '' }}"
+                           value="{{ request.form.slug if posted else (entry.slug if entry else '') }}"
                            data-is-new="{{ 'true' if not entry else 'false' }}"
                            placeholder="entry-title"
                            spellcheck="false">
@@ -42,7 +46,7 @@
             <div class="field">
                 <label for="aliases">Aliases <span class="field-hint">(comma-separated)</span></label>
                 <input type="text" id="aliases" name="aliases"
-                       value="{{ entry.aliases|map(attribute='title')|join(', ') if entry else '' }}">
+                       value="{{ request.form.aliases if posted else (entry.aliases|map(attribute='title')|join(', ') if entry else '') }}">
                 <p class="field-hint field-hint-mt">Alternate titles that redirect to this entry</p>
             </div>
             <div class="field">
@@ -53,20 +57,20 @@
                            value="{{ entry.parent.title if entry and entry.parent else '' }}"
                            autocomplete="off">
                     <input type="hidden" name="parent_id" id="parent_id"
-                           value="{{ entry.parent_id if entry and entry.parent_id else '' }}">
+                           value="{{ request.form.parent_id if posted else (entry.parent_id if entry and entry.parent_id else '') }}">
                 </div>
                 <p class="field-hint field-hint-mt">Makes this a subpage of another entry. Shown in breadcrumbs.</p>
             </div>
             <div class="field">
                 <label for="summary">Summary <span class="field-hint">(one sentence)</span></label>
-                <input type="text" id="summary" name="summary" value="{{ entry.summary if entry else '' }}">
+                <input type="text" id="summary" name="summary" value="{{ request.form.summary if posted else (entry.summary if entry else '') }}">
             </div>
         </div>
 
         <div class="editor-area">
             <div class="editor-toolbar" id="editor-toolbar"></div>
             <label for="body_markdown" class="sr-only">Entry body</label>
-            <textarea id="body_markdown" name="body_markdown" rows="20">{{ entry.body_markdown if entry else '' }}</textarea>
+            <textarea id="body_markdown" name="body_markdown" rows="20">{{ request.form.body_markdown if posted else (entry.body_markdown if entry else '') }}</textarea>
             <div id="editor-preview" class="editor-preview" style="display:none;"></div>
         </div>
 
@@ -86,15 +90,17 @@
                     {% if entry %}
                         <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="btn" target="_blank">Preview</a>
                     {% endif %}
+                    {% set draft_checked = ('is_draft' in request.form) if posted else (entry and entry.is_draft) %}
+                    {% set stub_checked = ('is_stub' in request.form) if posted else (entry and entry.is_stub) %}
                     <div class="field field-inline">
                         <label>
-                            <input type="checkbox" name="is_draft" {% if entry and entry.is_draft %}checked{% endif %}>
+                            <input type="checkbox" name="is_draft" {% if draft_checked %}checked{% endif %}>
                             Draft
                         </label>
                     </div>
                     <div class="field field-inline">
                         <label>
-                            <input type="checkbox" name="is_stub" {% if entry and entry.is_stub %}checked{% endif %}>
+                            <input type="checkbox" name="is_stub" {% if stub_checked %}checked{% endif %}>
                             Stub
                         </label>
                     </div>

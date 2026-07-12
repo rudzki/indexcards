@@ -3363,6 +3363,11 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   color: var(--ink);
 }
 
+.entry-nav-arrows ul {
+  list-style: none;
+  padding: 0;
+}
+
 .entry-nav-center {
   color: var(--ink-3);
 }
@@ -3619,7 +3624,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
 .background-accent {
   margin-top: 2.5rem;
-  padding: 1.25rem;
+  padding: 0.6rem 1rem;
   background: var(--surface);
   border-radius: 0;
   border: 1px solid var(--line);

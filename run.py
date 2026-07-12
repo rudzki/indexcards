@@ -20,7 +20,7 @@ def _run_tests():
     try:
         result = subprocess.run(
             [sys.executable, '-m', 'pytest', 'tests',
-             '--cov=app', '--cov-report=term-missing', '--cov-report=html'],
+             '--cov=app', '--cov-report=term', '--cov-report=html'],
             cwd=os.path.dirname(os.path.abspath(__file__)),
         )
     except FileNotFoundError:

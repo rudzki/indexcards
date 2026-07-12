@@ -5,5 +5,5 @@ omit =
     app/testdata_content.py
 
 [report]
-show_missing = True
+show_missing = False
 skip_covered = False

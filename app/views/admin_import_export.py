@@ -13,6 +13,12 @@ from app.wordpress_import import import_wordpress_export, InvalidWordPressFile
 from app.views.admin import admin_bp, admin_required
 
 
+def _yaml_str(s):
+    # Double-quoted YAML scalar: escape backslash/quote and fold newlines so a
+    # title/alias containing them can't corrupt the frontmatter.
+    return (s or '').replace('\\', '\\\\').replace('"', '\\"').replace('\n', ' ').replace('\r', ' ')
+
+
 @admin_bp.route('/export/markdown/')
 @admin_required
 def export_markdown():
@@ -20,11 +26,6 @@ def export_markdown():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for entry in entries:
-            def _yaml_str(s):
-                # Double-quoted YAML scalar: escape backslash/quote and fold
-                # newlines so a title/alias containing them can't corrupt the
-                # frontmatter.
-                return (s or '').replace('\\', '\\\\').replace('"', '\\"').replace('\n', ' ').replace('\r', ' ')
             frontmatter = f'---\ntitle: "{_yaml_str(entry.title)}"\nsummary: "{_yaml_str(entry.summary)}"\nslug: {entry.slug}\n'
             if entry.aliases:
                 aliases = ', '.join(f'"{_yaml_str(a.title)}"' for a in entry.aliases)
@@ -79,6 +80,14 @@ def import_json():
         flash('JSON must be an array of entry objects.', 'error')
         return redirect(url_for('admin.settings'))
 
+    def _parse_dt(value):
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except (ValueError, TypeError):
+            return None
+
     count = 0
     try:
         for item in data:
@@ -89,14 +98,6 @@ def import_json():
             body_markdown = item.get('body_markdown', '')
             summary = item.get('summary', '')
             is_draft = item.get('is_draft', False)
-
-            def _parse_dt(value):
-                if not value:
-                    return None
-                try:
-                    return datetime.fromisoformat(value)
-                except (ValueError, TypeError):
-                    return None
 
             aliases = item.get('aliases') or []
             if not isinstance(aliases, list):

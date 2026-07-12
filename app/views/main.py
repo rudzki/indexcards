@@ -1,3 +1,4 @@
+import json
 import re
 from collections import defaultdict, OrderedDict
 from datetime import datetime
@@ -25,7 +26,7 @@ def index():
                .order_by(Entry.sort_title)
                .all())
 
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     subpage_display = site_settings.subpage_display if site_settings and site_settings.subpage_display else 'both'
 
     children_by_parent = defaultdict(list)
@@ -141,15 +142,22 @@ def _render_entry_page(entry):
                      .first())
     last_editor = last_edit_log.user if last_edit_log else None
 
+    # Order by (sort_title, id) and compare on the whole tuple so entries whose
+    # titles normalize to the same sort_title still have a stable, complete
+    # ordering — a plain `sort_title <` would skip a same-key sibling entirely.
     prev_entry = (Entry.query
                   .filter(Entry.is_draft == False,  # noqa: E712
-                          Entry.sort_title < entry.sort_title)
-                  .order_by(Entry.sort_title.desc())
+                          db.or_(Entry.sort_title < entry.sort_title,
+                                 db.and_(Entry.sort_title == entry.sort_title,
+                                         Entry.id < entry.id)))
+                  .order_by(Entry.sort_title.desc(), Entry.id.desc())
                   .first())
     next_entry = (Entry.query
                   .filter(Entry.is_draft == False,  # noqa: E712
-                          Entry.sort_title > entry.sort_title)
-                  .order_by(Entry.sort_title.asc())
+                          db.or_(Entry.sort_title > entry.sort_title,
+                                 db.and_(Entry.sort_title == entry.sort_title,
+                                         Entry.id > entry.id)))
+                  .order_by(Entry.sort_title.asc(), Entry.id.asc())
                   .first())
 
     ancestors = []
@@ -157,7 +165,7 @@ def _render_entry_page(entry):
     for _ in range(10):
         if not cursor.parent_id:
             break
-        p = Entry.query.get(cursor.parent_id)
+        p = db.session.get(Entry, cursor.parent_id)
         if not p or p.id in {a.id for a in ancestors}:
             break
         ancestors.append(p)
@@ -283,7 +291,7 @@ def _group_events_by_day(events):
 
 @main_bp.route('/notes/')
 def notes_list():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if not _notes_enabled(site_settings):
         abort(404)
 
@@ -305,7 +313,7 @@ def notes_list():
 
 @main_bp.route('/notes/<int:note_id>/')
 def note_page(note_id):
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if not _notes_enabled(site_settings):
         abort(404)
 
@@ -315,7 +323,7 @@ def note_page(note_id):
 
 @main_bp.route('/search')
 def search():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if site_settings and not site_settings.search_enabled:
         abort(404)
     query = request.args.get('q', '').strip()
@@ -403,7 +411,7 @@ def subscribe():
     db.session.commit()
     confirm_url = url_for('main.confirm_subscription', token=token, _external=True)
 
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     site_title = (settings.site_title if settings else None) or 'Index Cards'
     text, html = render_email('subscription_confirm', site_title=site_title, confirm_url=confirm_url)
     if not send_email(to=email, subject='Confirm your subscription', body_text=text, body_html=html):
@@ -426,7 +434,7 @@ def confirm_subscription(token):
     login_user(user)
 
     from app.integrations import notify_mailchimp_subscribe
-    notify_mailchimp_subscribe(user.email, SiteSettings.query.get(1))
+    notify_mailchimp_subscribe(user.email, db.session.get(SiteSettings, 1))
 
     flash('Subscription confirmed!', 'success')
     return redirect(url_for('main.index'))
@@ -443,7 +451,7 @@ def unsubscribe(token):
 
 @main_bp.route('/favicon.svg')
 def favicon():
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     icon_name = settings.site_icon if settings else ''
     if icon_name:
         from app.icons import get_icon_svg
@@ -462,7 +470,7 @@ def favicon():
 
 @main_bp.route('/feed.xml')
 def feed():
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     if not feeds_available(settings):
         abort(404)
     entries, most_recent = feed_entries()
@@ -478,7 +486,7 @@ def feed():
 
 @main_bp.route('/feed.json')
 def feed_json():
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     if not feeds_available(settings):
         abort(404)
     entries, _ = feed_entries()
@@ -500,7 +508,7 @@ def feed_json():
         } for e in entries],
     }
     return current_app.response_class(
-        __import__('json').dumps(payload, ensure_ascii=False),
+        json.dumps(payload, ensure_ascii=False),
         mimetype='application/feed+json',
         headers={'Cache-Control': 'public, max-age=300'},
     )
@@ -521,7 +529,7 @@ def uploaded_file(filename):
 
 @main_bp.route('/site-image')
 def site_image():
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     if not settings or not settings.site_image:
         abort(404)
     path = os.path.join(current_app.config['UPLOAD_DIR'], settings.site_image)

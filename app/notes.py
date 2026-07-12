@@ -2,7 +2,7 @@ from flask import flash, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
-from app.models import Note, NoteBacklink, Entry, log_audit, utcnow
+from app.models import Note, NoteBacklink, Entry, log_audit, set_published
 from app.markdown import render_markdown, extract_internal_links
 
 
@@ -18,10 +18,7 @@ def save_note(note):
 
     note.body_markdown = body_markdown
     note.body_html = render_markdown(body_markdown)
-    note.is_draft = is_draft
-
-    if not is_draft and not note.published_at:
-        note.published_at = utcnow()
+    set_published(note, not is_draft)
 
     db.session.flush()
 

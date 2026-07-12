@@ -12,7 +12,7 @@ from app.views.admin import admin_bp, admin_required
 @admin_bp.route('/users/', methods=['GET', 'POST'])
 @admin_required
 def users():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if not site_settings or not site_settings.multiuser_enabled:
         return redirect(url_for('admin.settings'))
 
@@ -57,7 +57,7 @@ def users():
 @admin_bp.route('/users/<int:user_id>/role/', methods=['POST'])
 @admin_required
 def change_role(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
     new_role = request.form.get('role', '')
     if new_role not in VALID_ROLES:
         flash('Invalid role.', 'error')
@@ -82,7 +82,7 @@ def change_role(user_id):
 @admin_bp.route('/users/<int:user_id>/delete/', methods=['POST'])
 @admin_required
 def delete_user(user_id):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     if user.id == current_user.id:
         flash('You cannot delete your own account.', 'error')
@@ -113,15 +113,15 @@ def delete_user(user_id):
 @admin_bp.route('/users/registration/<int:reg_id>/resend/', methods=['POST'])
 @admin_required
 def resend_invite(reg_id):
-    reg = Registration.query.get_or_404(reg_id)
+    reg = db.get_or_404(Registration, reg_id)
     if reg.accepted:
         flash('This registration has already been accepted.', 'info')
         return redirect(url_for('admin.users'))
 
     signup_url = url_for('auth.signup_token', token=reg.token, _external=True)
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     site_title = (site_settings.site_title if site_settings else 'Index Cards') or 'Index Cards'
-    inviter = User.query.get(reg.invited_by) if reg.invited_by else None
+    inviter = db.session.get(User, reg.invited_by) if reg.invited_by else None
     invited_by_name = inviter.display_name if inviter else site_title
     text, html = render_email('invite', site_title=site_title, signup_url=signup_url,
                               invited_by=invited_by_name)
@@ -136,7 +136,7 @@ def resend_invite(reg_id):
 @admin_bp.route('/users/registration/<int:reg_id>/revoke/', methods=['POST'])
 @admin_required
 def revoke_invite(reg_id):
-    reg = Registration.query.get_or_404(reg_id)
+    reg = db.get_or_404(Registration, reg_id)
     db.session.delete(reg)
     db.session.commit()
     flash(f'Invitation for {reg.email} revoked.', 'success')

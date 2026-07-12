@@ -3,7 +3,7 @@ from flask_login import current_user
 
 from app import db
 from app.entries import RESERVED_SLUGS
-from app.models import Page, PageRevision, Entry, Alias, make_slug, log_audit, utcnow
+from app.models import Page, PageRevision, Entry, Alias, make_slug, log_audit, set_published
 from app.markdown import render_markdown
 
 
@@ -55,14 +55,11 @@ def save_page(page):
     page.summary = summary
     page.body_markdown = body_markdown
     page.body_html = render_markdown(body_markdown)
-    page.is_draft = is_draft
+    set_published(page, not is_draft)
     page.is_stub = is_stub
     page.show_in_nav = show_in_nav
     page.nav_position = nav_position if show_in_nav else None
     page.update_sort_title()
-
-    if not is_draft and not page.published_at:
-        page.published_at = utcnow()
 
     db.session.flush()
 

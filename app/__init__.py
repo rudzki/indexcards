@@ -77,9 +77,9 @@ def create_app():
         if request.endpoint and request.endpoint.startswith('api.'):
             return
         from flask_login import current_user
-        from app.models import SiteSettings
-        settings = SiteSettings.query.get(1)
-        if not settings or settings.site_visibility != 'registered':
+        from app.models import SiteSettings, site_requires_login
+        settings = db.session.get(SiteSettings, 1)
+        if not site_requires_login(settings):
             return
         if current_user.is_authenticated:
             return
@@ -104,7 +104,7 @@ def create_app():
         from app.search import create_fts_table
         create_fts_table()
         from app.models import SiteSettings
-        if not SiteSettings.query.get(1):
+        if not db.session.get(SiteSettings, 1):
             db.session.add(SiteSettings(id=1, site_title='Index Cards'))
             db.session.commit()
 
@@ -128,9 +128,12 @@ def create_app():
         elif seconds < 2592000:
             days = seconds // 86400
             relative = f'{days}d ago'
-        else:
+        elif seconds < 31536000:
             months = seconds // 2592000
             relative = f'{months}mo ago'
+        else:
+            years = seconds // 31536000
+            relative = f'{years}y ago'
         hour = dt.hour % 12 or 12
         ampm = 'AM' if dt.hour < 12 else 'PM'
         absolute = f'{dt.strftime("%B")} {dt.day}, {dt.year} at {hour}:{dt.strftime("%M")} {ampm}'
@@ -170,7 +173,7 @@ def create_app():
     def inject_site_settings():
         from app.models import SiteSettings
         from markupsafe import Markup as _Markup
-        settings = SiteSettings.query.get(1)
+        settings = db.session.get(SiteSettings, 1)
         icon_svg = ''
         if settings and settings.site_icon:
             from app.icons import get_icon_svg

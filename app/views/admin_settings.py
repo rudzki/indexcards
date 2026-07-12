@@ -14,7 +14,7 @@ ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 @admin_bp.route('/settings/', methods=['GET', 'POST'])
 @admin_required
 def settings():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if request.method == 'POST':
         site_settings.site_title = request.form.get('site_title', '').strip()
         site_settings.footer_text = request.form.get('footer_text', '').strip()
@@ -109,7 +109,7 @@ def upload_site_image():
     filename = f'site-image.{ext}'
     upload_dir = current_app.config['UPLOAD_DIR']
 
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if site_settings.site_image:
         old_path = os.path.join(upload_dir, site_settings.site_image)
         try:
@@ -127,7 +127,7 @@ def upload_site_image():
 @admin_bp.route('/settings/remove-image/', methods=['POST'])
 @admin_required
 def remove_site_image():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if site_settings.site_image:
         path = os.path.join(current_app.config['UPLOAD_DIR'], site_settings.site_image)
         if os.path.exists(path):
@@ -141,7 +141,7 @@ def remove_site_image():
 @admin_bp.route('/integrations/', methods=['GET', 'POST'])
 @admin_required
 def integrations():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if request.method == 'POST':
         site_settings.mailchimp_api_key = request.form.get('mailchimp_api_key', '').strip()
         site_settings.mailchimp_server_prefix = request.form.get('mailchimp_server_prefix', '').strip()

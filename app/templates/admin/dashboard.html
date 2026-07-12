@@ -48,7 +48,7 @@
                                 <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_entries[entry.id] }}"></i>
                             {% endif %}
                         </td>
-                        <td class="col-status">{% if entry.is_draft %}<span class="badge badge-warning">Draft</span>{% else %}<span class="badge badge-published">Published</span>{% endif %}</td>
+                        <td class="col-status">{% if entry.is_draft %}<span class="badge badge-draft">Draft</span>{% else %}<span class="badge badge-published">Published</span>{% endif %}</td>
                         <td class="col-updated col-nowrap">{{ entry.updated_at|timeago }}</td>
                         <td class="admin-actions">
                             <div class="admin-actions-wrap">

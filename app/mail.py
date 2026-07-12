@@ -13,8 +13,9 @@ def render_email(template_name, **context):
 
 
 def send_email(to, subject, body_text, body_html=None):
+    from app import db
     from app.models import SiteSettings
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
 
     if not settings or not settings.smtp_configured:
         # In debug, print to console — handy for grabbing magic links locally.

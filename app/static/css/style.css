@@ -697,6 +697,26 @@ a.site-title:hover {
   white-space: nowrap;
 }
 
+/* Auto dot (from styleguide): tints itself to the badge's colour, so badge
+   markup needs no explicit .dot span. Add `.plain` to suppress it. */
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .9;
+}
+
+.badge.plain::before {
+  display: none;
+}
+
+/* Avoid a double dot when an explicit .dot child is also present. */
+.badge:has(.dot)::before {
+  display: none;
+}
+
 /* Dot indicator inside badges */
 .badge .dot,
 .dot {

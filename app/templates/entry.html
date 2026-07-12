@@ -121,9 +121,9 @@
 
     <nav class="entry-nav-arrows background-accent">
         <ul>
-            <li class="entry-nav-prev">{% if prev_entry %}<a href="{{ entry_url(prev_entry) }}">← {{ prev_entry.title }}</a>{% endif %}</li>
+            {% if prev_entry %}<li class="entry-nav-prev"><a href="{{ entry_url(prev_entry) }}">← {{ prev_entry.title }}</a></li>{% endif %}
             <li class="entry-nav-center"><a href="{{ url_for('main.index') }}">Contents</a></li>
-            <li class="entry-nav-next">{% if next_entry %}<a href="{{ entry_url(next_entry) }}">{{ next_entry.title }} →</a>{% endif %}</li>
+            {% if next_entry %}<li class="entry-nav-next"><a href="{{ entry_url(next_entry) }}">{{ next_entry.title }} →</a></li>{% endif %}
         </ul>
     </nav>
 </article>

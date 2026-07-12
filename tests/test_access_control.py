@@ -1,0 +1,119 @@
+"""P0 — can_modify matrix, route authorization guards, private-site gate."""
+
+import unittest
+
+from tests.base import BaseTest
+
+from app import db
+from app.models import User, Entry
+
+
+class CanModifyMatrixTests(BaseTest):
+    """Pure-function authorization table."""
+
+    def setUp(self):
+        super().setUp()
+        self.admin = self._make_user('admin')
+        self.editor = self._make_user('editor')
+        self.author = self._make_user('author')
+        self.other_author = self._make_user('author')
+        self.viewer = self._make_user('viewer')
+        self.by_admin = self._add_entry('A', created_by=self.admin.id)
+        self.by_author = self._add_entry('B', slug='b', created_by=self.author.id)
+        self.orphan = self._add_entry('C', slug='c', created_by=None)
+
+    def test_admin_modifies_everything(self):
+        for e in (self.by_admin, self.by_author, self.orphan):
+            self.assertTrue(self.admin.can_modify(e))
+
+    def test_editor_all_except_admin_authored(self):
+        self.assertFalse(self.editor.can_modify(self.by_admin))
+        self.assertTrue(self.editor.can_modify(self.by_author))
+        self.assertTrue(self.editor.can_modify(self.orphan))
+
+    def test_author_own_only(self):
+        self.assertTrue(self.author.can_modify(self.by_author))
+        self.assertFalse(self.author.can_modify(self.by_admin))
+        self.assertFalse(self.other_author.can_modify(self.by_author))
+
+    def test_viewer_none(self):
+        for e in (self.by_admin, self.by_author, self.orphan):
+            self.assertFalse(self.viewer.can_modify(e))
+
+
+class RouteGuardTests(BaseTest):
+    def test_author_cannot_edit_another_users_entry(self):
+        author = self._make_user('author')
+        other = self._make_user('author')
+        entry = self._add_entry('Theirs', created_by=other.id)
+        self._login(author)
+        resp = self.client.get(f'/dashboard/entry/{entry.id}/edit/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_non_admin_blocked_from_admin_routes(self):
+        editor = self._make_user('editor')
+        self._login(editor)
+        self.assertEqual(self.client.get('/dashboard/settings/').status_code, 403)
+        self.assertEqual(
+            self.client.post('/dashboard/entries/bulk/',
+                             data={'bulk_action': 'delete'}).status_code, 403)
+        self.assertEqual(self.client.get('/dashboard/export/json/').status_code, 403)
+
+    def test_non_editor_blocked_from_page_routes(self):
+        author = self._make_user('author')
+        self._login(author)
+        self.assertEqual(self.client.get('/dashboard/pages/').status_code, 403)
+        self.assertEqual(self.client.get('/dashboard/pages/new/').status_code, 403)
+
+
+class LastAdminAndSelfProtectionTests(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self._set_setting(multiuser_enabled=True)
+        self.admin = self._make_user('admin')
+        self._login(self.admin)
+
+    def test_cannot_change_own_role(self):
+        self.client.post(f'/dashboard/users/{self.admin.id}/role/',
+                         data={'role': 'viewer'}, follow_redirects=True)
+        self.assertEqual(db.session.get(User, self.admin.id).role, 'admin')
+
+    def test_cannot_delete_own_account(self):
+        self.client.post(f'/dashboard/users/{self.admin.id}/delete/',
+                         follow_redirects=True)
+        self.assertIsNotNone(db.session.get(User, self.admin.id))
+
+    def test_can_demote_another_admin_when_more_than_one(self):
+        other = self._make_user('admin')
+        self.client.post(f'/dashboard/users/{other.id}/role/',
+                         data={'role': 'editor'}, follow_redirects=True)
+        self.assertEqual(db.session.get(User, other.id).role, 'editor')
+
+
+class PrivateSiteTests(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self._set_setting(site_visibility='registered')
+
+    def test_anonymous_redirected_to_login(self):
+        resp = self.client.get('/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login', resp.headers['Location'])
+
+    def test_allowlisted_endpoints_reachable(self):
+        self.assertEqual(self.client.get('/login').status_code, 200)
+        self.assertEqual(self.client.get('/healthz').status_code, 200)
+        self.assertEqual(self.client.get('/favicon.svg').status_code, 200)
+
+    def test_api_returns_json_401_not_html_redirect(self):
+        resp = self.client.get('/api/v1/entries')
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp.get_json()['error'], 'Authentication required')
+
+    def test_authenticated_user_can_view(self):
+        self._login(self._make_user('viewer'))
+        self.assertEqual(self.client.get('/').status_code, 200)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, NoteBacklink, log_audit, entry_url, utcnow
+from app.models import Entry, EditLog, NoteBacklink, log_audit, entry_url, set_published
 from app.markdown import render_markdown
 from app.search import delete_fts_entry, update_fts_entry
 from app.locks import acquire_lock, active_locks
@@ -49,7 +49,7 @@ def new_entry():
 @admin_bp.route('/entry/<int:entry_id>/edit/', methods=['GET', 'POST'])
 @writer_required
 def edit_entry(entry_id):
-    entry = Entry.query.get_or_404(entry_id)
+    entry = db.get_or_404(Entry, entry_id)
     if not current_user.can_modify(entry):
         abort(403)
     if request.method == 'POST':
@@ -64,7 +64,7 @@ def edit_entry(entry_id):
 @admin_bp.route('/entry/<int:entry_id>/delete/', methods=['POST'])
 @writer_required
 def delete_entry(entry_id):
-    entry = Entry.query.get_or_404(entry_id)
+    entry = db.get_or_404(Entry, entry_id)
     if not current_user.can_modify(entry):
         abort(403)
     entry_title = entry.title
@@ -86,14 +86,11 @@ def delete_entry(entry_id):
 @admin_bp.route('/entries/<int:entry_id>/publish/', methods=['POST'])
 @login_required
 def publish_entry(entry_id):
-    entry = Entry.query.get_or_404(entry_id)
+    entry = db.get_or_404(Entry, entry_id)
     if not current_user.can_modify(entry):
         abort(403)
     was_unpublished = entry.is_draft
-    is_first_publish = entry.published_at is None
-    entry.is_draft = False
-    if not entry.published_at:
-        entry.published_at = utcnow()
+    is_first_publish = set_published(entry, True)
     db.session.commit()
     # Announce to Slack / webhooks — the common draft-then-publish flow never
     # goes through save_entry() as non-draft, so integrations must fire here too.
@@ -107,7 +104,7 @@ def publish_entry(entry_id):
 @admin_bp.route('/preview/<int:entry_id>/')
 @login_required
 def preview_entry(entry_id):
-    entry = Entry.query.get_or_404(entry_id)
+    entry = db.get_or_404(Entry, entry_id)
     if not current_user.can_modify(entry):
         abort(403)
     from app.markdown import mark_missing_links, extract_toc
@@ -149,11 +146,10 @@ def bulk_entries():
         newly_published = []
         for entry in entries:
             if current_user.can_modify(entry):
-                if entry.is_draft:
-                    newly_published.append((entry, entry.published_at is None))
-                entry.is_draft = False
-                if not entry.published_at:
-                    entry.published_at = utcnow()
+                was_draft = entry.is_draft
+                first_publish = set_published(entry, True)
+                if was_draft:
+                    newly_published.append((entry, first_publish))
                 count += 1
         db.session.commit()
         from app.entries import _fire_integrations
@@ -163,7 +159,7 @@ def bulk_entries():
     elif action == 'unpublish':
         for entry in entries:
             if current_user.can_modify(entry):
-                entry.is_draft = True
+                set_published(entry, False)
                 count += 1
         db.session.commit()
         flash(f'{count} entries unpublished.', 'success')
@@ -188,7 +184,7 @@ def bulk_entries():
 @admin_bp.route('/entry/<int:entry_id>/history/')
 @writer_required
 def entry_history(entry_id):
-    entry = Entry.query.get_or_404(entry_id)
+    entry = db.get_or_404(Entry, entry_id)
     if not current_user.can_modify(entry):
         abort(403)
     logs = (EditLog.query
@@ -202,7 +198,7 @@ def entry_history(entry_id):
 @admin_bp.route('/entry/<int:entry_id>/history/<int:log_id>/restore/', methods=['POST'])
 @writer_required
 def restore_entry_revision(entry_id, log_id):
-    entry = Entry.query.get_or_404(entry_id)
+    entry = db.get_or_404(Entry, entry_id)
     if not current_user.can_modify(entry):
         abort(403)
     log = EditLog.query.filter_by(id=log_id, entry_id=entry_id).first_or_404()

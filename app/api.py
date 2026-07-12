@@ -4,7 +4,7 @@ import secrets
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
-from app.models import Entry, Alias, SiteSettings, make_slug, log_audit, entry_url
+from app.models import Entry, Alias, Page, SiteSettings, make_slug, log_audit, entry_url, site_requires_login
 from app.markdown import render_markdown
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
@@ -16,10 +16,9 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 def _check_visibility():
     """Return a 401 response if the site is private and the caller is not authenticated."""
-    settings = SiteSettings.query.get(1)
-    if settings and settings.site_visibility == 'registered':
-        if not current_user.is_authenticated:
-            return jsonify({'error': 'Authentication required'}), 401
+    settings = db.session.get(SiteSettings, 1)
+    if site_requires_login(settings) and not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required'}), 401
     return None
 
 
@@ -184,6 +183,11 @@ def quick_create_entry():
             'title': existing_alias.entry.title,
             'slug': existing_alias.entry.slug,
         })
+    # Entries, aliases and pages share the /<slug>/ namespace; an entry created
+    # over a page's slug would silently shadow it in the resolver, so reject the
+    # collision the same way save_entry() does.
+    if Page.query.filter_by(slug=slug).first():
+        return jsonify({'error': 'That title is already used by a page.'}), 400
 
     entry = Entry(slug=slug, title=title, is_draft=True, created_by=current_user.id)
     entry.update_sort_title()

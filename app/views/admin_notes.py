@@ -2,14 +2,14 @@ from flask import render_template, redirect, url_for, request, flash, abort
 from flask_login import current_user
 
 from app import db
-from app.models import Note, SiteSettings, log_audit, utcnow
+from app.models import Note, SiteSettings, log_audit, set_published
 from app.locks import acquire_lock, active_locks
 from app.notes import save_note
 from app.views.admin import admin_bp, writer_required
 
 
 def _notes_enabled_or_redirect():
-    site_settings = SiteSettings.query.get(1)
+    site_settings = db.session.get(SiteSettings, 1)
     if not site_settings or not site_settings.notes_enabled:
         flash('Notes are not enabled. Enable them in Settings.', 'error')
         return redirect(url_for('admin.settings'))
@@ -46,7 +46,7 @@ def edit_note(note_id):
     guard = _notes_enabled_or_redirect()
     if guard:
         return guard
-    note = Note.query.get_or_404(note_id)
+    note = db.get_or_404(Note, note_id)
     if not current_user.can_modify(note):
         abort(403)
     if request.method == 'POST':
@@ -61,7 +61,7 @@ def edit_note(note_id):
 @admin_bp.route('/notes/<int:note_id>/delete/', methods=['POST'])
 @writer_required
 def delete_note(note_id):
-    note = Note.query.get_or_404(note_id)
+    note = db.get_or_404(Note, note_id)
     if not current_user.can_modify(note):
         abort(403)
     db.session.delete(note)
@@ -74,12 +74,10 @@ def delete_note(note_id):
 @admin_bp.route('/notes/<int:note_id>/publish/', methods=['POST'])
 @writer_required
 def publish_note(note_id):
-    note = Note.query.get_or_404(note_id)
+    note = db.get_or_404(Note, note_id)
     if not current_user.can_modify(note):
         abort(403)
-    note.is_draft = not note.is_draft
-    if not note.is_draft and not note.published_at:
-        note.published_at = utcnow()
+    set_published(note, note.is_draft)  # toggle: publish if currently draft
     db.session.commit()
     status = 'unpublished' if note.is_draft else 'published'
     flash(f'Note {status}.', 'success')

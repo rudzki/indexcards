@@ -20,7 +20,7 @@ def login():
             db.session.commit()
 
             login_url = url_for('auth.verify_login', token=token, _external=True)
-            settings = SiteSettings.query.get(1)
+            settings = db.session.get(SiteSettings, 1)
             site_title = (settings.site_title if settings else None) or 'Index Cards'
             text, html = render_email('login', site_title=site_title, login_url=login_url)
             send_email(to=email, subject='Your login link', body_text=text, body_html=html)
@@ -74,7 +74,7 @@ def setup():
             return redirect(url_for('auth.login'))
 
         if site_title:
-            settings = SiteSettings.query.get(1)
+            settings = db.session.get(SiteSettings, 1)
             if settings:
                 settings.site_title = site_title
 
@@ -88,7 +88,7 @@ def setup():
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
 def signup_form():
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     if not settings or not settings.multiuser_enabled or settings.registration_method == 'invite':
         abort(404)
 
@@ -135,7 +135,7 @@ def signup_token(token):
     if reg.is_expired:
         flash('This signup link has expired. Please request a new invitation.', 'error')
         return redirect(url_for('auth.login'))
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
 
     if request.method == 'POST':
         display_name = request.form.get('display_name', '').strip()

@@ -18,7 +18,7 @@ def register_cli(app):
 @click.option('--force', is_flag=True, help="Send even if today isn't the configured digest day.")
 @with_appcontext
 def send_digest(force):
-    settings = SiteSettings.query.get(1)
+    settings = db.session.get(SiteSettings, 1)
     if not settings:
         click.echo('No site settings found.')
         return
@@ -41,9 +41,12 @@ def send_digest(force):
                 .filter(EditLog.edited_at >= since, EditLog.is_import == False)  # noqa: E712
                 .order_by(EditLog.edited_at.desc())
                 .all())
+        # Resolve all referenced entries in one query rather than per-log.
+        entries_by_id = {e.id: e for e in Entry.query.filter(
+            Entry.id.in_({log.entry_id for log in logs})).all()} if logs else {}
         seen = {e.id for e in new_entries}
         for log in logs:
-            entry = Entry.query.get(log.entry_id)
+            entry = entries_by_id.get(log.entry_id)
             if entry and not entry.is_draft and entry.id not in seen:
                 seen.add(entry.id)
                 edited_entries.append((entry, log.changelog))

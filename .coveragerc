@@ -1,0 +1,9 @@
+[run]
+source = app
+omit =
+    app/testdata.py
+    app/testdata_content.py
+
+[report]
+show_missing = True
+skip_covered = False

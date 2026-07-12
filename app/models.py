@@ -40,6 +40,27 @@ def sort_key(title):
     return ' '.join(words)
 
 
+def site_requires_login(settings):
+    """True when the site is set to 'registered' visibility (login required to
+    view). Single source of truth for the private-site check shared by the
+    request gate (app/__init__.py) and the API gate (app/api.py)."""
+    return bool(settings and settings.site_visibility == 'registered')
+
+
+def set_published(obj, published):
+    """Set draft/published state on any content object (Entry, Page, Note).
+
+    All three share the same (is_draft, published_at) pair and the same rule:
+    published_at is stamped once, on the first transition into published state,
+    and never cleared. Returns True only when this call performed that first
+    publish — callers pass it as the 'new entry' signal to integrations."""
+    obj.is_draft = not published
+    first_publish = published and obj.published_at is None
+    if first_publish:
+        obj.published_at = utcnow()
+    return first_publish
+
+
 class Entry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     slug = db.Column(db.Text, unique=True, nullable=False)

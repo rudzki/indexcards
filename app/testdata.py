@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from app import db
 from app.models import (
-    Entry, Alias, EditLog, Backlink, Registration, User, SiteSettings,
+    Entry, EditLog, Backlink, Registration, User, SiteSettings,
     make_slug, sort_key, utcnow,
 )
 from app.markdown import render_markdown, extract_internal_links
@@ -93,14 +93,6 @@ def seed_test_data(user_id):
         db.session.flush()
         entry_map[spec['title']] = entry
 
-        for alias_title in spec.get('aliases', []):
-            alias_slug = _test_slug(alias_title)
-            db.session.add(Alias(
-                entry_id=entry.id,
-                title=alias_title,
-                slug=alias_slug,
-            ))
-
         for edit_spec in spec.get('edits', []):
             log = EditLog(
                 entry_id=entry.id,
@@ -162,7 +154,7 @@ def seed_test_data(user_id):
         update_fts_entry(entry)
 
     parts = [
-        f'{entries_created} entries (with aliases, backlinks, and edit history)',
+        f'{entries_created} entries (with backlinks and edit history)',
     ]
     if users_created:
         parts.insert(0, f'{users_created} users')
@@ -177,10 +169,6 @@ def clear_test_data():
     for entry in entries:
         delete_fts_entry(entry.id)
         db.session.delete(entry)
-
-    aliases = Alias.query.filter(Alias.slug.like(f'{TEST_SLUG_PREFIX}%')).all()
-    for alias in aliases:
-        db.session.delete(alias)
 
     invites = Registration.query.filter(Registration.email.like(f'%{TEST_EMAIL_DOMAIN}')).all()
     invite_count = len(invites)

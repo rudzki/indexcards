@@ -44,12 +44,6 @@
                 </div>
             </div>
             <div class="field">
-                <label for="aliases">Aliases <span class="field-hint">(comma-separated)</span></label>
-                <input type="text" id="aliases" name="aliases"
-                       value="{{ request.form.aliases if posted else (entry.aliases|map(attribute='title')|join(', ') if entry else '') }}">
-                <p class="field-hint field-hint-mt">Alternate titles that redirect to this entry</p>
-            </div>
-            <div class="field">
                 <label for="parent_search">Parent Entry <span class="field-hint">(optional)</span></label>
                 <div class="parent-field-wrap">
                     <input type="text" id="parent_search" class="parent-search-input"

@@ -10,7 +10,7 @@ from flask_login import current_user, login_user
 from markupsafe import Markup, escape
 
 from app import db, limiter
-from app.models import Entry, Alias, User, SiteSettings, EditLog, Page, PageRevision, Note, sort_key, entry_url, utcnow
+from app.models import Entry, User, SiteSettings, EditLog, Page, entry_url, utcnow
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.search import search_entries
 from app.mail import send_email, render_email
@@ -45,9 +45,6 @@ def index():
         show_children = children_by_parent.get(entry.id, []) if subpage_display != 'separate' else []
         index_items.append({'type': 'entry', 'entry': entry, 'sort_title': entry.sort_title,
                             'children': show_children})
-        for alias in entry.aliases:
-            index_items.append({'type': 'alias', 'entry': entry, 'alias': alias,
-                                'sort_title': sort_key(alias.title)})
     index_items.sort(key=lambda x: x['sort_title'])
 
     show_history = bool(site_settings and site_settings.show_history)
@@ -60,11 +57,7 @@ def index():
             start_month += 12
             start_year -= 1
         cutoff = datetime(start_year, start_month, 1)
-        events = _build_activity_events(
-            since=cutoff,
-            notes_enabled=bool(site_settings and site_settings.notes_enabled),
-            show_history=True,
-        )
+        events = _build_activity_events(since=cutoff, show_history=True)
         heatmap_data = _group_events_by_day(events)
 
     return render_template('index.html', entries=entries, index_items=index_items, heatmap_data=heatmap_data)
@@ -78,18 +71,9 @@ def entry_page(slug):
             return redirect(entry_url(entry), code=301)
         return _render_entry_page(entry)
 
-    alias = Alias.query.filter_by(slug=slug).first()
-    if alias:
-        return redirect(url_for('main.entry_page', slug=alias.entry.slug), code=301)
-
     page = Page.query.filter_by(slug=slug, is_draft=False).first()
     if page:
-        last_revision = (PageRevision.query
-                         .filter_by(page_id=page.id)
-                         .order_by(PageRevision.edited_at.desc())
-                         .first())
-        last_editor = last_revision.user if last_revision else None
-        return render_template('page.html', page=page, last_editor=last_editor)
+        return render_template('page.html', page=page, last_editor=page.author)
 
     if current_user.is_authenticated and current_user.can_write:
         return redirect(url_for('admin.new_entry', title=slug))
@@ -114,9 +98,6 @@ def _render_entry_page(entry):
     if linked_slugs:
         existing_slugs = {r[0] for r in Entry.query.with_entities(Entry.slug)
                           .filter(Entry.slug.in_(linked_slugs)).all()}
-        # Aliases resolve via a 301, so a link to an alias slug is not "missing".
-        existing_slugs |= {r[0] for r in Alias.query.with_entities(Alias.slug)
-                           .filter(Alias.slug.in_(linked_slugs)).all()}
     else:
         existing_slugs = set()
     body_html = mark_missing_links(entry.body_html, existing_slugs)
@@ -127,13 +108,6 @@ def _render_entry_page(entry):
                      Entry.is_draft == False  # noqa: E712
                  )
                  .all())
-    note_backlinks = (Note.query
-                      .join(Note.outgoing_links)
-                      .filter(
-                          Note.outgoing_links.any(target_entry_id=entry.id),
-                          Note.is_draft == False  # noqa: E712
-                      )
-                      .all())
     toc = extract_toc(body_html)
     last_edit_log = (EditLog.query
                      .filter_by(entry_id=entry.id)
@@ -178,29 +152,17 @@ def _render_entry_page(entry):
                 .all())
 
     return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                           backlinks=backlinks, note_backlinks=note_backlinks, toc=toc,
+                           backlinks=backlinks, note_backlinks=[], toc=toc,
                            last_editor=last_editor,
                            prev_entry=prev_entry, next_entry=next_entry,
                            ancestors=ancestors, children=children)
 
 
-def _notes_enabled(site_settings):
-    return bool(site_settings and site_settings.notes_enabled)
-
-
-def _build_activity_events(since=None, notes_enabled=False, show_history=True):
-    """Build the unified activity feed — note publications plus entry
-    publish/edit events — shared by the homepage heatmap and the /notes/
-    timeline so both draw from the same source instead of independent
-    heuristics for what counts as "new" vs "edited"."""
+def _build_activity_events(since=None, show_history=True):
+    """Build the entry activity feed — publish/edit events — that feeds the
+    homepage heatmap, with a single source of truth for what counts as "new"
+    vs "edited"."""
     events = []
-
-    if notes_enabled:
-        note_q = Note.query.filter_by(is_draft=False)
-        if since:
-            note_q = note_q.filter(Note.published_at >= since)
-        for note in note_q.all():
-            events.append({'kind': 'note', 'ts': note.published_at, 'note': note})
 
     entry_q = Entry.query.filter_by(is_draft=False)
     if since:
@@ -257,68 +219,23 @@ def _collapse_activity_events(events):
 
 def _group_events_by_day(events):
     """Group activity events by calendar day for the heatmap, keeping at
-    most one cell entry per entry/note per day (the most recent event that
-    day, since events are already sorted newest-first)."""
+    most one cell entry per entry per day (the most recent event that day,
+    since events are already sorted newest-first)."""
     day_map = defaultdict(OrderedDict)
     for event in events:
         if not event['ts']:
             continue
         date_str = event['ts'].strftime('%Y-%m-%d')
-        if event['kind'] == 'note':
-            key = ('note', event['note'].id)
-            if key in day_map[date_str]:
-                continue
-            excerpt = (event['note'].body_markdown or '').strip().replace('\n', ' ')
-            title = (excerpt[:60] + '…') if len(excerpt) > 60 else (excerpt or 'Note')
-            day_map[date_str][key] = {
-                'title': title,
-                'url': url_for('main.note_page', note_id=event['note'].id),
-                'changelog': '',
-                'is_new': True,
-            }
-        else:
-            key = ('entry', event['entry'].id)
-            if key in day_map[date_str]:
-                continue
-            day_map[date_str][key] = {
-                'title': event['entry'].title,
-                'url': entry_url(event['entry']),
-                'changelog': ' · '.join(event.get('changelogs') or []),
-                'is_new': event['kind'] == 'published',
-            }
+        key = ('entry', event['entry'].id)
+        if key in day_map[date_str]:
+            continue
+        day_map[date_str][key] = {
+            'title': event['entry'].title,
+            'url': entry_url(event['entry']),
+            'changelog': ' · '.join(event.get('changelogs') or []),
+            'is_new': event['kind'] == 'published',
+        }
     return {ds: list(items.values()) for ds, items in day_map.items()}
-
-
-@main_bp.route('/notes/')
-def notes_list():
-    site_settings = db.session.get(SiteSettings, 1)
-    if not _notes_enabled(site_settings):
-        abort(404)
-
-    page = request.args.get('page', 1, type=int)
-    per_page = 50
-    show_history = bool(site_settings.show_history)
-
-    items = _build_activity_events(notes_enabled=True, show_history=show_history)
-    total = len(items)
-    start = (page - 1) * per_page
-    page_items = items[start:start + per_page]
-
-    heatmap_data = _group_events_by_day(items) if show_history else {}
-
-    return render_template('timeline.html', items=page_items, page=page,
-                           has_next=start + per_page < total, has_prev=page > 1,
-                           heatmap_data=heatmap_data)
-
-
-@main_bp.route('/notes/<int:note_id>/')
-def note_page(note_id):
-    site_settings = db.session.get(SiteSettings, 1)
-    if not _notes_enabled(site_settings):
-        abort(404)
-
-    note = Note.query.filter_by(id=note_id, is_draft=False).first_or_404()
-    return render_template('note.html', note=note)
 
 
 @main_bp.route('/search')

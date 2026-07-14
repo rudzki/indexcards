@@ -9,7 +9,6 @@ from flask_login import current_user
 from app import db
 from app.models import Entry, log_audit, make_slug
 from app.entries import import_entry
-from app.wordpress_import import import_wordpress_export, InvalidWordPressFile
 from app.views.admin import admin_bp, admin_required
 
 
@@ -27,9 +26,6 @@ def export_markdown():
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for entry in entries:
             frontmatter = f'---\ntitle: "{_yaml_str(entry.title)}"\nsummary: "{_yaml_str(entry.summary)}"\nslug: {entry.slug}\n'
-            if entry.aliases:
-                aliases = ', '.join(f'"{_yaml_str(a.title)}"' for a in entry.aliases)
-                frontmatter += f'aliases: [{aliases}]\n'
             if entry.published_at:
                 frontmatter += f'published: {entry.published_at.isoformat()}\n'
             frontmatter += '---\n\n'
@@ -51,7 +47,6 @@ def export_json():
             'summary': entry.summary,
             'body_markdown': entry.body_markdown,
             'is_draft': entry.is_draft,
-            'aliases': [a.title for a in entry.aliases],
             'published_at': entry.published_at.isoformat() if entry.published_at else None,
             'created_at': entry.created_at.isoformat() if entry.created_at else None,
             'updated_at': entry.updated_at.isoformat() if entry.updated_at else None,
@@ -99,12 +94,8 @@ def import_json():
             summary = item.get('summary', '')
             is_draft = item.get('is_draft', False)
 
-            aliases = item.get('aliases') or []
-            if not isinstance(aliases, list):
-                aliases = []
             if import_entry(title, slug, body_markdown, summary, is_draft,
                             published_at=_parse_dt(item.get('published_at')),
-                            aliases=aliases,
                             created_at=_parse_dt(item.get('created_at')),
                             updated_at=_parse_dt(item.get('updated_at'))):
                 count += 1
@@ -116,26 +107,6 @@ def import_json():
 
     log_audit('import_json', detail=f'{count} entries imported', user_id=current_user.id)
     flash(f'{count} entries imported.', 'success')
-    return redirect(url_for('admin.settings'))
-
-
-@admin_bp.route('/import/wordpress/', methods=['POST'])
-@admin_required
-def import_wordpress():
-    f = request.files.get('file')
-    if not f:
-        flash('No file uploaded.', 'error')
-        return redirect(url_for('admin.settings'))
-
-    try:
-        count = import_wordpress_export(f)
-    except InvalidWordPressFile as e:
-        flash(str(e), 'error')
-        return redirect(url_for('admin.settings'))
-
-    db.session.commit()
-    log_audit('import_wordpress', detail=f'{count} entries imported', user_id=current_user.id)
-    flash(f'{count} entries imported from WordPress.', 'success')
     return redirect(url_for('admin.settings'))
 
 

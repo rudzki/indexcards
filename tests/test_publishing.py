@@ -5,7 +5,7 @@ import unittest
 from tests.base import BaseTest, capture_integrations
 
 from app import db
-from app.models import Entry, NoteBacklink, set_published
+from app.models import Entry, set_published
 
 
 class SetPublishedTests(BaseTest):
@@ -126,12 +126,9 @@ class BulkEntryTests(BaseTest):
         self.assertTrue(row.is_draft)
         self.assertEqual(row.published_at, stamp)
 
-    def test_bulk_delete_removes_row_fts_children_and_backlinks(self):
+    def test_bulk_delete_removes_row_fts_and_children(self):
         parent = self._add_entry('Parent')
         child = self._add_entry('Child', parent=parent)
-        note = self._add_note(body='[Parent](/parent/)')
-        db.session.add(NoteBacklink(note_id=note.id, target_entry_id=parent.id))
-        db.session.commit()
 
         self.client.post('/dashboard/entries/bulk/',
                          data={'entry_ids': [parent.id], 'bulk_action': 'delete'})
@@ -139,8 +136,6 @@ class BulkEntryTests(BaseTest):
         self.assertIsNone(db.session.get(Entry, parent.id))
         # Child is detached, not deleted.
         self.assertIsNone(db.session.get(Entry, child.id).parent_id)
-        # Note backlink to the deleted entry is gone.
-        self.assertEqual(NoteBacklink.query.filter_by(target_entry_id=parent.id).count(), 0)
         # FTS row removed.
         rows = db.session.execute(
             db.text('SELECT rowid FROM entry_fts WHERE rowid = :id'),

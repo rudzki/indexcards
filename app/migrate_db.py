@@ -171,9 +171,6 @@ def _run_migrations():
             if new_key != old_key:
                 cursor.execute("UPDATE entry SET sort_title = ? WHERE id = ?", (new_key, entry_id))
 
-    if has_table('edit_log') and not has_column('edit_log', 'body_snapshot'):
-        cursor.execute("ALTER TABLE edit_log ADD COLUMN body_snapshot TEXT")
-
     if has_table('entry') and not has_column('entry', 'parent_id'):
         cursor.execute("ALTER TABLE entry ADD COLUMN parent_id INTEGER REFERENCES entry(id)")
 
@@ -182,18 +179,6 @@ def _run_migrations():
 
     if has_table('user') and not has_column('user', 'link'):
         cursor.execute("ALTER TABLE user ADD COLUMN link TEXT DEFAULT ''")
-
-    if not has_table('page_revision'):
-        cursor.execute("""
-            CREATE TABLE page_revision (
-                id INTEGER PRIMARY KEY,
-                page_id INTEGER NOT NULL REFERENCES page(id),
-                user_id INTEGER REFERENCES user(id),
-                body_snapshot TEXT DEFAULT '',
-                changelog TEXT,
-                edited_at DATETIME
-            )
-        """)
 
     if has_table('site_settings') and not has_column('site_settings', 'subpage_display'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN subpage_display TEXT DEFAULT 'both'")
@@ -206,32 +191,6 @@ def _run_migrations():
 
     if has_table('page') and not has_column('page', 'is_stub'):
         cursor.execute("ALTER TABLE page ADD COLUMN is_stub BOOLEAN DEFAULT 0")
-
-    if has_table('site_settings') and not has_column('site_settings', 'notes_enabled'):
-        cursor.execute("ALTER TABLE site_settings ADD COLUMN notes_enabled BOOLEAN DEFAULT 0")
-
-    if not has_table('note'):
-        cursor.execute("""
-            CREATE TABLE note (
-                id INTEGER PRIMARY KEY,
-                body_markdown TEXT DEFAULT '',
-                body_html TEXT DEFAULT '',
-                is_draft BOOLEAN DEFAULT 0,
-                published_at DATETIME,
-                created_at DATETIME,
-                updated_at DATETIME,
-                created_by INTEGER REFERENCES user(id)
-            )
-        """)
-
-    if not has_table('note_backlink'):
-        cursor.execute("""
-            CREATE TABLE note_backlink (
-                id INTEGER PRIMARY KEY,
-                note_id INTEGER NOT NULL REFERENCES note(id),
-                target_entry_id INTEGER NOT NULL REFERENCES entry(id)
-            )
-        """)
 
     if has_table('edit_log') and not has_column('edit_log', 'is_import'):
         cursor.execute("ALTER TABLE edit_log ADD COLUMN is_import BOOLEAN DEFAULT 0")

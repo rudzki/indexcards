@@ -1,4 +1,4 @@
-"""P2 — JSON round-trip, WordPress import, and import stamping rules."""
+"""P2 — JSON round-trip and import stamping rules."""
 
 import io
 import unittest
@@ -9,7 +9,6 @@ from tests.base import BaseTest
 from app import db
 from app.models import Entry
 from app.entries import import_entry
-from app.wordpress_import import import_wordpress_export, InvalidWordPressFile
 
 
 class ImportStampingTests(BaseTest):
@@ -48,15 +47,11 @@ class JsonRoundTripTests(BaseTest):
     def test_export_then_import_preserves_fields(self):
         entry = self._add_entry('Alpha', slug='alpha', body='hello',
                                 summary='sum', is_draft=False)
-        from app.models import Alias
-        db.session.add(Alias(entry_id=entry.id, title='Al', slug='al'))
-        db.session.commit()
         stamp = entry.published_at
 
         exported = self.client.get('/dashboard/export/json/').data
 
         # Wipe entries, then re-import the exported payload.
-        Alias.query.delete()
         Entry.query.delete()
         db.session.commit()
 
@@ -68,7 +63,6 @@ class JsonRoundTripTests(BaseTest):
         self.assertIsNotNone(restored)
         self.assertEqual(restored.title, 'Alpha')
         self.assertFalse(restored.is_draft)
-        self.assertEqual({a.title for a in restored.aliases}, {'Al'})
         self.assertEqual(restored.published_at, stamp)
 
     def test_malformed_json_rejected(self):
@@ -100,63 +94,6 @@ class JsonRoundTripTests(BaseTest):
                              content_type='multipart/form-data')
         # The first insert must be rolled back — no partial import.
         self.assertEqual(Entry.query.count(), 0)
-
-
-WXR = b"""<?xml version="1.0"?>
-<rss xmlns:wp="http://wordpress.org/export/1.2/"
-     xmlns:content="http://purl.org/rss/1.0/modules/content/">
-<channel>
- <item>
-  <title>Hello Post</title>
-  <wp:post_name>hello-post</wp:post_name>
-  <wp:post_type>post</wp:post_type>
-  <wp:status>publish</wp:status>
-  <wp:post_date>2020-01-02 03:04:05</wp:post_date>
-  <content:encoded>&lt;p&gt;Body text&lt;/p&gt;</content:encoded>
- </item>
- <item>
-  <title>Draft Page</title>
-  <wp:post_name>draft-page</wp:post_name>
-  <wp:post_type>page</wp:post_type>
-  <wp:status>draft</wp:status>
- </item>
- <item>
-  <title>No Slug Here</title>
-  <wp:post_type>post</wp:post_type>
-  <wp:status>publish</wp:status>
- </item>
- <item>
-  <title>An Attachment</title>
-  <wp:post_type>attachment</wp:post_type>
- </item>
-</channel>
-</rss>"""
-
-
-class WordPressImportTests(BaseTest):
-    def test_parses_posts_and_pages(self):
-        user = self._make_user()
-        with self._acting_as(user):
-            count = import_wordpress_export(io.BytesIO(WXR))
-            db.session.commit()
-
-        # post + page + no-slug post = 3; the attachment is skipped.
-        self.assertEqual(count, 3)
-
-        post = Entry.query.filter_by(slug='hello-post').first()
-        self.assertFalse(post.is_draft)
-        self.assertEqual(post.published_at.year, 2020)
-        self.assertEqual(post.published_at.month, 1)
-
-        page = Entry.query.filter_by(slug='draft-page').first()
-        self.assertTrue(page.is_draft)
-
-        # No <wp:post_name> -> slug falls back to make_slug(title).
-        self.assertIsNotNone(Entry.query.filter_by(slug='no-slug-here').first())
-
-    def test_invalid_xml_raises(self):
-        with self.assertRaises(InvalidWordPressFile):
-            import_wordpress_export(io.BytesIO(b'this is not xml <<<'))
 
 
 if __name__ == '__main__':

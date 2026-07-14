@@ -111,17 +111,22 @@
             <legend>Site visibility</legend>
             <div class="field">
                 <label>Site visibility</label>
-                <p class="field-hint mb-0">Controls who can access this site. Set to Registered to restrict all content to logged-in users only.</p>
+                <p class="field-hint mb-0">Controls who can access this site.</p>
                 <div class="radio-group">
                     <label>
                         <input type="radio" name="site_visibility" value="public"
                                {% if settings.site_visibility == 'public' %}checked{% endif %}>
-                        Public — anyone can read
+                        Public
                     </label>
                     <label>
                         <input type="radio" name="site_visibility" value="registered"
                                {% if settings.site_visibility == 'registered' %}checked{% endif %}>
                         Registered users only
+                    </label>
+                    <label>
+                        <input type="radio" name="site_visibility" value="admin"
+                               {% if settings.site_visibility == 'admin' %}checked{% endif %}>
+                        Admin users only
                     </label>
                 </div>
             </div>
@@ -137,12 +142,6 @@
 
         <fieldset>
             <legend>Options</legend>
-            <div class="field field-inline">
-                <label>
-                    <input type="checkbox" name="notes_enabled" {% if settings.notes_enabled %}checked{% endif %}>
-                    Enable notes and timeline
-                </label>
-            </div>
             <div class="field field-inline">
                 <label>
                     <input type="checkbox" name="subscribe_enabled" {% if settings.subscribe_enabled %}checked{% endif %}>

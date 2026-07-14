@@ -1,4 +1,4 @@
-from flask import Flask, redirect, url_for, request, render_template
+from flask import Flask, redirect, url_for, request, render_template, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -40,7 +40,6 @@ def create_app():
     from app.views.admin import admin_bp
     from app.views import admin_entries  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_pages  # noqa: F401 - registers routes on admin_bp
-    from app.views import admin_notes  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_users  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_settings  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_import_export  # noqa: F401 - registers routes on admin_bp
@@ -77,18 +76,23 @@ def create_app():
         if request.endpoint and request.endpoint.startswith('api.'):
             return
         from flask_login import current_user
-        from app.models import SiteSettings, site_requires_login
+        from app.models import SiteSettings, site_requires_login, site_requires_admin
         settings = db.session.get(SiteSettings, 1)
         if not site_requires_login(settings):
             return
-        if current_user.is_authenticated:
-            return
+        requires_admin = site_requires_admin(settings)
+        # Always reachable so users can log in/out even on a locked-down site.
         allowed_endpoints = ('auth.login', 'auth.verify_login', 'auth.setup',
                              'auth.signup_form', 'auth.signup_token', 'auth.logout',
                              'main.healthz', 'main.confirm_subscription', 'main.favicon',
                              'main.site_image', 'main.unsubscribe', 'static')
         if request.endpoint in allowed_endpoints:
             return
+        if current_user.is_authenticated:
+            if not requires_admin or current_user.is_admin:
+                return
+            # Logged in, but not an admin on an admin-only site.
+            abort(403)
         from flask import flash as _flash
         _flash('This site requires an account to view.', 'info')
         return redirect(url_for('auth.login'))

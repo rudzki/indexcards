@@ -23,34 +23,6 @@
                 {% if rev.changelog %}
                 <span class="revision-changelog">{{ rev.changelog }}</span>
                 {% endif %}
-                {% if rev.char_delta > 0 %}
-                <span class="char-delta-add">+{{ rev.char_delta }}</span>
-                {% elif rev.char_delta < 0 %}
-                <span class="char-delta-del">{{ rev.char_delta }}</span>
-                {% else %}
-                <span class="char-delta-neu">±0</span>
-                {% endif %}
-                <div class="revision-actions">
-                    <button type="button" class="diff-toggle" onclick="this.closest('.revision-row').querySelector('.revision-diff').classList.toggle('open'); this.textContent = this.closest('.revision-row').querySelector('.revision-diff').classList.contains('open') ? 'Hide diff' : 'Show diff'">Show diff</button>
-                    <form method="post" action="{{ url_for('admin.restore_entry_revision', entry_id=entry.id, log_id=rev.id) }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn-small"
-                                data-confirm="Restore this revision?" data-confirm-label="Restore"
-                                onclick="return askConfirm(event)">Restore</button>
-                    </form>
-                </div>
-            </div>
-            <div class="revision-diff">
-                <table class="diff-table">
-                    <tbody>
-                        {% for op, line in rev.diff_lines %}
-                        <tr class="{% if op == '+' %}diff-add{% elif op == '-' %}diff-del{% else %}diff-ctx{% endif %}">
-                            <td>{{ op }}</td>
-                            <td>{{ line }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
         {% endfor %}

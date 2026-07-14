@@ -68,9 +68,6 @@
                 {% elif site_settings.multiuser_enabled and site_settings.registration_method != 'invite' %}
                     <a href="{{ url_for('auth.signup_form') }}">Register</a>
                 {% endif %}
-                {% if site_settings.notes_enabled %}
-                <a href="{{ url_for('main.notes_list') }}" class="{{ 'active' if request.endpoint in ('main.notes_list', 'main.note_page') }}">Timeline</a>
-                {% endif %}
                 {% for p in nav_pages %}
                 <a href="{{ url_for('main.entry_page', slug=p.slug) }}" class="{{ 'active' if request.endpoint == 'main.entry_page' and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
                 {% endfor %}

@@ -24,7 +24,7 @@ from flask_login import login_user  # noqa: E402
 
 from app import create_app, db  # noqa: E402
 from app.models import (  # noqa: E402
-    Entry, Note, Page, SiteSettings, User, make_slug, set_published,
+    Entry, Page, SiteSettings, User, make_slug, set_published,
 )
 
 
@@ -104,13 +104,6 @@ class BaseTest(unittest.TestCase):
         db.session.add(page)
         db.session.commit()
         return page
-
-    def _add_note(self, body='', is_draft=False, created_by=None):
-        note = Note(body_markdown=body, created_by=created_by)
-        set_published(note, not is_draft)
-        db.session.add(note)
-        db.session.commit()
-        return note
 
     @contextmanager
     def _acting_as(self, user):

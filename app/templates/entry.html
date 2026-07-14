@@ -37,11 +37,6 @@
     </nav>
     <header class="entry-header">
         <h1 class="entry-title p-name">{{ entry.title }}</h1>
-        {% if entry.aliases %}
-            <p class="entry-aliases">Also known as:
-                {% for alias in entry.aliases %}{{ alias.title }}{% if not loop.last %}, {% endif %}{% endfor %}
-            </p>
-        {% endif %}
     </header>
 
     {% if toc is defined and toc|length > 2 %}
@@ -86,7 +81,7 @@
         {% endif %}
     </footer>
 
-    {% if backlinks or note_backlinks %}
+    {% if backlinks %}
     <nav class="entry-backlinks" aria-label="Linked from">
         <h2>Linked from</h2>
         <ul>
@@ -94,11 +89,6 @@
                 <li class="h-cite">
                     <a class="u-url p-name" href="{{ entry_url(bl) }}">{{ bl.title }}</a>
                     {% if bl.summary %}<span class="backlink-summary p-summary"> — {{ bl.summary }}</span>{% endif %}
-                </li>
-            {% endfor %}
-            {% for nbl in note_backlinks %}
-                <li class="h-cite">
-                    <a class="u-url" href="{{ url_for('main.note_page', note_id=nbl.id) }}">Note from {{ nbl.published_at|timeago if nbl.published_at else '' }}</a>
                 </li>
             {% endfor %}
         </ul>

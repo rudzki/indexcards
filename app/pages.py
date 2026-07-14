@@ -3,7 +3,7 @@ from flask_login import current_user
 
 from app import db
 from app.entries import RESERVED_SLUGS
-from app.models import Page, PageRevision, Entry, Alias, make_slug, log_audit, set_published
+from app.models import Page, Entry, make_slug, log_audit, set_published
 from app.markdown import render_markdown
 
 
@@ -11,7 +11,6 @@ def save_page(page):
     title = request.form.get('title', '').strip()
     summary = request.form.get('summary', '').strip()
     body_markdown = request.form.get('body_markdown', '')
-    changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
     is_stub = 'is_stub' in request.form
     show_in_nav = 'show_in_nav' in request.form
@@ -31,23 +30,22 @@ def save_page(page):
 
     is_new = page is None
 
-    # Pages share the /<slug>/ namespace with entries and aliases; an entry
-    # slug wins in the resolver, so a page created under one would be
-    # unreachable. Reject the collision up front.
+    # Pages share the /<slug>/ namespace with entries; an entry slug wins in
+    # the resolver, so a page created under one would be unreachable. Reject
+    # the collision up front.
     def _entry_conflict():
-        return (Entry.query.filter_by(slug=slug).first()
-                or Alias.query.filter_by(slug=slug).first())
+        return Entry.query.filter_by(slug=slug).first()
 
     if is_new:
         if Page.query.filter_by(slug=slug).first() or _entry_conflict():
-            flash('A page, entry, or alias with this slug already exists.', 'error')
+            flash('A page or entry with this slug already exists.', 'error')
             return render_template('admin/page_editor.html', page=page)
         page = Page(slug=slug, created_by=current_user.id)
         db.session.add(page)
     else:
         if slug != page.slug:
             if Page.query.filter(Page.slug == slug, Page.id != page.id).first() or _entry_conflict():
-                flash('A page, entry, or alias with this slug already exists.', 'error')
+                flash('A page or entry with this slug already exists.', 'error')
                 return render_template('admin/page_editor.html', page=page)
             page.slug = slug
 
@@ -60,35 +58,6 @@ def save_page(page):
     page.show_in_nav = show_in_nav
     page.nav_position = nav_position if show_in_nav else None
     page.update_sort_title()
-
-    db.session.flush()
-
-    last_rev = (PageRevision.query
-                .filter_by(page_id=page.id)
-                .order_by(PageRevision.edited_at.desc())
-                .first())
-    content_changed = is_new or (last_rev is None) or (last_rev.body_snapshot != body_markdown)
-    db.session.add(PageRevision(
-        page_id=page.id,
-        user_id=current_user.id,
-        body_snapshot=body_markdown if content_changed else None,
-        changelog=changelog,
-    ))
-
-    # Keep at most 50 snapshots per page
-    snap_count = (PageRevision.query
-                  .filter(PageRevision.page_id == page.id,
-                          PageRevision.body_snapshot.isnot(None))
-                  .count())
-    if snap_count > 50:
-        oldest = (PageRevision.query
-                  .filter(PageRevision.page_id == page.id,
-                          PageRevision.body_snapshot.isnot(None))
-                  .order_by(PageRevision.edited_at.asc())
-                  .limit(snap_count - 50)
-                  .all())
-        for old in oldest:
-            old.body_snapshot = None
 
     db.session.commit()
 

@@ -12,16 +12,30 @@ def _fts_text(value):
 
 
 def create_fts_table():
+    # Older databases carry a 3-column index (title, aliases, body). Aliases
+    # were removed, so drop and rebuild the index when the stale schema is
+    # found — otherwise the 2-column INSERTs below fail against it.
+    row = db.session.execute(db.text(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='entry_fts'"
+    )).fetchone()
+    if row and row[0] and 'aliases' in row[0]:
+        db.session.execute(db.text('DROP TABLE entry_fts'))
+        db.session.commit()
+        row = None
+
     db.session.execute(db.text(
         "CREATE VIRTUAL TABLE IF NOT EXISTS entry_fts USING fts5("
-        "title, aliases, body"
+        "title, body"
         ")"
     ))
     db.session.commit()
 
+    if row is None:
+        # Table was just (re)created; populate it from existing entries.
+        rebuild_fts()
+
 
 def update_fts_entry(entry, commit=True):
-    aliases = _fts_text(', '.join(a.title for a in entry.aliases))
     body = _fts_text(strip_markdown(entry.body_markdown))
     title = _fts_text(entry.title)
 
@@ -29,9 +43,9 @@ def update_fts_entry(entry, commit=True):
         'DELETE FROM entry_fts WHERE rowid = :id'
     ), {'id': entry.id})
     db.session.execute(db.text(
-        'INSERT INTO entry_fts(rowid, title, aliases, body) '
-        'VALUES (:id, :title, :aliases, :body)'
-    ), {'id': entry.id, 'title': title, 'aliases': aliases, 'body': body})
+        'INSERT INTO entry_fts(rowid, title, body) '
+        'VALUES (:id, :title, :body)'
+    ), {'id': entry.id, 'title': title, 'body': body})
     if commit:
         db.session.commit()
 
@@ -48,13 +62,12 @@ def rebuild_fts():
     from app.models import Entry
     db.session.execute(db.text('DELETE FROM entry_fts'))
     for entry in Entry.query.all():
-        aliases = _fts_text(', '.join(a.title for a in entry.aliases))
         body = _fts_text(strip_markdown(entry.body_markdown))
         title = _fts_text(entry.title)
         db.session.execute(db.text(
-            'INSERT INTO entry_fts(rowid, title, aliases, body) '
-            'VALUES (:id, :title, :aliases, :body)'
-        ), {'id': entry.id, 'title': title, 'aliases': aliases, 'body': body})
+            'INSERT INTO entry_fts(rowid, title, body) '
+            'VALUES (:id, :title, :body)'
+        ), {'id': entry.id, 'title': title, 'body': body})
     db.session.commit()
 
 

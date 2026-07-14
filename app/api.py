@@ -4,7 +4,7 @@ import secrets
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
-from app.models import Entry, Alias, Page, SiteSettings, make_slug, log_audit, entry_url, site_requires_login
+from app.models import Entry, Page, SiteSettings, make_slug, log_audit, entry_url, site_requires_login, site_requires_admin
 from app.markdown import render_markdown
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
@@ -15,10 +15,16 @@ api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 
 def _check_visibility():
-    """Return a 401 response if the site is private and the caller is not authenticated."""
+    """Return an error response when the caller may not view a private site:
+    401 if login is required and the caller is anonymous, 403 if the site is
+    admin-only and the caller is a non-admin."""
     settings = db.session.get(SiteSettings, 1)
-    if site_requires_login(settings) and not current_user.is_authenticated:
+    if not site_requires_login(settings):
+        return None
+    if not current_user.is_authenticated:
         return jsonify({'error': 'Authentication required'}), 401
+    if site_requires_admin(settings) and not current_user.is_admin:
+        return jsonify({'error': 'Administrator access required'}), 403
     return None
 
 
@@ -43,7 +49,6 @@ def _entry_summary(entry):
 def _entry_full(entry):
     d = _entry_summary(entry)
     d['body_html'] = entry.body_html or ''
-    d['aliases'] = [a.title for a in entry.aliases]
     return d
 
 
@@ -85,10 +90,6 @@ def public_entry(slug):
 
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if not entry:
-        alias = Alias.query.filter_by(slug=slug).first()
-        if alias and not alias.entry.is_draft:
-            entry = alias.entry
-    if not entry:
         return jsonify({'error': 'Not found'}), 404
 
     return jsonify(_entry_full(entry))
@@ -128,32 +129,12 @@ def search_entries():
         entry_q = entry_q.filter(Entry.parent_id.is_(None))
     entries = entry_q.limit(10).all()
 
-    aliases = Alias.query.filter(
-        Alias.title.ilike(f'%{q_escaped}%', escape='\\')
-    ).limit(10).all()
-
-    results = []
-    seen = set()
-
-    for entry in entries:
-        if entry.id not in seen:
-            seen.add(entry.id)
-            results.append({
-                'id': entry.id,
-                'title': entry.title,
-                'slug': entry.slug,
-                'summary': entry.summary,
-            })
-
-    for alias in aliases:
-        if alias.entry_id not in seen and not alias.entry.is_draft and not (for_parent and alias.entry.parent_id):
-            seen.add(alias.entry_id)
-            results.append({
-                'id': alias.entry_id,
-                'title': f'{alias.title} → {alias.entry.title}',
-                'slug': alias.entry.slug,
-                'summary': alias.entry.summary,
-            })
+    results = [{
+        'id': entry.id,
+        'title': entry.title,
+        'slug': entry.slug,
+        'summary': entry.summary,
+    } for entry in entries]
 
     return jsonify(results[:15])
 
@@ -176,15 +157,8 @@ def quick_create_entry():
     existing = Entry.query.filter_by(slug=slug).first()
     if existing:
         return jsonify({'id': existing.id, 'title': existing.title, 'slug': existing.slug})
-    existing_alias = Alias.query.filter_by(slug=slug).first()
-    if existing_alias:
-        return jsonify({
-            'id': existing_alias.entry_id,
-            'title': existing_alias.entry.title,
-            'slug': existing_alias.entry.slug,
-        })
-    # Entries, aliases and pages share the /<slug>/ namespace; an entry created
-    # over a page's slug would silently shadow it in the resolver, so reject the
+    # Entries and pages share the /<slug>/ namespace; an entry created over a
+    # page's slug would silently shadow it in the resolver, so reject the
     # collision the same way save_entry() does.
     if Page.query.filter_by(slug=slug).first():
         return jsonify({'error': 'That title is already used by a page.'}), 400
@@ -233,7 +207,7 @@ def upload_image():
 @api_bp.route('/lock/<content_type>/<int:content_id>', methods=['POST'])
 @login_required
 def acquire_lock(content_type, content_id):
-    if content_type not in ('entry', 'page', 'note'):
+    if content_type not in ('entry', 'page'):
         return jsonify({'error': 'Invalid type'}), 400
 
     blocker = locks.acquire_lock(content_type, content_id)

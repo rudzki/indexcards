@@ -35,7 +35,7 @@ def settings():
         site_settings.default_role = raw_default_role if raw_default_role in VALID_ROLES else 'viewer'
         raw_visibility = request.form.get('site_visibility', 'public')
         site_settings.site_visibility = (
-            raw_visibility if raw_visibility in {'public', 'registered'} else 'public')
+            raw_visibility if raw_visibility in {'public', 'registered', 'admin'} else 'public')
 
         site_settings.smtp_host = request.form.get('smtp_host', '').strip() or None
         port = request.form.get('smtp_port', '').strip()
@@ -58,7 +58,6 @@ def settings():
         raw_subpage_display = request.form.get('subpage_display', 'both')
         site_settings.subpage_display = raw_subpage_display if raw_subpage_display in valid_subpage_display else 'both'
         site_settings.feeds_enabled = 'feeds_enabled' in request.form
-        site_settings.notes_enabled = 'notes_enabled' in request.form
         site_settings.site_icon = request.form.get('site_icon', '').strip()
 
         valid_themes = {'default', 'forest', 'sepia', 'midnight', 'stone'}

@@ -9,9 +9,6 @@
         {% if page and not page.is_draft %}
             <a href="{{ url_for('main.entry_page', slug=page.slug) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View page</a>
         {% endif %}
-        {% if page %}
-            <a href="{{ url_for('admin.page_history', page_id=page.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
-        {% endif %}
     </div>
 
     <form method="post" class="editor-form" data-entry-id="page-{{ page.id if page else 'new' }}"
@@ -50,10 +47,6 @@
         <div class="editor-stats" id="editor-stats"></div>
 
         <div class="editor-meta-bottom">
-            <div class="field editor-changelog">
-                <label for="changelog">Changelog message <span class="field-hint">(optional)</span></label>
-                <input type="text" id="changelog" name="changelog" placeholder="What changed?">
-            </div>
             <div class="editor-actions">
                 <div class="editor-actions-left">
                     <button type="submit" class="btn btn-primary">Save</button>

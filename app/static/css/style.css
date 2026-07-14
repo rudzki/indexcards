@@ -2086,14 +2086,6 @@ select {
   align-items: center;
 }
 
-.editor-save-status {
-  color: var(--ink-3);
-}
-
-.editor-save-status--dirty {
-  color: var(--warn);
-}
-
 .editor-meta-bottom {
   display: flex;
   flex-direction: column;
@@ -2809,7 +2801,7 @@ details.disclosure .inner {
   border-bottom: none
 }
 
-/* ── Draft / autosave banners ────────────────────────────── */
+/* ── Preview / stub banners ──────────────────────────────── */
 
 .preview-banner {
   background: var(--surface-2);

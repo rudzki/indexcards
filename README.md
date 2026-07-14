@@ -12,15 +12,13 @@ For architecture and developer documentation, see
 - **Linked entries with backlinks.** Wiki-style internal links; every entry
   lists what references it. Links to entries that don't exist yet render as
   *red links* — click one and you're already writing it.
-- **Aliases and hierarchy.** Alternate titles redirect to the real entry;
-  entries can nest one level under a parent, with nested URLs
+- **Hierarchy.** Entries can nest one level under a parent, with nested URLs
   (`/parent/child/`) and breadcrumbs.
-- **Full-text search.** SQLite FTS5 over titles, aliases, and bodies, with
-  ranked results and highlighted excerpts.
-- **Revision history.** Every save is a revision — view line diffs, restore
-  any version. Soft edit-locks keep two people from clobbering each other.
-- **Notes timeline.** Optional short-form posts alongside the wiki, with
-  their own timeline page and an edit-activity heatmap on the homepage.
+- **Full-text search.** SQLite FTS5 over titles and bodies, with ranked
+  results and highlighted excerpts.
+- **Revision history.** Every save records a changelog entry you can review.
+  Soft edit-locks keep two people from clobbering each other. An
+  edit-activity heatmap sits on the homepage.
 - **Publishing.** Drafts, stubs, scheduled-looking published dates, Atom and
   JSON feeds, a weekly email digest for subscribers, and a read-only JSON
   API.
@@ -31,8 +29,8 @@ For architecture and developer documentation, see
   / viewer), invites or domain-restricted/open registration, and an audit
   log.
 - **Private mode.** Flip the whole site to registered-readers-only.
-- **Import & export.** Import from WordPress export XML or JSON; export
-  everything as Markdown files with front-matter or as JSON.
+- **Import & export.** Import from JSON; export everything as Markdown files
+  with front-matter or as JSON.
 - **Themes.** Five built-in color themes, dark/light modes, custom CSS, and
   custom head/footer HTML.
 

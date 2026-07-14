@@ -115,5 +115,45 @@ class PrivateSiteTests(BaseTest):
         self.assertEqual(self.client.get('/').status_code, 200)
 
 
+class AdminOnlySiteTests(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self._set_setting(site_visibility='admin')
+
+    def test_anonymous_redirected_to_login(self):
+        resp = self.client.get('/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login', resp.headers['Location'])
+
+    def test_authenticated_non_admin_forbidden(self):
+        self._login(self._make_user('editor'))
+        self.assertEqual(self.client.get('/').status_code, 403)
+
+    def test_admin_can_view(self):
+        self._login(self._make_user('admin'))
+        self.assertEqual(self.client.get('/').status_code, 200)
+
+    def test_non_admin_blocked_from_admin_panel(self):
+        # A writer (editor) can normally reach the admin panel, but admin-only
+        # visibility locks it down along with the rest of the site.
+        self._login(self._make_user('editor'))
+        self.assertEqual(self.client.get('/dashboard/').status_code, 403)
+        self.assertEqual(self.client.get('/dashboard/settings/').status_code, 403)
+
+    def test_non_admin_can_still_log_out(self):
+        self._login(self._make_user('viewer'))
+        self.assertEqual(self.client.get('/logout').status_code, 302)
+
+    def test_api_non_admin_returns_json_403(self):
+        self._login(self._make_user('viewer'))
+        resp = self.client.get('/api/v1/entries')
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.get_json()['error'], 'Administrator access required')
+
+    def test_api_anonymous_returns_json_401(self):
+        resp = self.client.get('/api/v1/entries')
+        self.assertEqual(resp.status_code, 401)
+
+
 if __name__ == '__main__':
     unittest.main()

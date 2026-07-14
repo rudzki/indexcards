@@ -41,16 +41,23 @@ def sort_key(title):
 
 
 def site_requires_login(settings):
-    """True when the site is set to 'registered' visibility (login required to
-    view). Single source of truth for the private-site check shared by the
-    request gate (app/__init__.py) and the API gate (app/api.py)."""
-    return bool(settings and settings.site_visibility == 'registered')
+    """True when the site restricts viewing to logged-in users — either
+    'registered' (any account) or 'admin' (administrators only). Single source of
+    truth for the private-site check shared by the request gate (app/__init__.py)
+    and the API gate (app/api.py)."""
+    return bool(settings and settings.site_visibility in ('registered', 'admin'))
+
+
+def site_requires_admin(settings):
+    """True when the site restricts viewing to administrators only. Implies
+    site_requires_login; a logged-in non-admin is still denied."""
+    return bool(settings and settings.site_visibility == 'admin')
 
 
 def set_published(obj, published):
-    """Set draft/published state on any content object (Entry, Page, Note).
+    """Set draft/published state on any content object (Entry or Page).
 
-    All three share the same (is_draft, published_at) pair and the same rule:
+    Both share the same (is_draft, published_at) pair and the same rule:
     published_at is stamped once, on the first transition into published state,
     and never cleared. Returns True only when this call performed that first
     publish — callers pass it as the 'new entry' signal to integrations."""
@@ -78,7 +85,6 @@ class Entry(db.Model):
     sort_title = db.Column(db.Text, default='')
     parent_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=True)
 
-    aliases = db.relationship('Alias', backref='entry', cascade='all, delete-orphan')
     edit_logs = db.relationship('EditLog', backref='entry', cascade='all, delete-orphan',
                                 order_by='EditLog.edited_at.desc()')
     outgoing_links = db.relationship('Backlink', foreign_keys='Backlink.source_entry_id',
@@ -115,19 +121,11 @@ def entry_url(obj, external=False):
     return url_for('main.entry_page', slug=obj.slug, _external=external)
 
 
-class Alias(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
-    title = db.Column(db.Text, nullable=False)
-    slug = db.Column(db.Text, unique=True, nullable=False)
-
-
 class EditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     changelog = db.Column(db.Text)
-    body_snapshot = db.Column(db.Text, nullable=True)
     is_import = db.Column(db.Boolean, default=False)
     edited_at = db.Column(db.DateTime, default=utcnow)
 
@@ -290,22 +288,9 @@ class Page(db.Model):
     nav_position = db.Column(db.Integer, nullable=True)
 
     author = db.relationship('User', backref='pages')
-    revisions = db.relationship('PageRevision', backref='page', cascade='all, delete-orphan',
-                                order_by='PageRevision.edited_at.desc()')
 
     def update_sort_title(self):
         self.sort_title = sort_key(self.title)
-
-
-class PageRevision(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    page_id = db.Column(db.Integer, db.ForeignKey('page.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    body_snapshot = db.Column(db.Text, default='')
-    changelog = db.Column(db.Text)
-    edited_at = db.Column(db.DateTime, default=utcnow)
-
-    user = db.relationship('User')
 
 
 class SiteSettings(db.Model):
@@ -326,7 +311,6 @@ class SiteSettings(db.Model):
     alpha_jump_enabled = db.Column(db.Boolean, default=True)
     subpage_display = db.Column(db.Text, default='both')
     feeds_enabled = db.Column(db.Boolean, default=True)
-    notes_enabled = db.Column(db.Boolean, default=False)
     site_icon = db.Column(db.Text, default='')
     site_image = db.Column(db.Text, default='')
     smtp_host = db.Column(db.Text)
@@ -363,27 +347,6 @@ class SiteSettings(db.Model):
     @property
     def smtp_configured(self):
         return bool(self.smtp_host and self.smtp_from_address)
-
-
-class Note(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    body_markdown = db.Column(db.Text, default='')
-    body_html = db.Column(db.Text, default='')
-    is_draft = db.Column(db.Boolean, default=False)
-    published_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=utcnow)
-    updated_at = db.Column(db.DateTime, default=utcnow,
-                           onupdate=utcnow)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-
-    author = db.relationship('User', backref='notes')
-    outgoing_links = db.relationship('NoteBacklink', backref='source_note', cascade='all, delete-orphan')
-
-
-class NoteBacklink(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    note_id = db.Column(db.Integer, db.ForeignKey('note.id'), nullable=False)
-    target_entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
 
 
 # Self-referential adjacency list for Entry hierarchy

@@ -4,9 +4,6 @@ import unittest
 
 from tests.base import BaseTest
 
-from app import db
-from app.models import Alias
-
 
 class PublicListTests(BaseTest):
     def test_lists_only_published_with_summary_shape(self):
@@ -38,7 +35,6 @@ class PublicEntryTests(BaseTest):
         data = self.client.get('/api/v1/entries/full').get_json()
         self.assertEqual(data['slug'], 'full')
         self.assertIn('body_html', data)
-        self.assertIn('aliases', data)
 
     def test_draft_slug_404s(self):
         self._add_entry('Secret', slug='secret', is_draft=True)
@@ -46,13 +42,6 @@ class PublicEntryTests(BaseTest):
 
     def test_unknown_slug_404s(self):
         self.assertEqual(self.client.get('/api/v1/entries/nope').status_code, 404)
-
-    def test_alias_resolves_to_entry(self):
-        entry = self._add_entry('Real', slug='real')
-        db.session.add(Alias(entry_id=entry.id, title='Nick', slug='nick'))
-        db.session.commit()
-        data = self.client.get('/api/v1/entries/nick').get_json()
-        self.assertEqual(data['slug'], 'real')
 
 
 class ApiVisibilityTests(BaseTest):

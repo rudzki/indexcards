@@ -2,7 +2,7 @@ from flask import flash, render_template, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
-from app.models import Entry, Alias, Backlink, EditLog, Page, SiteSettings, make_slug, log_audit, set_published, utcnow
+from app.models import Entry, Backlink, EditLog, Page, SiteSettings, make_slug, log_audit, set_published, utcnow
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry
 
@@ -18,7 +18,6 @@ def save_entry(entry):
     title = request.form.get('title', '').strip()
     summary = request.form.get('summary', '').strip()
     body_markdown = request.form.get('body_markdown', '')
-    aliases_raw = request.form.get('aliases', '').strip()
     changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
     is_stub = 'is_stub' in request.form
@@ -36,26 +35,28 @@ def save_entry(entry):
         return render_template('admin/editor.html', entry=entry)
 
     is_new = entry is None
+    # The last-saved body, captured before we overwrite it, so we can tell
+    # whether this save actually changed content (drives the "updated"
+    # integration signal below).
+    old_body = entry.body_markdown if entry else ''
 
     if is_new:
         existing = Entry.query.filter_by(slug=slug).first()
-        existing_alias = Alias.query.filter_by(slug=slug).first()
-        # Entries, aliases and pages share the /<slug>/ namespace, so a new
-        # entry must not collide with an existing page (which would silently
-        # shadow it in the resolver).
+        # Entries and pages share the /<slug>/ namespace, so a new entry must
+        # not collide with an existing page (which would silently shadow it in
+        # the resolver).
         existing_page = Page.query.filter_by(slug=slug).first()
-        if existing or existing_alias or existing_page:
-            flash('An entry, alias, or page with this title (or slug) already exists.', 'error')
+        if existing or existing_page:
+            flash('An entry or page with this title (or slug) already exists.', 'error')
             return render_template('admin/editor.html', entry=entry)
         entry = Entry(slug=slug, created_by=current_user.id)
         db.session.add(entry)
     else:
         if slug != entry.slug:
             conflict = Entry.query.filter(Entry.slug == slug, Entry.id != entry.id).first()
-            conflict_alias = Alias.query.filter_by(slug=slug).first()
             conflict_page = Page.query.filter_by(slug=slug).first()
-            if conflict or conflict_alias or conflict_page:
-                flash('An entry, alias, or page with this title (or slug) already exists.', 'error')
+            if conflict or conflict_page:
+                flash('An entry or page with this title (or slug) already exists.', 'error')
                 return render_template('admin/editor.html', entry=entry)
             entry.slug = slug
 
@@ -84,48 +85,16 @@ def save_entry(entry):
     else:
         entry.parent_id = None
 
-    conflicts = alias_conflicts(entry, aliases_raw)
-    if conflicts:
-        joined = ', '.join(conflicts)
-        flash(f'Alias "{joined}" conflicts with an existing entry, alias, or page.', 'error')
-        # A new entry was added to the session but never committed; render the
-        # form as "new" (not the transient object) and let the POST values
-        # repopulate it. The uncommitted entry is discarded on session teardown.
-        return render_template('admin/editor.html', entry=None if is_new else entry)
-
-    sync_aliases(entry, aliases_raw)
-
     db.session.flush()
 
     sync_backlinks(entry)
 
-    last_log = (EditLog.query
-                .filter_by(entry_id=entry.id)
-                .order_by(EditLog.edited_at.desc())
-                .first())
-    content_changed = is_new or (last_log is None) or (last_log.body_snapshot != body_markdown)
-    log = EditLog(
+    content_changed = is_new or (old_body != body_markdown)
+    db.session.add(EditLog(
         entry_id=entry.id,
         user_id=current_user.id,
         changelog=changelog,
-        body_snapshot=body_markdown if content_changed else None,
-    )
-    db.session.add(log)
-
-    # Keep at most 50 snapshots per entry; prune oldest beyond the limit
-    snapshot_count = (EditLog.query
-                      .filter(EditLog.entry_id == entry.id,
-                              EditLog.body_snapshot.isnot(None))
-                      .count())
-    if snapshot_count > 50:
-        oldest = (EditLog.query
-                  .filter(EditLog.entry_id == entry.id,
-                          EditLog.body_snapshot.isnot(None))
-                  .order_by(EditLog.edited_at.asc())
-                  .limit(snapshot_count - 50)
-                  .all())
-        for old in oldest:
-            old.body_snapshot = None
+    ))
 
     db.session.commit()
 
@@ -177,43 +146,6 @@ def _creates_cycle(entry, proposed_parent):
     return False
 
 
-def alias_conflicts(entry, aliases_raw):
-    """Return a list of alias titles whose slug collides with an existing
-    entry slug, page slug, or another entry's alias. These can't be added,
-    so callers should surface an error rather than silently drop them."""
-    new_aliases = [a.strip() for a in aliases_raw.split(',') if a.strip()]
-    existing_slugs = {a.slug for a in entry.aliases}
-
-    conflicts = []
-    for alias_title in new_aliases:
-        alias_slug = make_slug(alias_title)
-        if alias_slug in existing_slugs or alias_slug == entry.slug:
-            continue
-        conflict = Entry.query.filter_by(slug=alias_slug).first()
-        conflict_alias = Alias.query.filter(
-            Alias.slug == alias_slug, Alias.entry_id != entry.id
-        ).first()
-        conflict_page = Page.query.filter_by(slug=alias_slug).first()
-        if conflict or conflict_alias or conflict_page:
-            conflicts.append(alias_title)
-    return conflicts
-
-
-def sync_aliases(entry, aliases_raw):
-    new_aliases = [a.strip() for a in aliases_raw.split(',') if a.strip()]
-    new_slugs = {make_slug(a) for a in new_aliases}
-    existing_slugs = {a.slug for a in entry.aliases}
-
-    for alias in list(entry.aliases):
-        if alias.slug not in new_slugs:
-            db.session.delete(alias)
-
-    for alias_title in new_aliases:
-        alias_slug = make_slug(alias_title)
-        if alias_slug not in existing_slugs and alias_slug != entry.slug:
-            entry.aliases.append(Alias(title=alias_title, slug=alias_slug))
-
-
 def sync_backlinks(entry):
     Backlink.query.filter_by(source_entry_id=entry.id).delete()
 
@@ -236,10 +168,10 @@ def _fire_integrations(entry, is_new, changelog):
 
 
 def import_entry(title, slug, body_markdown, summary='', is_draft=False, published_at=None,
-                 aliases=None, created_at=None, updated_at=None):
+                 created_at=None, updated_at=None):
     if not title or not slug:
         return None
-    if Entry.query.filter_by(slug=slug).first() or Alias.query.filter_by(slug=slug).first():
+    if Entry.query.filter_by(slug=slug).first():
         return None
     entry = Entry(
         slug=slug,
@@ -264,17 +196,6 @@ def import_entry(title, slug, body_markdown, summary='', is_draft=False, publish
     entry.update_sort_title()
     db.session.add(entry)
     db.session.flush()
-
-    for alias_title in (aliases or []):
-        alias_title = (alias_title or '').strip()
-        if not alias_title:
-            continue
-        alias_slug = make_slug(alias_title)
-        if not alias_slug or alias_slug == slug:
-            continue
-        if Entry.query.filter_by(slug=alias_slug).first() or Alias.query.filter_by(slug=alias_slug).first():
-            continue
-        entry.aliases.append(Alias(title=alias_title, slug=alias_slug))
 
     sync_backlinks(entry)
     db.session.add(EditLog(entry_id=entry.id, user_id=current_user.id,

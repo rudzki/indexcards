@@ -3,7 +3,7 @@ from flask_login import current_user
 
 from app import db
 from app.models import (User, Registration, SiteSettings, EditLog, Entry, AuditLog,
-                        Note, Page, PageRevision, EditLock, log_audit)
+                        Page, EditLock, log_audit)
 from app.mail import send_email, render_email
 from app.registration import VALID_ROLES, create_registration
 from app.views.admin import admin_bp, admin_required
@@ -99,9 +99,7 @@ def delete_user(user_id):
     AuditLog.query.filter_by(user_id=user.id).update({'user_id': None})
     # These also reference user.id; leaving them would create rows pointing at a
     # nonexistent user once FK enforcement (or a Postgres port) arrives.
-    Note.query.filter_by(created_by=user.id).update({'created_by': None})
     Page.query.filter_by(created_by=user.id).update({'created_by': None})
-    PageRevision.query.filter_by(user_id=user.id).update({'user_id': None})
     EditLock.query.filter_by(user_id=user.id).delete()
     db.session.delete(user)
     db.session.commit()

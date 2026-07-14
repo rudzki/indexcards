@@ -3,13 +3,23 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, NoteBacklink, log_audit, entry_url, set_published
-from app.markdown import render_markdown
-from app.search import delete_fts_entry, update_fts_entry
+from app.models import Entry, EditLog, log_audit, entry_url, set_published
+from app.search import delete_fts_entry
 from app.locks import acquire_lock, active_locks
-from app.entries import save_entry, sync_backlinks
-from app.revisions import build_revisions
+from app.entries import save_entry
 from app.views.admin import admin_bp, admin_required, writer_required
+
+
+def build_revisions(items):
+    """Build revision display dicts from a list of EditLog rows, ordered
+    most-recent-first. Each row is a changelog entry (message, timestamp,
+    author) — the history view is a plain audit list."""
+    return [{
+        'id': item.id,
+        'changelog': item.changelog,
+        'edited_at': item.edited_at,
+        'user': item.user,
+    } for item in items]
 
 
 @admin_bp.route('/')
@@ -72,9 +82,6 @@ def delete_entry(entry_id):
     # parent_id would otherwise persist and 500 pages that dereference
     # entry.parent.
     Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
-    # Note→entry backlinks have no cascade (and SQLite FK enforcement is off),
-    # so drop them explicitly or they dangle at a deleted target.
-    NoteBacklink.query.filter_by(target_entry_id=entry.id).delete()
     delete_fts_entry(entry.id)
     db.session.delete(entry)
     db.session.commit()
@@ -108,9 +115,7 @@ def preview_entry(entry_id):
     if not current_user.can_modify(entry):
         abort(403)
     from app.markdown import mark_missing_links, extract_toc
-    from app.models import Alias
     existing_slugs = {e.slug for e in Entry.query.with_entities(Entry.slug).all()}
-    existing_slugs |= {a.slug for a in Alias.query.with_entities(Alias.slug).all()}
     body_html = mark_missing_links(entry.body_html, existing_slugs)
     toc = extract_toc(body_html)
     backlinks = (Entry.query
@@ -169,7 +174,6 @@ def bulk_entries():
                 # Detach children and defer the FTS commit so the whole batch
                 # commits atomically with the entry deletions.
                 Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
-                NoteBacklink.query.filter_by(target_entry_id=entry.id).delete()
                 delete_fts_entry(entry.id, commit=False)
                 db.session.delete(entry)
                 count += 1
@@ -193,30 +197,3 @@ def entry_history(entry_id):
             .all())
     revisions = build_revisions(logs)
     return render_template('admin/entry_history.html', entry=entry, revisions=revisions)
-
-
-@admin_bp.route('/entry/<int:entry_id>/history/<int:log_id>/restore/', methods=['POST'])
-@writer_required
-def restore_entry_revision(entry_id, log_id):
-    entry = db.get_or_404(Entry, entry_id)
-    if not current_user.can_modify(entry):
-        abort(403)
-    log = EditLog.query.filter_by(id=log_id, entry_id=entry_id).first_or_404()
-    if not log.body_snapshot:
-        flash('This revision has no saved content to restore.', 'error')
-        return redirect(url_for('admin.entry_history', entry_id=entry_id))
-    entry.body_markdown = log.body_snapshot
-    entry.body_html = render_markdown(log.body_snapshot)
-    restore_note = f'Restored from revision on {log.edited_at.strftime("%Y-%m-%d %H:%M")}'
-    db.session.add(EditLog(
-        entry_id=entry.id,
-        user_id=current_user.id,
-        body_snapshot=log.body_snapshot,
-        changelog=restore_note,
-    ))
-    db.session.flush()
-    sync_backlinks(entry)
-    db.session.commit()
-    update_fts_entry(entry)
-    flash('Entry restored to selected revision.', 'success')
-    return redirect(url_for('admin.edit_entry', entry_id=entry_id))

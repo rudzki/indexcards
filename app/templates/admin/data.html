@@ -33,16 +33,6 @@
                 <span class="import-filename"></span>
                 <button type="submit" class="btn btn-primary btn-xs import-submit" disabled>Import JSON</button>
             </form>
-            <form method="post" action="{{ url_for('admin.import_wordpress') }}" enctype="multipart/form-data" class="import-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <label class="btn btn-xs import-file-btn">
-                    Choose WordPress XML…
-                    <input type="file" name="file" accept=".xml" hidden
-                           onchange="this.closest('.import-form').querySelector('.import-filename').textContent = this.files[0]?.name || ''; this.closest('.import-form').querySelector('.import-submit').disabled = !this.files.length;">
-                </label>
-                <span class="import-filename"></span>
-                <button type="submit" class="btn btn-primary btn-xs import-submit" disabled>Import WordPress</button>
-            </form>
         </div>
     </fieldset>
 

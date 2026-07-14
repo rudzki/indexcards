@@ -115,8 +115,10 @@ def preview_entry(entry_id):
     if not current_user.can_modify(entry):
         abort(403)
     from app.markdown import mark_missing_links, extract_toc
-    existing_slugs = {e.slug for e in Entry.query.with_entities(Entry.slug).all()}
-    body_html = mark_missing_links(entry.body_html, existing_slugs)
+    rows = Entry.query.with_entities(Entry.slug, Entry.is_stub).all()
+    existing_slugs = {r[0] for r in rows}
+    stub_slugs = {r[0] for r in rows if r[1]}
+    body_html = mark_missing_links(entry.body_html, existing_slugs, stub_slugs)
     toc = extract_toc(body_html)
     backlinks = (Entry.query
                  .join(Entry.outgoing_links)

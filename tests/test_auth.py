@@ -178,6 +178,16 @@ class DigestCliTests(BaseTest):
             out = self._run('--force').output
         self.assertIn('Digest sent to 1/1', out)
 
+    def test_stub_is_excluded(self):
+        # A published stub has a fresh published_at but is skeletal — it must not
+        # be surfaced to subscribers.
+        stub = self._add_entry('Stub', slug='stub')
+        stub.is_stub = True
+        db.session.commit()
+        self._make_user('viewer', subscribed=True)
+        out = self._run('--force').output
+        self.assertIn('Nothing new', out)
+
 
 if __name__ == '__main__':
     unittest.main()

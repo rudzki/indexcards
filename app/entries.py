@@ -114,7 +114,13 @@ def save_entry(entry):
     # An "updated" announcement only makes sense when the body actually changed;
     # a metadata-only or no-op re-save of a published entry shouldn't re-notify.
     # The first publish always fires (there's nothing to compare against yet).
-    if not is_draft and (first_publish or content_changed):
+    #
+    # Stubs never notify either: a stub is an explicit "still being written"
+    # placeholder (the same category as a draft for announcement purposes), so
+    # it shouldn't fire a "new entry" webhook/Slack. The announcement lands later
+    # when the stub is fleshed out and saved un-stubbed (as an "updated" event,
+    # since published_at was already stamped when it first went public).
+    if not is_draft and not is_stub and (first_publish or content_changed):
         _fire_integrations(entry, is_new=first_publish, changelog=changelog)
 
     flash('Entry saved.', 'success')

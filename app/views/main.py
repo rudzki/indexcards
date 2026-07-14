@@ -96,11 +96,17 @@ def child_entry_page(parent_slug, slug):
 def _render_entry_page(entry):
     linked_slugs = set(INTERNAL_LINK_RE.findall(entry.body_html or ''))
     if linked_slugs:
-        existing_slugs = {r[0] for r in Entry.query.with_entities(Entry.slug)
-                          .filter(Entry.slug.in_(linked_slugs)).all()}
+        # Only publicly-viewable entries count as "existing"; a link to a draft
+        # 404s for readers, so it should render as missing, not as a live link.
+        rows = (Entry.query.with_entities(Entry.slug, Entry.is_stub)
+                .filter(Entry.slug.in_(linked_slugs),
+                        Entry.is_draft == False).all())  # noqa: E712
+        existing_slugs = {r[0] for r in rows}
+        stub_slugs = {r[0] for r in rows if r[1]}
     else:
         existing_slugs = set()
-    body_html = mark_missing_links(entry.body_html, existing_slugs)
+        stub_slugs = set()
+    body_html = mark_missing_links(entry.body_html, existing_slugs, stub_slugs)
     backlinks = (Entry.query
                  .join(Entry.outgoing_links)
                  .filter(

@@ -2,6 +2,7 @@
 
 import unittest
 
+from app.models import Entry
 from tests.base import BaseTest
 
 
@@ -57,6 +58,74 @@ class ApiVisibilityTests(BaseTest):
         self._set_setting(site_visibility='public')
         self._add_entry('X', slug='x')
         self.assertEqual(self.client.get('/api/v1/entries').status_code, 200)
+
+
+class QuickCreateTests(BaseTest):
+    def _post(self, **payload):
+        return self.client.post('/api/entries/quick-create', json=payload)
+
+    def test_creates_published_stub_reachable_by_readers(self):
+        self._login(self._make_user(role='author'))
+        resp = self._post(title='Photosynthesis')
+        self.assertEqual(resp.status_code, 201)
+        slug = resp.get_json()['slug']
+
+        entry = Entry.query.filter_by(slug=slug).first()
+        # A stub, not a hidden draft, so the link resolves for readers.
+        self.assertTrue(entry.is_stub)
+        self.assertFalse(entry.is_draft)
+        self.assertIsNotNone(entry.published_at)
+        self.assertEqual(self.client.get(f'/{slug}/').status_code, 200)
+
+    def test_stub_page_shows_banner(self):
+        self._login(self._make_user(role='author'))
+        slug = self._post(title='Skeletal').get_json()['slug']
+        body = self.client.get(f'/{slug}/').get_data(as_text=True)
+        self.assertIn('stub-banner', body)
+
+    def test_returns_existing_entry_without_duplicating(self):
+        self._login(self._make_user(role='author'))
+        existing = self._add_entry('Already Here', slug='already-here')
+        resp = self._post(title='Already Here')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['id'], existing.id)
+
+    def test_requires_write_permission(self):
+        self._login(self._make_user(role='viewer'))
+        self.assertEqual(self._post(title='Nope').status_code, 403)
+
+    def test_rejects_page_slug_collision(self):
+        self._login(self._make_user(role='author'))
+        self._add_page('About', slug='about')
+        self.assertEqual(self._post(title='About').status_code, 400)
+
+
+class StubLinkRenderTests(BaseTest):
+    def _add_home_linking_to(self, target_slug):
+        from app import db
+        from app.markdown import render_markdown
+        home = self._add_entry('Home', slug='home',
+                               body=f'See [X](/{target_slug}/).')
+        home.body_html = render_markdown(home.body_markdown)
+        db.session.commit()
+        return home
+
+    def test_link_to_stub_gets_stub_class(self):
+        from app import db
+        stub = self._add_entry('Stubby', slug='stubby')
+        stub.is_stub = True
+        db.session.commit()
+        self._add_home_linking_to('stubby')
+        html = self.client.get('/home/').get_data(as_text=True)
+        self.assertIn('entry-link-stub', html)
+
+    def test_link_to_draft_renders_as_missing(self):
+        self._add_entry('Hidden', slug='hidden', is_draft=True)
+        self._add_home_linking_to('hidden')
+        html = self.client.get('/home/').get_data(as_text=True)
+        # A draft target isn't publicly reachable, so it must not read as a
+        # live link — it's marked missing.
+        self.assertIn('entry-link-missing', html)
 
 
 if __name__ == '__main__':

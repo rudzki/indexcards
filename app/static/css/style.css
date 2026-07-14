@@ -1667,6 +1667,11 @@ select {
   cursor: not-allowed !important
 }
 
+.entry-link-stub {
+  border-bottom: 1px dashed var(--warn);
+  text-decoration: none !important;
+}
+
 .entry-footnotes {
   margin-top: 3rem;
   padding-top: 1.5rem;

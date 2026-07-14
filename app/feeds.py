@@ -7,7 +7,7 @@ def feeds_available(settings):
 
 def feed_entries():
     db_entries = (Entry.query
-                  .filter_by(is_draft=False)
+                  .filter_by(is_draft=False, is_stub=False)
                   .filter(Entry.published_at.isnot(None))
                   .order_by(Entry.updated_at.desc())
                   .limit(20)

@@ -55,6 +55,13 @@ class SaveEntryIntegrationTests(BaseTest):
             self._new(is_draft='on')
         fire.assert_not_called()
 
+    def test_new_stub_fires_nothing(self):
+        # A stub is a published "still being written" placeholder; it should no
+        # more announce a "new entry" than a draft does.
+        with capture_integrations() as fire:
+            self._new(is_stub='on')
+        fire.assert_not_called()
+
     def test_body_edit_of_published_fires_as_updated(self):
         self._new()  # publishes
         entry = Entry.query.filter_by(slug='thing').first()

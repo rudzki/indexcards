@@ -4,7 +4,7 @@ import secrets
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
-from app.models import Entry, Page, SiteSettings, make_slug, log_audit, entry_url, site_requires_login, site_requires_admin
+from app.models import Entry, Page, SiteSettings, make_slug, log_audit, entry_url, site_requires_login, site_requires_admin, set_published
 from app.markdown import render_markdown
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
@@ -163,7 +163,14 @@ def quick_create_entry():
     if Page.query.filter_by(slug=slug).first():
         return jsonify({'error': 'That title is already used by a page.'}), 400
 
-    entry = Entry(slug=slug, title=title, is_draft=True, created_by=current_user.id)
+    # Quick-create produces a published *stub*, not a hidden draft: the caller
+    # (a [[wikilink]] or the parent picker) needs the new entry to be a real,
+    # followable target immediately. is_stub drives the "still being written"
+    # banner on the page and the stub styling on links pointing at it. We don't
+    # fire integrations here — an empty placeholder isn't a "new entry" worth
+    # announcing; that happens when it's fleshed out and saved from the editor.
+    entry = Entry(slug=slug, title=title, is_stub=True, created_by=current_user.id)
+    set_published(entry, True)
     entry.update_sort_title()
     db.session.add(entry)
     db.session.commit()

@@ -70,6 +70,19 @@ class InternalLinkTests(BaseTest):
         # The missing class attaches to the unknown link, not the known one.
         self.assertIn('entry-link-missing" title="Unknown', marked)
 
+    def test_mark_stub_links(self):
+        html = ('<a href="/known/">k</a> <a href="/stubby/">s</a> '
+                '<a href="/gone/">g</a>')
+        marked = mark_missing_links(html, {'known', 'stubby'}, {'stubby'})
+        # Existing non-stub link is untouched; stub link is tagged; missing link
+        # is tagged as missing, not stub.
+        self.assertNotIn('entry-link-stub" title="Stub — still being written" href="/known/"',
+                         marked)
+        self.assertIn('entry-link-stub" title="Stub — still being written" href="/stubby/"',
+                      marked)
+        self.assertIn('entry-link-missing" title="Gone — not yet written" href="/gone/"',
+                      marked)
+
 
 class HeadingTocTests(BaseTest):
     def test_duplicate_headings_get_unique_ids(self):

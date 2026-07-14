@@ -125,7 +125,17 @@ def extract_internal_links(markdown_text):
     return set(INTERNAL_LINK_RE.findall(html))
 
 
-def mark_missing_links(html, existing_slugs):
+def mark_missing_links(html, existing_slugs, stub_slugs=None):
+    """Tag internal links by the state of their target entry:
+
+    - target doesn't exist (not in existing_slugs) → `entry-link-missing`
+      ("not yet written"), a red dead-end link.
+    - target is a published stub (in stub_slugs) → `entry-link-stub`
+      ("still being written"), a live link styled to signal it's skeletal.
+    - target is a normal published entry → left untouched.
+    """
+    stub_slugs = stub_slugs or set()
+
     def replacer(m):
         slug = m.group(1)
         full_match = m.group(0)
@@ -134,6 +144,11 @@ def mark_missing_links(html, existing_slugs):
             return full_match.replace(
                 'href=',
                 f'class="entry-link-missing" title="{title} — not yet written" href='
+            )
+        if slug in stub_slugs:
+            return full_match.replace(
+                'href=',
+                'class="entry-link-stub" title="Stub — still being written" href='
             )
         return full_match
 

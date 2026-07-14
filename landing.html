@@ -6,17 +6,18 @@
 <title>Index Cards — a personal wiki you can actually self-host</title>
 <meta name="description" content="Index Cards is a self-hosted personal wiki and blog engine. One Flask app, one SQLite file, one small server. Write linked notes, publish them, keep them forever.">
 <meta property="og:title" content="Index Cards — a personal wiki you can actually self-host">
-<meta property="og:description" content="One Flask app, one SQLite file, one small server. Write linked notes with backlinks and red links, publish them, keep them forever.">
+<meta property="og:description" content="One Flask app, one SQLite file, one small server. Write linked cards with backlinks, red links, and stubs — then publish them or keep them private.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <style>
   /* ──────────────────────────────────────────────────────────
-     Design tokens — lifted verbatim from the app's style.css so
-     the marketing page and the product read as one system.
+     Design tokens — lifted from the app's style.css so the
+     marketing page and the product read as one system.
      Dark-first, with a light opt-in via [data-theme="light"].
      ────────────────────────────────────────────────────────── */
   :root {
     --ok: #5cdd8b;  --ok-bg: rgba(92, 221, 139, .12);
+    --warn: #f8a306; --warn-bg: rgba(248, 163, 6, .13);
     --danger: #dc3545; --danger-bg: rgba(220, 53, 69, .13);
 
     --bg: #0d1117;
@@ -50,6 +51,7 @@
     --ink-2: #4a5560;
     --ink-3: #8893a0;
     --ok: #1f9d57; --ok-bg: rgba(31, 157, 87, .10);
+    --warn: #b9770a; --warn-bg: rgba(185, 119, 10, .12);
     --danger: #dc3545; --danger-bg: rgba(220, 53, 69, .10);
     --bg-code: #f2f4f7;
     --ink-code: #1a1f26;
@@ -149,9 +151,8 @@
     font-size: 1.15rem; color: var(--ink-2); max-width: 42rem;
     margin: 1.1rem 0 0;
   }
-  .hero .lede .rl {
-    color: var(--danger); border-bottom: 1px dashed var(--danger);
-  }
+  .hero .lede .rl { color: var(--danger); border-bottom: 1px dashed var(--danger); }
+  .hero .lede .st { color: var(--warn); border-bottom: 1px dashed var(--warn); }
   .hero-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2rem; }
   .meta-tags { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.8rem; }
   .tag {
@@ -186,13 +187,23 @@
   .entry-body p { margin: 0 0 1rem; color: var(--ink); }
   .entry-body a.link { color: var(--ink-2); border-bottom: 1px solid var(--line); }
   .entry-body a.link:hover { color: var(--ink); text-decoration: none; }
-  /* the signature: a link to an entry that doesn't exist yet */
+  /* the three link states, exactly as the app renders them */
   .entry-body a.missing {
     color: var(--danger); border-bottom: 1px dashed var(--danger);
     text-decoration: none; cursor: help;
   }
+  .entry-body a.stub {
+    color: var(--warn); border-bottom: 1px dashed var(--warn);
+    text-decoration: none; cursor: help;
+  }
+  .linkkey { display: flex; flex-wrap: wrap; gap: 1rem 1.4rem; margin: 1.4rem 0 .2rem; }
+  .linkkey span { font-size: 12.5px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 7px; }
+  .linkkey b { width: 22px; height: 0; border-bottom-width: 2px; border-bottom-style: dashed; }
+  .linkkey .k-link b { border-bottom-color: var(--line); border-bottom-style: solid; }
+  .linkkey .k-stub b { border-bottom-color: var(--warn); }
+  .linkkey .k-missing b { border-bottom-color: var(--danger); }
   .backlinks {
-    margin-top: 1.6rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
+    margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--line);
   }
   .backlinks .kicker { display: block; margin-bottom: .6rem; }
   .backlinks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
@@ -322,10 +333,12 @@
       <span class="kicker">Self-hosted personal wiki &amp; blog</span>
       <h1>Small notes, linked together, on a server you control.</h1>
       <p class="lede">
-        Every entry is one card. It links to other cards, knows which cards link
-        back to it, and keeps its own edit history. Links to cards you haven't
-        written yet show up as <span class="rl">red links</span> — your reading
-        list writes your writing list.
+        Every entry is one card. It links to other cards, knows which cards
+        link back to it, and keeps a running changelog. Type <code>[[</code> to
+        link; a card you haven't written yet shows as a
+        <span class="rl">red link</span>, and the moment you create it, it
+        becomes a followable <span class="st">stub</span> until you flesh it
+        out. Your reading list writes your writing list.
       </p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="#install">Download &amp; self-host</a>
@@ -352,7 +365,8 @@
             <p>
               English writer and philosopher, best known for
               <a class="link" href="#">Brave New World</a>. A friend and
-              correspondent of <a class="missing" title="This card doesn't exist yet — click to write it">Gerald Heard</a>,
+              correspondent of
+              <a class="stub" title="A stub — created, still being written">Gerald Heard</a>,
               with whom he shared a late interest in
               <a class="missing" title="This card doesn't exist yet — click to write it">mysticism</a>.
             </p>
@@ -360,6 +374,11 @@
               His essays on <a class="link" href="#">perception</a> anticipate
               much of what later writers said about attention.
             </p>
+            <div class="linkkey" aria-hidden="true">
+              <span class="k-link"><b></b> written</span>
+              <span class="k-stub"><b></b> stub</span>
+              <span class="k-missing"><b></b> not yet written</span>
+            </div>
             <div class="backlinks">
               <span class="kicker">Linked from</span>
               <ul>
@@ -391,18 +410,18 @@
         </article>
         <article class="feature reveal">
           <span class="badge">Link</span>
-          <h3>Backlinks and red links</h3>
-          <p>Every entry lists what references it. Links to entries that don't exist yet render as <strong>red links</strong> — click one and you're already writing it.</p>
+          <h3>Backlinks, red links, and stubs</h3>
+          <p>Type <code>[[</code> to link. Every entry lists what references it. Unwritten cards show as <strong>red links</strong>; create one inline and it becomes a followable <strong>stub</strong>.</p>
         </article>
         <article class="feature reveal">
           <span class="badge">Find</span>
           <h3>Real full-text search</h3>
-          <p>SQLite FTS5 with ranked results and highlighted excerpts across titles, aliases, and bodies. Plus an A–Z index and a <strong>random card</strong> button.</p>
+          <p>SQLite FTS5 with ranked results and highlighted excerpts across titles and bodies. Plus an A–Z index and a <strong>random card</strong> button.</p>
         </article>
         <article class="feature reveal">
           <span class="badge">Keep</span>
-          <h3>Every save is a revision</h3>
-          <p>View line diffs, restore any version. Soft edit-locks keep two people from clobbering each other. Backup is <strong>copying one file</strong>.</p>
+          <h3>Every save is logged</h3>
+          <p>A per-entry changelog records who changed what, and when. Soft edit-locks keep two people from clobbering each other. Backup is <strong>copying one file</strong>.</p>
         </article>
         <article class="feature reveal">
           <span class="badge">Share</span>
@@ -470,6 +489,7 @@ pip install -r requirements.txt <span class="dim">&amp;&amp;</span> python run.p
               <tr><th scope="row">Auth</th><td>Passwordless email magic links · CSRF everywhere · per-route rate limits</td></tr>
               <tr><th scope="row">Email</th><td>Any SMTP server, set in the admin panel <span class="soft">— prints to console in dev</span></td></tr>
               <tr><th scope="row">API</th><td>Read-only JSON API <code>/api/v1/entries</code>, paginated and rate-limited</td></tr>
+              <tr><th scope="row">Tested</th><td>A <code>pytest</code> suite runs against in-memory SQLite <span class="soft">— entries, auth, search, feeds, integrations</span></td></tr>
               <tr><th scope="row">Deployment</th><td>gunicorn behind nginx · systemd service + digest timer · Let's Encrypt via certbot</td></tr>
               <tr><th scope="row">Footprint</th><td>Runs comfortably on 512 MB RAM</td></tr>
               <tr><th scope="row">License</th><td>Open source — see <code>LICENSE</code> in the repository</td></tr>

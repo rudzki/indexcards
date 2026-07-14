@@ -30,8 +30,13 @@ def send_digest(force):
 
     since = utcnow() - timedelta(days=7)
 
+    # Stubs are excluded alongside drafts: a "still being written" placeholder
+    # (including one just spawned by quick-create, which stamps published_at)
+    # isn't finished content worth putting in front of subscribers.
     new_entries = (Entry.query
-                   .filter(Entry.published_at >= since, Entry.is_draft == False)  # noqa: E712
+                   .filter(Entry.published_at >= since,
+                           Entry.is_draft == False,  # noqa: E712
+                           Entry.is_stub == False)  # noqa: E712
                    .order_by(Entry.published_at.desc())
                    .all())
 
@@ -47,7 +52,7 @@ def send_digest(force):
         seen = {e.id for e in new_entries}
         for log in logs:
             entry = entries_by_id.get(log.entry_id)
-            if entry and not entry.is_draft and entry.id not in seen:
+            if entry and not entry.is_draft and not entry.is_stub and entry.id not in seen:
                 seen.add(entry.id)
                 edited_entries.append((entry, log.changelog))
 

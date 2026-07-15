@@ -3,11 +3,12 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, log_audit, entry_url, set_published
+from app.models import Entry, EditLog, NavItem, log_audit, entry_url, set_published
 from app.search import delete_fts_entry
 from app.locks import acquire_lock, active_locks
-from app.entries import save_entry
+from app.entries import save_content
 from app.views.admin import admin_bp, writer_required
+from app.views._helpers import apply_sort
 
 
 def build_revisions(items):
@@ -28,30 +29,37 @@ def dashboard():
     if not current_user.can_write:
         return redirect(url_for('main.index'))
 
-    sort = request.args.get('sort', 'updated')
-    order = request.args.get('order', 'desc')
     page = request.args.get('page', 1, type=int)
+    # Listing filter: the merged dashboard lists every card; 'listed'/'unlisted'
+    # narrow to one side of the is_listed flag (former entries vs former pages).
+    listed = request.args.get('listed', 'all')
 
     if current_user.is_admin or current_user.is_editor:
         q = Entry.query
     else:
         q = Entry.query.filter_by(created_by=current_user.id)
 
-    sort_col = {'title': Entry.sort_title, 'status': Entry.is_draft, 'updated': Entry.updated_at}.get(sort, Entry.updated_at)
-    q = q.order_by(sort_col.asc() if order == 'asc' else sort_col.desc())
+    if listed == 'listed':
+        q = q.filter(Entry.is_listed == True)  # noqa: E712
+    elif listed == 'unlisted':
+        q = q.filter(Entry.is_listed == False)  # noqa: E712
+
+    q, sort, order = apply_sort(q, request, {
+        'title': Entry.sort_title, 'status': Entry.is_draft, 'updated': Entry.updated_at,
+    }, 'updated')
 
     pagination = q.paginate(page=page, per_page=25, error_out=False)
     locked_entries = active_locks('entry')
     return render_template('admin/dashboard.html', entries=pagination.items,
                            pagination=pagination, sort=sort, order=order,
-                           locked_entries=locked_entries)
+                           listed=listed, locked_entries=locked_entries)
 
 
 @admin_bp.route('/entry/new/', methods=['GET', 'POST'])
 @writer_required
 def new_entry():
     if request.method == 'POST':
-        return save_entry(None)
+        return save_content(None)
     prefill_title = request.args.get('title', '').replace('-', ' ').strip().title()
     return render_template('admin/editor.html', entry=None, prefill_title=prefill_title)
 
@@ -63,7 +71,7 @@ def edit_entry(entry_id):
     if not current_user.can_modify(entry):
         abort(403)
     if request.method == 'POST':
-        return save_entry(entry)
+        return save_content(entry)
     blocker = acquire_lock('entry', entry_id)
     if blocker:
         flash(f'"{entry.title}" is currently being edited by {blocker}.', 'warning')
@@ -80,8 +88,9 @@ def delete_entry(entry_id):
     entry_title = entry.title
     # Detach children first — SQLite FK enforcement is off, so a dangling
     # parent_id would otherwise persist and 500 pages that dereference
-    # entry.parent.
+    # entry.parent. Drop any nav slot pointing here for the same reason.
     Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
+    NavItem.query.filter_by(entry_id=entry.id).delete()
     delete_fts_entry(entry.id)
     db.session.delete(entry)
     db.session.commit()
@@ -100,7 +109,7 @@ def publish_entry(entry_id):
     is_first_publish = set_published(entry, True)
     db.session.commit()
     # Announce to Slack / webhooks — the common draft-then-publish flow never
-    # goes through save_entry() as non-draft, so integrations must fire here too.
+    # goes through save_content() as non-draft, so integrations must fire here too.
     if was_unpublished:
         from app.entries import _fire_integrations
         _fire_integrations(entry, is_new=is_first_publish, changelog=None)
@@ -115,21 +124,16 @@ def preview_entry(entry_id):
     if not current_user.can_modify(entry):
         abort(403)
     from app.markdown import mark_missing_links, extract_toc
+    from app.entries import entry_backlinks, last_editor_of
     rows = Entry.query.with_entities(Entry.slug, Entry.is_stub).all()
     existing_slugs = {r[0] for r in rows}
     stub_slugs = {r[0] for r in rows if r[1]}
     body_html = mark_missing_links(entry.body_html, existing_slugs, stub_slugs)
     toc = extract_toc(body_html)
-    backlinks = (Entry.query
-                 .join(Entry.outgoing_links)
-                 .filter(Entry.outgoing_links.any(target_entry_id=entry.id))
-                 .all())
-    last_edit_log = (EditLog.query
-                     .filter_by(entry_id=entry.id)
-                     .filter(EditLog.is_import == False)  # noqa: E712
-                     .order_by(EditLog.edited_at.desc())
-                     .first())
-    last_editor = last_edit_log.user if last_edit_log else None
+    # Preview includes draft link targets as live backlinks — its intentional
+    # difference from the public view (see entry_backlinks).
+    backlinks = entry_backlinks(entry, include_drafts=True)
+    last_editor = last_editor_of(entry)
     return render_template('entry.html', entry=entry, body_html=Markup(body_html),
                            backlinks=backlinks, note_backlinks=[], toc=toc, is_preview=True,
                            last_editor=last_editor,
@@ -176,9 +180,10 @@ def bulk_entries():
     elif action == 'delete':
         for entry in entries:
             if current_user.can_modify(entry):
-                # Detach children and defer the FTS commit so the whole batch
-                # commits atomically with the entry deletions.
+                # Detach children, drop nav slots, and defer the FTS commit so
+                # the whole batch commits atomically with the entry deletions.
                 Entry.query.filter_by(parent_id=entry.id).update({'parent_id': None})
+                NavItem.query.filter_by(entry_id=entry.id).delete()
                 delete_fts_entry(entry.id, commit=False)
                 db.session.delete(entry)
                 count += 1

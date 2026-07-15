@@ -2,25 +2,22 @@ from flask import flash, render_template, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
-from app.models import Entry, Backlink, EditLog, Page, SiteSettings, make_slug, log_audit, set_published, utcnow
+from app.models import Entry, Backlink, EditLog, SiteSettings, RESERVED_SLUGS, make_slug, log_audit, set_published, utcnow
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry
 
-RESERVED_SLUGS = {
-    'feed', 'search', 'login', 'logout', 'signup', 'subscribe',
-    'confirm', 'unsubscribe', 'random', 'healthz', 'admin', 'dashboard',
-    'static', 'favicon', 'site-image', 'uploads',
-    'notes', 'account', 'setup', 'api',
-}
 
-
-def save_entry(entry):
+def save_content(entry):
+    """Save a card (create or update) from the editor form. One write path for
+    all cards — the old entry/page split collapsed into the is_listed flag set
+    here from the "Show in index & feeds" checkbox."""
     title = request.form.get('title', '').strip()
     summary = request.form.get('summary', '').strip()
     body_markdown = request.form.get('body_markdown', '')
     changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
     is_stub = 'is_stub' in request.form
+    is_listed = 'is_listed' in request.form
     parent_id_raw = request.form.get('parent_id', '').strip()
 
     if not title:
@@ -31,7 +28,7 @@ def save_entry(entry):
     slug = make_slug(slug_input) if slug_input else make_slug(title)
 
     if slug in RESERVED_SLUGS:
-        flash(f'"{slug}" is a reserved path and cannot be used as an entry slug.', 'error')
+        flash(f'"{slug}" is a reserved path and cannot be used as a slug.', 'error')
         return render_template('admin/editor.html', entry=entry)
 
     is_new = entry is None
@@ -40,23 +37,17 @@ def save_entry(entry):
     # integration signal below).
     old_body = entry.body_markdown if entry else ''
 
+    # Single-table slug uniqueness now that all cards live in `entry`.
     if is_new:
-        existing = Entry.query.filter_by(slug=slug).first()
-        # Entries and pages share the /<slug>/ namespace, so a new entry must
-        # not collide with an existing page (which would silently shadow it in
-        # the resolver).
-        existing_page = Page.query.filter_by(slug=slug).first()
-        if existing or existing_page:
-            flash('An entry or page with this title (or slug) already exists.', 'error')
+        if Entry.query.filter_by(slug=slug).first():
+            flash('A card with this title (or slug) already exists.', 'error')
             return render_template('admin/editor.html', entry=entry)
         entry = Entry(slug=slug, created_by=current_user.id)
         db.session.add(entry)
     else:
         if slug != entry.slug:
-            conflict = Entry.query.filter(Entry.slug == slug, Entry.id != entry.id).first()
-            conflict_page = Page.query.filter_by(slug=slug).first()
-            if conflict or conflict_page:
-                flash('An entry or page with this title (or slug) already exists.', 'error')
+            if Entry.query.filter(Entry.slug == slug, Entry.id != entry.id).first():
+                flash('A card with this title (or slug) already exists.', 'error')
                 return render_template('admin/editor.html', entry=entry)
             entry.slug = slug
 
@@ -66,19 +57,21 @@ def save_entry(entry):
     entry.body_html = render_markdown(body_markdown)
     first_publish = set_published(entry, not is_draft)
     entry.is_stub = is_stub
+    entry.is_listed = is_listed
     entry.update_sort_title()
 
     # An entry that already has children can't itself become a child — that
     # would create a three-level chain, and the index nesting, entry_url, and
     # breadcrumb walk all assume the two-level cap. The picker enforces this
-    # client-side; enforce it here too so a crafted POST can't bypass it.
+    # client-side; enforce it here too so a crafted POST can't bypass it. The
+    # parent must also be listed (hierarchy stays tied to the index).
     entry_has_children = (entry.id is not None
                           and Entry.query.filter_by(parent_id=entry.id).first() is not None)
     if parent_id_raw and parent_id_raw.isdigit() and not entry_has_children:
         proposed_parent_id = int(parent_id_raw)
         parent_entry = db.session.get(Entry, proposed_parent_id)
         if (parent_entry and parent_entry.id != (entry.id or -1) and not parent_entry.parent_id
-                and not _creates_cycle(entry, parent_entry)):
+                and parent_entry.is_listed and not _creates_cycle(entry, parent_entry)):
             entry.parent_id = parent_entry.id
         else:
             entry.parent_id = None
@@ -120,7 +113,10 @@ def save_entry(entry):
     # it shouldn't fire a "new entry" webhook/Slack. The announcement lands later
     # when the stub is fleshed out and saved un-stubbed (as an "updated" event,
     # since published_at was already stamped when it first went public).
-    if not is_draft and not is_stub and (first_publish or content_changed):
+    #
+    # Unlisted cards never notify: integrations announce the stream, which they
+    # aren't part of. (They also stay out of index/feeds/digest/API — see 2.3.)
+    if is_listed and not is_draft and not is_stub and (first_publish or content_changed):
         _fire_integrations(entry, is_new=first_publish, changelog=changelog)
 
     flash('Entry saved.', 'success')
@@ -162,9 +158,32 @@ def sync_backlinks(entry):
             db.session.add(Backlink(source_entry_id=entry.id, target_entry_id=target.id))
 
 
+def entry_backlinks(entry, include_drafts=False):
+    """Cards that link to `entry`. Public views exclude drafts; the admin
+    preview passes include_drafts=True so a draft link target still shows as a
+    live backlink (its intentional difference from the public view)."""
+    q = (Entry.query
+         .join(Entry.outgoing_links)
+         .filter(Entry.outgoing_links.any(target_entry_id=entry.id)))
+    if not include_drafts:
+        q = q.filter(Entry.is_draft == False)  # noqa: E712
+    return q.all()
+
+
+def last_editor_of(entry):
+    """The user who last edited `entry`, ignoring import log rows; None if the
+    only history is an import (or there's none)."""
+    log = (EditLog.query
+           .filter_by(entry_id=entry.id)
+           .filter(EditLog.is_import == False)  # noqa: E712
+           .order_by(EditLog.edited_at.desc())
+           .first())
+    return log.user if log else None
+
+
 def _fire_integrations(entry, is_new, changelog):
     from app.integrations import notify_slack_entry, fire_outgoing_webhook
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if not site_settings:
         return
     event = 'entry.published' if is_new else 'entry.updated'

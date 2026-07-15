@@ -10,8 +10,9 @@ from flask_login import current_user, login_user
 from markupsafe import Markup, escape
 
 from app import db, limiter
-from app.models import Entry, User, SiteSettings, EditLog, Page, entry_url, utcnow
+from app.models import Entry, User, SiteSettings, DEFAULT_SITE_TITLE, EditLog, entry_url, utcnow
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
+from app.entries import entry_backlinks, last_editor_of
 from app.search import search_entries
 from app.mail import send_email, render_email
 from app.feeds import feeds_available, feed_entries
@@ -22,11 +23,11 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     entries = (Entry.query
-               .filter_by(is_draft=False)
+               .filter_by(is_draft=False, is_listed=True)
                .order_by(Entry.sort_title)
                .all())
 
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     subpage_display = site_settings.subpage_display if site_settings and site_settings.subpage_display else 'both'
 
     children_by_parent = defaultdict(list)
@@ -71,10 +72,6 @@ def entry_page(slug):
             return redirect(entry_url(entry), code=301)
         return _render_entry_page(entry)
 
-    page = Page.query.filter_by(slug=slug, is_draft=False).first()
-    if page:
-        return render_template('page.html', page=page, last_editor=page.author)
-
     if current_user.is_authenticated and current_user.can_write:
         return redirect(url_for('admin.new_entry', title=slug))
 
@@ -107,38 +104,30 @@ def _render_entry_page(entry):
         existing_slugs = set()
         stub_slugs = set()
     body_html = mark_missing_links(entry.body_html, existing_slugs, stub_slugs)
-    backlinks = (Entry.query
-                 .join(Entry.outgoing_links)
-                 .filter(
-                     Entry.outgoing_links.any(target_entry_id=entry.id),
-                     Entry.is_draft == False  # noqa: E712
-                 )
-                 .all())
+    backlinks = entry_backlinks(entry)
     toc = extract_toc(body_html)
-    last_edit_log = (EditLog.query
-                     .filter_by(entry_id=entry.id)
-                     .filter(EditLog.is_import == False)  # noqa: E712
-                     .order_by(EditLog.edited_at.desc())
-                     .first())
-    last_editor = last_edit_log.user if last_edit_log else None
+    last_editor = last_editor_of(entry)
 
-    # Order by (sort_title, id) and compare on the whole tuple so entries whose
-    # titles normalize to the same sort_title still have a stable, complete
-    # ordering — a plain `sort_title <` would skip a same-key sibling entirely.
-    prev_entry = (Entry.query
-                  .filter(Entry.is_draft == False,  # noqa: E712
-                          db.or_(Entry.sort_title < entry.sort_title,
-                                 db.and_(Entry.sort_title == entry.sort_title,
-                                         Entry.id < entry.id)))
-                  .order_by(Entry.sort_title.desc(), Entry.id.desc())
-                  .first())
-    next_entry = (Entry.query
-                  .filter(Entry.is_draft == False,  # noqa: E712
-                          db.or_(Entry.sort_title > entry.sort_title,
-                                 db.and_(Entry.sort_title == entry.sort_title,
-                                         Entry.id > entry.id)))
-                  .order_by(Entry.sort_title.asc(), Entry.id.asc())
-                  .first())
+    # prev/next is index navigation, so it's listed-only: it walks the index
+    # order (sort_title, id) among listed cards, and an unlisted card — not in
+    # the index — gets neither. The tuple compare keeps same-sort_title siblings
+    # in a stable, complete order (a plain `sort_title <` would skip one).
+    prev_entry = next_entry = None
+    if entry.is_listed:
+        prev_entry = (Entry.query
+                      .filter(Entry.is_draft == False, Entry.is_listed == True,  # noqa: E712
+                              db.or_(Entry.sort_title < entry.sort_title,
+                                     db.and_(Entry.sort_title == entry.sort_title,
+                                             Entry.id < entry.id)))
+                      .order_by(Entry.sort_title.desc(), Entry.id.desc())
+                      .first())
+        next_entry = (Entry.query
+                      .filter(Entry.is_draft == False, Entry.is_listed == True,  # noqa: E712
+                              db.or_(Entry.sort_title > entry.sort_title,
+                                     db.and_(Entry.sort_title == entry.sort_title,
+                                             Entry.id > entry.id)))
+                      .order_by(Entry.sort_title.asc(), Entry.id.asc())
+                      .first())
 
     ancestors = []
     cursor = entry
@@ -170,7 +159,7 @@ def _build_activity_events(since=None, show_history=True):
     vs "edited"."""
     events = []
 
-    entry_q = Entry.query.filter_by(is_draft=False)
+    entry_q = Entry.query.filter_by(is_draft=False, is_listed=True)
     if since:
         entry_q = entry_q.filter(Entry.published_at >= since)
     entries = entry_q.all()
@@ -246,7 +235,7 @@ def _group_events_by_day(events):
 
 @main_bp.route('/search')
 def search():
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if site_settings and not site_settings.search_enabled:
         abort(404)
     query = request.args.get('q', '').strip()
@@ -293,7 +282,7 @@ def search():
 @main_bp.route('/random')
 def random_entry():
     from sqlalchemy.sql.expression import func
-    entry = Entry.query.filter_by(is_draft=False).order_by(func.random()).first()
+    entry = Entry.query.filter_by(is_draft=False, is_listed=True).order_by(func.random()).first()
     if entry:
         return redirect(entry_url(entry))
     return redirect(url_for('main.index'))
@@ -334,8 +323,8 @@ def subscribe():
     db.session.commit()
     confirm_url = url_for('main.confirm_subscription', token=token, _external=True)
 
-    settings = db.session.get(SiteSettings, 1)
-    site_title = (settings.site_title if settings else None) or 'Index Cards'
+    settings = SiteSettings.get()
+    site_title = settings.display_title if settings else DEFAULT_SITE_TITLE
     text, html = render_email('subscription_confirm', site_title=site_title, confirm_url=confirm_url)
     if not send_email(to=email, subject='Confirm your subscription', body_text=text, body_html=html):
         flash('Something went wrong sending the confirmation email. Please try again later.', 'error')
@@ -357,7 +346,7 @@ def confirm_subscription(token):
     login_user(user)
 
     from app.integrations import notify_mailchimp_subscribe
-    notify_mailchimp_subscribe(user.email, db.session.get(SiteSettings, 1))
+    notify_mailchimp_subscribe(user.email, SiteSettings.get())
 
     flash('Subscription confirmed!', 'success')
     return redirect(url_for('main.index'))
@@ -374,7 +363,7 @@ def unsubscribe(token):
 
 @main_bp.route('/favicon.svg')
 def favicon():
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     icon_name = settings.site_icon if settings else ''
     if icon_name:
         from app.icons import get_icon_svg
@@ -393,12 +382,12 @@ def favicon():
 
 @main_bp.route('/feed.xml')
 def feed():
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     if not feeds_available(settings):
         abort(404)
     entries, most_recent = feed_entries()
     xml = render_template('feed.xml',
-                          site_title=(settings.site_title if settings else None) or 'Index Cards',
+                          site_title=settings.display_title,
                           feed_url=url_for('main.feed', _external=True),
                           index_url=url_for('main.index', _external=True),
                           updated=most_recent,
@@ -409,11 +398,11 @@ def feed():
 
 @main_bp.route('/feed.json')
 def feed_json():
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     if not feeds_available(settings):
         abort(404)
     entries, _ = feed_entries()
-    site_title = (settings.site_title if settings else None) or 'Index Cards'
+    site_title = settings.display_title
     payload = {
         'version': 'https://jsonfeed.org/version/1.1',
         'title': site_title,
@@ -452,7 +441,7 @@ def uploaded_file(filename):
 
 @main_bp.route('/site-image')
 def site_image():
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     if not settings or not settings.site_image:
         abort(404)
     path = os.path.join(current_app.config['UPLOAD_DIR'], settings.site_image)

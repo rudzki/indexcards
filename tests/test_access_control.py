@@ -76,13 +76,6 @@ class RouteGuardTests(BaseTest):
         self.assertIsNone(db.session.get(Entry, mine.id))
         self.assertIsNotNone(db.session.get(Entry, theirs.id))
 
-    def test_non_editor_blocked_from_page_routes(self):
-        author = self._make_user('author')
-        self._login(author)
-        self.assertEqual(self.client.get('/dashboard/pages/').status_code, 403)
-        self.assertEqual(self.client.get('/dashboard/pages/new/').status_code, 403)
-
-
 class LastAdminAndSelfProtectionTests(BaseTest):
     def setUp(self):
         super().setUp()

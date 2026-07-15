@@ -130,26 +130,9 @@ def _run_migrations():
         if not has_column('site_settings', 'outgoing_webhook_secret'):
             cursor.execute("ALTER TABLE site_settings ADD COLUMN outgoing_webhook_secret TEXT DEFAULT ''")
 
-    if not has_table('page'):
-        cursor.execute("""
-            CREATE TABLE page (
-                id INTEGER PRIMARY KEY,
-                slug TEXT UNIQUE NOT NULL,
-                title TEXT NOT NULL,
-                summary TEXT DEFAULT '',
-                body_markdown TEXT DEFAULT '',
-                body_html TEXT DEFAULT '',
-                is_draft BOOLEAN DEFAULT 0,
-                is_stub BOOLEAN DEFAULT 0,
-                published_at DATETIME,
-                created_at DATETIME,
-                updated_at DATETIME,
-                created_by INTEGER REFERENCES user(id),
-                sort_title TEXT DEFAULT '',
-                show_in_nav BOOLEAN DEFAULT 0,
-                nav_position INTEGER
-            )
-        """)
+    # The `page` table is legacy (Entry/Page merged). It's no longer created on
+    # fresh installs; where it still exists, the merge block below copies its
+    # rows into `entry` as unlisted cards.
 
     if not has_table('edit_lock'):
         cursor.execute("""
@@ -209,6 +192,53 @@ def _run_migrations():
     if has_table('entry'):
         ensure_index('ix_entry_parent_id', 'entry', 'parent_id')
         ensure_index('ix_entry_created_by', 'entry', 'created_by')
+
+    # --- Entry/Page merge: one card model with an is_listed placement flag ---
+    if has_table('entry') and not has_column('entry', 'is_listed'):
+        cursor.execute("ALTER TABLE entry ADD COLUMN is_listed BOOLEAN DEFAULT 1")
+
+    # Copy legacy pages into entry as unlisted cards, and seed nav from the ones
+    # that were in the menu. Idempotent: keyed on slug (globally unique across
+    # the old two tables), so a page already mirrored into entry is skipped on
+    # re-run, and nav slots are seeded at most once per entry. The `page` table
+    # is left in place, unused, until the merge is verified — drop it later.
+    if has_table('page') and has_column('entry', 'is_listed'):
+        cursor.execute("""
+            INSERT INTO entry
+                (slug, title, summary, body_markdown, body_html, is_draft,
+                 is_stub, is_listed, published_at, created_at, updated_at,
+                 created_by, sort_title)
+            SELECT p.slug, p.title, p.summary, p.body_markdown, p.body_html,
+                   p.is_draft, p.is_stub, 0, p.published_at, p.created_at,
+                   p.updated_at, p.created_by, p.sort_title
+            FROM page p
+            WHERE p.slug NOT IN (SELECT slug FROM entry)
+        """)
+        cursor.execute("SELECT slug, nav_position FROM page WHERE show_in_nav = 1")
+        for slug, nav_position in cursor.fetchall():
+            row = cursor.execute("SELECT id FROM entry WHERE slug = ?", (slug,)).fetchone()
+            if not row:
+                continue
+            entry_id = row[0]
+            if cursor.execute("SELECT 1 FROM nav_item WHERE entry_id = ?", (entry_id,)).fetchone():
+                continue
+            cursor.execute("INSERT INTO nav_item (entry_id, position) VALUES (?, ?)",
+                           (entry_id, nav_position))
+
+        # Make the copied cards searchable. entry_fts is created after migrations
+        # on a fresh DB (no pages to copy there anyway), so only index when it
+        # already exists; skip rows already present to stay idempotent.
+        if has_table('entry_fts'):
+            from app.markdown import strip_markdown
+            from markupsafe import escape
+            indexed = {r[0] for r in cursor.execute("SELECT rowid FROM entry_fts").fetchall()}
+            cursor.execute("SELECT id, title, body_markdown FROM entry WHERE is_listed = 0")
+            for eid, title, body_md in cursor.fetchall():
+                if eid in indexed:
+                    continue
+                cursor.execute(
+                    "INSERT INTO entry_fts(rowid, title, body) VALUES (?, ?, ?)",
+                    (eid, str(escape(title or '')), str(escape(strip_markdown(body_md or '')))))
 
     conn.commit()
     conn.close()

@@ -49,9 +49,8 @@ def resolve_smtp(settings):
 
 
 def send_email(to, subject, body_text, body_html=None):
-    from app import db
     from app.models import SiteSettings
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     smtp = resolve_smtp(settings)
 
     if not smtp or not smtp['from_address']:

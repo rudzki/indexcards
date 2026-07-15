@@ -24,7 +24,7 @@ from flask_login import login_user  # noqa: E402
 
 from app import create_app, db  # noqa: E402
 from app.models import (  # noqa: E402
-    Entry, Page, SiteSettings, User, make_slug, set_published,
+    Entry, SiteSettings, User, make_slug, set_published,
 )
 
 
@@ -84,9 +84,10 @@ class BaseTest(unittest.TestCase):
             sess['_fresh'] = True
 
     def _add_entry(self, title, slug=None, is_draft=False, body='', summary='',
-                   parent=None, created_by=None):
+                   parent=None, created_by=None, is_listed=True):
         entry = Entry(title=title, slug=slug or make_slug(title),
-                      body_markdown=body, summary=summary, created_by=created_by)
+                      body_markdown=body, summary=summary, created_by=created_by,
+                      is_listed=is_listed)
         if parent is not None:
             entry.parent_id = parent.id
         entry.update_sort_title()
@@ -98,12 +99,10 @@ class BaseTest(unittest.TestCase):
         return entry
 
     def _add_page(self, title, slug=None, is_draft=False, body=''):
-        page = Page(title=title, slug=slug or make_slug(title), body_markdown=body)
-        page.update_sort_title()
-        set_published(page, not is_draft)
-        db.session.add(page)
-        db.session.commit()
-        return page
+        """A 'page' is now just an unlisted card (is_listed=False) — kept out of
+        the index/feeds but reachable by URL, link, and nav."""
+        return self._add_entry(title, slug=slug, is_draft=is_draft, body=body,
+                               is_listed=False)
 
     @contextmanager
     def _acting_as(self, user):

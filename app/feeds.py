@@ -1,4 +1,4 @@
-from app.models import Entry, entry_url, utcnow
+from app.models import Entry, entry_url, iso_utc, utcnow
 
 
 def feeds_available(settings):
@@ -7,17 +7,14 @@ def feeds_available(settings):
 
 def feed_entries():
     db_entries = (Entry.query
-                  .filter_by(is_draft=False, is_stub=False)
+                  .filter_by(is_draft=False, is_stub=False, is_listed=True)
                   .filter(Entry.published_at.isnot(None))
                   .order_by(Entry.updated_at.desc())
                   .limit(20)
                   .all())
 
     def fmt(dt):
-        # Timestamps are naive UTC (storage convention); the literal Z marks it.
-        if not dt:
-            return ''
-        return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return iso_utc(dt) or ''
 
     entries = [{
         'title': e.title,

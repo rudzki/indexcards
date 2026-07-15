@@ -142,7 +142,7 @@ def seed_test_data(user_id):
         db.session.add(inv)
         invites_created += 1
 
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if site_settings and not site_settings.custom_css:
         site_settings.custom_css = TEST_CUSTOM_CSS
         site_settings.custom_head_html = TEST_CUSTOM_HEAD_HTML
@@ -180,7 +180,7 @@ def clear_test_data():
     for u in test_users:
         db.session.delete(u)
 
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if site_settings:
         if site_settings.custom_css == TEST_CUSTOM_CSS:
             site_settings.custom_css = ''

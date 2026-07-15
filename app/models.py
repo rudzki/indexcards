@@ -9,6 +9,8 @@ from app import db, login_manager
 
 STOP_WORDS = {'the', 'a', 'an'}
 
+DEFAULT_SITE_TITLE = 'Index Cards'
+
 
 def utcnow():
     """The single datetime convention: naive UTC at the storage boundary.
@@ -20,12 +22,32 @@ def utcnow():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def iso_utc(dt):
+    """Serialize a naive-UTC datetime as ISO-8601 with a literal Z, or None when
+    dt is falsy. Single convention shared by feeds, the API, and timeago; stored
+    timestamps are naive UTC (see utcnow), so the Z is appended, not computed."""
+    if not dt:
+        return None
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
 def make_slug(title):
     slug = title.lower().strip()
     slug = re.sub(r'[^\w\s-]', '', slug)
     slug = re.sub(r'[\s_]+', '-', slug)
     slug = re.sub(r'-+', '-', slug)
     return slug.strip('-')
+
+
+# Paths the app owns; a card slug must not collide with one or it would be
+# shadowed by (or shadow) a real route. Lives here beside make_slug so both the
+# save path and the API quick-create share one list.
+RESERVED_SLUGS = {
+    'feed', 'search', 'login', 'logout', 'signup', 'subscribe',
+    'confirm', 'unsubscribe', 'random', 'healthz', 'admin', 'dashboard',
+    'static', 'favicon', 'site-image', 'uploads',
+    'notes', 'account', 'setup', 'api',
+}
 
 
 def sort_key(title):
@@ -55,9 +77,8 @@ def site_requires_admin(settings):
 
 
 def set_published(obj, published):
-    """Set draft/published state on any content object (Entry or Page).
+    """Set draft/published state on a card.
 
-    Both share the same (is_draft, published_at) pair and the same rule:
     published_at is stamped once, on the first transition into published state,
     and never cleared. Returns True only when this call performed that first
     publish — callers pass it as the 'new entry' signal to integrations."""
@@ -77,6 +98,11 @@ class Entry(db.Model):
     body_html = db.Column(db.Text, default='')
     is_draft = db.Column(db.Boolean, default=False)
     is_stub = db.Column(db.Boolean, default=False)
+    # Whether the card joins the stream: index + feeds + digest + API, and fires
+    # integrations on publish. An unlisted card (is_listed=False) is standalone
+    # content — reachable by direct URL, [[wikilink]], backlink, or the nav — but
+    # kept out of the stream. This is what a "page" became when Entry/Page merged.
+    is_listed = db.Column(db.Boolean, default=True)
     published_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow,
@@ -112,9 +138,9 @@ class Entry(db.Model):
 
 
 def entry_url(obj, external=False):
-    """Build the canonical URL for an Entry (or Page). A child entry (one with
-    a parent) is addressed as /<parent-slug>/<child-slug>/ instead of the flat
-    /<slug>/ so the URL reflects the hierarchy already present in the data."""
+    """Build the canonical URL for a card. A child entry (one with a parent) is
+    addressed as /<parent-slug>/<child-slug>/ instead of the flat /<slug>/ so
+    the URL reflects the hierarchy already present in the data."""
     parent = getattr(obj, 'parent', None)
     if parent:
         return url_for('main.child_entry_page', parent_slug=parent.slug, slug=obj.slug, _external=external)
@@ -271,33 +297,24 @@ def log_audit(action, detail='', user_id=None):
     db.session.commit()
 
 
-class Page(db.Model):
+class NavItem(db.Model):
+    """A curated nav slot pointing at a card. Nav membership/position is a
+    site-layout decision, orthogonal to is_listed — any published card (listed
+    or not) can be added. Ordered by position (nulls last)."""
     id = db.Column(db.Integer, primary_key=True)
-    slug = db.Column(db.Text, unique=True, nullable=False)
-    title = db.Column(db.Text, nullable=False)
-    summary = db.Column(db.Text, default='')
-    body_markdown = db.Column(db.Text, default='')
-    body_html = db.Column(db.Text, default='')
-    is_draft = db.Column(db.Boolean, default=False)
-    is_stub = db.Column(db.Boolean, default=False)
-    published_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=utcnow)
-    updated_at = db.Column(db.DateTime, default=utcnow,
-                           onupdate=utcnow)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
-    sort_title = db.Column(db.Text, default='')
-    show_in_nav = db.Column(db.Boolean, default=False)
-    nav_position = db.Column(db.Integer, nullable=True)
+    entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
+    position = db.Column(db.Integer, nullable=True)
 
-    author = db.relationship('User', backref='pages')
+    entry = db.relationship('Entry')
 
-    def update_sort_title(self):
-        self.sort_title = sort_key(self.title)
+    __table_args__ = (
+        db.Index('ix_nav_item_entry_id', 'entry_id'),
+    )
 
 
 class SiteSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    site_title = db.Column(db.Text, default='Index Cards')
+    site_title = db.Column(db.Text, default=DEFAULT_SITE_TITLE)
     digest_include_edits = db.Column(db.Boolean, default=False)
     digest_day = db.Column(db.Integer, default=0)
     search_enabled = db.Column(db.Boolean, default=True)
@@ -337,6 +354,17 @@ class SiteSettings(db.Model):
     slack_announce_updates = db.Column(db.Boolean, default=False)
     outgoing_webhook_url = db.Column(db.Text, default='')
     outgoing_webhook_secret = db.Column(db.Text, default='')
+
+    @classmethod
+    def get(cls):
+        """The site-settings singleton (row 1). Single accessor so the row-1
+        convention lives in exactly one place instead of 27 call sites."""
+        return db.session.get(cls, 1)
+
+    @property
+    def display_title(self):
+        """The site title with the default applied — never blank."""
+        return self.site_title or DEFAULT_SITE_TITLE
 
     @property
     def mailchimp_configured(self):

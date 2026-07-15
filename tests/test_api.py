@@ -94,10 +94,14 @@ class QuickCreateTests(BaseTest):
         self._login(self._make_user(role='viewer'))
         self.assertEqual(self._post(title='Nope').status_code, 403)
 
-    def test_rejects_page_slug_collision(self):
+    def test_returns_existing_unlisted_card(self):
+        # After the merge an unlisted card ("page") shares the one namespace, so
+        # quick-create over its slug returns that card rather than colliding.
         self._login(self._make_user(role='author'))
-        self._add_page('About', slug='about')
-        self.assertEqual(self._post(title='About').status_code, 400)
+        about = self._add_page('About', slug='about')
+        resp = self._post(title='About')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()['id'], about.id)
 
 
 class StubLinkRenderTests(BaseTest):

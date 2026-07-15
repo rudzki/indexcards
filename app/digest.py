@@ -4,7 +4,6 @@ import click
 from flask import current_app
 from flask.cli import with_appcontext
 
-from app import db
 from app.models import Entry, EditLog, User, SiteSettings, utcnow
 from app.mail import send_email, render_email
 
@@ -18,7 +17,7 @@ def register_cli(app):
 @click.option('--force', is_flag=True, help="Send even if today isn't the configured digest day.")
 @with_appcontext
 def send_digest(force):
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     if not settings:
         click.echo('No site settings found.')
         return
@@ -32,11 +31,13 @@ def send_digest(force):
 
     # Stubs are excluded alongside drafts: a "still being written" placeholder
     # (including one just spawned by quick-create, which stamps published_at)
-    # isn't finished content worth putting in front of subscribers.
+    # isn't finished content worth putting in front of subscribers. Unlisted
+    # cards are excluded too — the digest is the stream, which they're not in.
     new_entries = (Entry.query
                    .filter(Entry.published_at >= since,
                            Entry.is_draft == False,  # noqa: E712
-                           Entry.is_stub == False)  # noqa: E712
+                           Entry.is_stub == False,  # noqa: E712
+                           Entry.is_listed == True)  # noqa: E712
                    .order_by(Entry.published_at.desc())
                    .all())
 
@@ -52,7 +53,8 @@ def send_digest(force):
         seen = {e.id for e in new_entries}
         for log in logs:
             entry = entries_by_id.get(log.entry_id)
-            if entry and not entry.is_draft and not entry.is_stub and entry.id not in seen:
+            if (entry and not entry.is_draft and not entry.is_stub
+                    and entry.is_listed and entry.id not in seen):
                 seen.add(entry.id)
                 edited_entries.append((entry, log.changelog))
 
@@ -65,7 +67,7 @@ def send_digest(force):
         click.echo('No subscribers.')
         return
 
-    site_title = settings.site_title or 'Index Cards'
+    site_title = settings.display_title
     site_url = current_app.config.get('SITE_URL', 'http://localhost:5000').rstrip('/')
 
     sent = 0

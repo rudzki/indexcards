@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, flash,
 from flask_login import login_user, logout_user, login_required
 
 from app import db, limiter
-from app.models import User, Registration, SiteSettings, log_audit
+from app.models import User, Registration, SiteSettings, DEFAULT_SITE_TITLE, log_audit
 from app.mail import send_email, render_email
 from app.registration import resolve_role, create_registration
 
@@ -14,8 +14,8 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        settings = db.session.get(SiteSettings, 1)
-        site_title = (settings.site_title if settings else None) or 'Index Cards'
+        settings = SiteSettings.get()
+        site_title = settings.display_title if settings else DEFAULT_SITE_TITLE
         user = User.query.filter_by(email=email).first()
         if user:
             token = user.generate_login_token()
@@ -99,7 +99,7 @@ def setup():
             return redirect(url_for('auth.login'))
 
         if site_title:
-            settings = db.session.get(SiteSettings, 1)
+            settings = SiteSettings.get()
             if settings:
                 settings.site_title = site_title
 
@@ -113,7 +113,7 @@ def setup():
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
 def signup_form():
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     if not settings or not settings.multiuser_enabled or settings.registration_method == 'invite':
         abort(404)
 
@@ -144,7 +144,7 @@ def signup_form():
         log_audit('user_registered', detail=email)
 
         signup_url = url_for('auth.signup_token', token=reg.token, _external=True)
-        site_title = (settings.site_title if settings else None) or 'Index Cards'
+        site_title = settings.display_title if settings else DEFAULT_SITE_TITLE
         text, html = render_email('signup', site_title=site_title, signup_url=signup_url)
         send_email(to=email, subject='Complete your signup', body_text=text, body_html=html)
 
@@ -160,7 +160,7 @@ def signup_token(token):
     if reg.is_expired:
         flash('This signup link has expired. Please request a new invitation.', 'error')
         return redirect(url_for('auth.login'))
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
 
     if request.method == 'POST':
         display_name = request.form.get('display_name', '').strip()

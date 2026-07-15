@@ -86,6 +86,7 @@
                     {% endif %}
                     {% set draft_checked = ('is_draft' in request.form) if posted else (entry and entry.is_draft) %}
                     {% set stub_checked = ('is_stub' in request.form) if posted else (entry and entry.is_stub) %}
+                    {% set listed_checked = ('is_listed' in request.form) if posted else (entry.is_listed if entry else True) %}
                     <div class="field field-inline">
                         <label>
                             <input type="checkbox" name="is_draft" {% if draft_checked %}checked{% endif %}>
@@ -96,6 +97,12 @@
                         <label>
                             <input type="checkbox" name="is_stub" {% if stub_checked %}checked{% endif %}>
                             Stub
+                        </label>
+                    </div>
+                    <div class="field field-inline">
+                        <label>
+                            <input type="checkbox" name="is_listed" {% if listed_checked %}checked{% endif %}>
+                            Show in index &amp; feeds
                         </label>
                     </div>
                 </div>

@@ -41,6 +41,9 @@ class SaveEntryIntegrationTests(BaseTest):
     def _new(self, **form):
         form.setdefault('title', 'Thing')
         form.setdefault('body_markdown', 'Body one')
+        # Integrations announce the stream, so these tests are about listed
+        # cards; an unlisted save never fires (covered separately).
+        form.setdefault('is_listed', 'on')
         return self.client.post('/dashboard/entry/new/', data=form,
                                 follow_redirects=False)
 
@@ -67,7 +70,8 @@ class SaveEntryIntegrationTests(BaseTest):
         entry = Entry.query.filter_by(slug='thing').first()
         with capture_integrations() as fire:
             self.client.post(f'/dashboard/entry/{entry.id}/edit/',
-                             data={'title': 'Thing', 'body_markdown': 'Body two'})
+                             data={'title': 'Thing', 'body_markdown': 'Body two',
+                                   'is_listed': 'on'})
         fire.assert_called_once()
         self.assertFalse(fire.call_args.kwargs['is_new'])
 
@@ -78,7 +82,7 @@ class SaveEntryIntegrationTests(BaseTest):
             # Same body, only the summary differs -> no content change.
             self.client.post(f'/dashboard/entry/{entry.id}/edit/',
                              data={'title': 'Thing', 'body_markdown': 'Body one',
-                                   'summary': 'new summary'})
+                                   'summary': 'new summary', 'is_listed': 'on'})
         fire.assert_not_called()
 
 

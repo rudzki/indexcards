@@ -69,7 +69,7 @@
                     <a href="{{ url_for('auth.signup_form') }}">Register</a>
                 {% endif %}
                 {% for p in nav_pages %}
-                <a href="{{ url_for('main.entry_page', slug=p.slug) }}" class="{{ 'active' if request.endpoint == 'main.entry_page' and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
+                <a href="{{ entry_url(p) }}" class="{{ 'active' if request.endpoint in ('main.entry_page', 'main.child_entry_page') and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
                 {% endfor %}
             </nav>
             {% if site_settings.search_enabled %}

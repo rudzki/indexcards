@@ -3,18 +3,49 @@ import secrets
 
 from flask import render_template, redirect, url_for, request, flash, current_app
 
+from sqlalchemy import func, nullslast
+
 from app import db
-from app.models import SiteSettings
+from app.models import SiteSettings, Entry, NavItem
 from app.registration import VALID_ROLES
 from app.views.admin import admin_bp, admin_required
+from app.views._helpers import validated_image_ext
+
+
+def _nav_items():
+    """Nav slots in menu order (position, nulls last)."""
+    return (NavItem.query
+            .order_by(nullslast(NavItem.position.asc()), NavItem.id.asc())
+            .all())
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
+# Enum settings: field name -> (allowed values, default). One place documenting
+# every constrained setting; validated_choice() rejects anything off the
+# allowlist on save (e.g. an unknown registration_method would otherwise behave
+# like open registration in signup_form()).
+_ENUM_SETTINGS = {
+    'registration_method': ({'invite', 'domain', 'open'}, 'invite'),
+    'default_role': (set(VALID_ROLES), 'viewer'),
+    'site_visibility': ({'public', 'registered', 'admin'}, 'public'),
+    'subpage_display': ({'separate', 'nested', 'both'}, 'both'),
+    'site_theme': ({'default', 'forest', 'sepia', 'midnight', 'stone'}, 'default'),
+    'default_color_mode': ({'auto', 'light', 'dark'}, 'dark'),
+}
+
+
+def validated_choice(form, field):
+    """Return the submitted value for an enum setting when it's in the field's
+    allowlist, else the field's default."""
+    allowed, default = _ENUM_SETTINGS[field]
+    raw = form.get(field, default).strip()
+    return raw if raw in allowed else default
 
 
 @admin_bp.route('/settings/', methods=['GET', 'POST'])
 @admin_required
 def settings():
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if request.method == 'POST':
         site_settings.site_title = request.form.get('site_title', '').strip()
         site_settings.footer_text = request.form.get('footer_text', '').strip()
@@ -24,18 +55,11 @@ def settings():
 
         site_settings.multiuser_enabled = 'multiuser_enabled' in request.form
 
-        # Validate enums against their allowlists — an unrecognized
-        # registration_method silently behaves like open registration in
-        # signup_form(), so a typo'd/tampered value must not slip through.
-        raw_reg_method = request.form.get('registration_method', 'invite')
-        site_settings.registration_method = (
-            raw_reg_method if raw_reg_method in {'invite', 'domain', 'open'} else 'invite')
+        # Enums are validated against their allowlists (see _ENUM_SETTINGS).
+        site_settings.registration_method = validated_choice(request.form, 'registration_method')
         site_settings.registration_domain = request.form.get('registration_domain', '').strip()
-        raw_default_role = request.form.get('default_role', 'viewer')
-        site_settings.default_role = raw_default_role if raw_default_role in VALID_ROLES else 'viewer'
-        raw_visibility = request.form.get('site_visibility', 'public')
-        site_settings.site_visibility = (
-            raw_visibility if raw_visibility in {'public', 'registered', 'admin'} else 'public')
+        site_settings.default_role = validated_choice(request.form, 'default_role')
+        site_settings.site_visibility = validated_choice(request.form, 'site_visibility')
 
         site_settings.smtp_host = request.form.get('smtp_host', '').strip() or None
         port = request.form.get('smtp_port', '').strip()
@@ -54,19 +78,12 @@ def settings():
         site_settings.show_history = 'show_history' in request.form
         site_settings.alpha_jump_enabled = 'alpha_jump_enabled' in request.form
 
-        valid_subpage_display = {'separate', 'nested', 'both'}
-        raw_subpage_display = request.form.get('subpage_display', 'both')
-        site_settings.subpage_display = raw_subpage_display if raw_subpage_display in valid_subpage_display else 'both'
+        site_settings.subpage_display = validated_choice(request.form, 'subpage_display')
         site_settings.feeds_enabled = 'feeds_enabled' in request.form
         site_settings.site_icon = request.form.get('site_icon', '').strip()
 
-        valid_themes = {'default', 'forest', 'sepia', 'midnight', 'stone'}
-        raw_theme = request.form.get('site_theme', 'default').strip()
-        site_settings.site_theme = raw_theme if raw_theme in valid_themes else 'default'
-
-        valid_color_modes = {'auto', 'light', 'dark'}
-        raw_color_mode = request.form.get('default_color_mode', 'dark').strip()
-        site_settings.default_color_mode = raw_color_mode if raw_color_mode in valid_color_modes else 'dark'
+        site_settings.site_theme = validated_choice(request.form, 'site_theme')
+        site_settings.default_color_mode = validated_choice(request.form, 'default_color_mode')
 
         site_settings.digest_include_edits = 'digest_include_edits' in request.form
         day = request.form.get('digest_day', '0').strip()
@@ -90,8 +107,63 @@ def settings():
         {'id': 'stone',    'name': 'Stone',    'dark_bg': '#111110', 'surface_bg': '#1a1917', 'light_bg': '#f9f8f6', 'brand': '#b0a890'},
     ]
     from app.mail import smtp_env_configured
+    nav_items = _nav_items()
+    in_nav = {n.entry_id for n in nav_items}
+    # Any published card may be added to the nav; exclude those already in it.
+    nav_candidates = [e for e in Entry.query
+                      .filter(Entry.is_draft == False)  # noqa: E712
+                      .order_by(Entry.sort_title).all()
+                      if e.id not in in_nav]
     return render_template('admin/settings.html', settings=site_settings, icon_names=icon_names,
-                           themes=themes, smtp_env_configured=smtp_env_configured())
+                           themes=themes, smtp_env_configured=smtp_env_configured(),
+                           nav_items=nav_items, nav_candidates=nav_candidates)
+
+
+@admin_bp.route('/nav/add/', methods=['POST'])
+@admin_required
+def nav_add():
+    entry_id = request.form.get('entry_id', type=int)
+    entry = db.session.get(Entry, entry_id) if entry_id else None
+    if not entry:
+        flash('Card not found.', 'error')
+        return redirect(url_for('admin.settings'))
+    if NavItem.query.filter_by(entry_id=entry.id).first():
+        flash('That card is already in the navigation.', 'error')
+        return redirect(url_for('admin.settings'))
+    max_pos = db.session.query(func.max(NavItem.position)).scalar()
+    db.session.add(NavItem(entry_id=entry.id, position=(max_pos or 0) + 1))
+    db.session.commit()
+    flash('Added to navigation.', 'success')
+    return redirect(url_for('admin.settings'))
+
+
+@admin_bp.route('/nav/<int:nav_id>/remove/', methods=['POST'])
+@admin_required
+def nav_remove(nav_id):
+    item = db.session.get(NavItem, nav_id)
+    if item:
+        db.session.delete(item)
+        db.session.commit()
+        flash('Removed from navigation.', 'success')
+    return redirect(url_for('admin.settings'))
+
+
+@admin_bp.route('/nav/<int:nav_id>/move/', methods=['POST'])
+@admin_required
+def nav_move(nav_id):
+    direction = request.form.get('direction')
+    items = _nav_items()
+    # Normalize to contiguous 0..n-1 first (positions can be NULL after the
+    # page migration), then swap the target with its neighbor.
+    for i, it in enumerate(items):
+        it.position = i
+    idx = next((i for i, it in enumerate(items) if it.id == nav_id), None)
+    if idx is not None:
+        swap = idx - 1 if direction == 'up' else idx + 1 if direction == 'down' else None
+        if swap is not None and 0 <= swap < len(items):
+            items[idx].position, items[swap].position = items[swap].position, items[idx].position
+    db.session.commit()
+    return redirect(url_for('admin.settings'))
 
 
 @admin_bp.route('/settings/upload-image/', methods=['POST'])
@@ -102,15 +174,15 @@ def upload_site_image():
         flash('No file selected.', 'error')
         return redirect(url_for('admin.settings'))
 
-    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
-    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+    ext = validated_image_ext(f, ALLOWED_IMAGE_EXTENSIONS)
+    if not ext:
         flash('Only PNG, JPEG, and WebP images are allowed.', 'error')
         return redirect(url_for('admin.settings'))
 
     filename = f'site-image.{ext}'
     upload_dir = current_app.config['UPLOAD_DIR']
 
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if site_settings.site_image:
         old_path = os.path.join(upload_dir, site_settings.site_image)
         try:
@@ -128,7 +200,7 @@ def upload_site_image():
 @admin_bp.route('/settings/remove-image/', methods=['POST'])
 @admin_required
 def remove_site_image():
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if site_settings.site_image:
         path = os.path.join(current_app.config['UPLOAD_DIR'], site_settings.site_image)
         if os.path.exists(path):
@@ -142,7 +214,7 @@ def remove_site_image():
 @admin_bp.route('/integrations/', methods=['GET', 'POST'])
 @admin_required
 def integrations():
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if request.method == 'POST':
         site_settings.mailchimp_api_key = request.form.get('mailchimp_api_key', '').strip()
         site_settings.mailchimp_server_prefix = request.form.get('mailchimp_server_prefix', '').strip()

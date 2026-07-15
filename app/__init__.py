@@ -39,7 +39,6 @@ def create_app():
     from app.views.main import main_bp
     from app.views.admin import admin_bp
     from app.views import admin_entries  # noqa: F401 - registers routes on admin_bp
-    from app.views import admin_pages  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_users  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_settings  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_import_export  # noqa: F401 - registers routes on admin_bp
@@ -77,7 +76,7 @@ def create_app():
             return
         from flask_login import current_user
         from app.models import SiteSettings, site_requires_login, site_requires_admin
-        settings = db.session.get(SiteSettings, 1)
+        settings = SiteSettings.get()
         if not site_requires_login(settings):
             return
         requires_admin = site_requires_admin(settings)
@@ -108,14 +107,14 @@ def create_app():
         from app.search import create_fts_table
         create_fts_table()
         from app.models import SiteSettings
-        if not db.session.get(SiteSettings, 1):
+        if not SiteSettings.get():
             db.session.add(SiteSettings(id=1, site_title='Index Cards'))
             db.session.commit()
 
     @app.template_filter('timeago')
     def timeago_filter(dt):
         from markupsafe import Markup
-        from app.models import utcnow
+        from app.models import utcnow, iso_utc
         if dt is None:
             return ''
         now = utcnow()
@@ -143,18 +142,21 @@ def create_app():
         absolute = f'{dt.strftime("%B")} {dt.day}, {dt.year} at {hour}:{dt.strftime("%M")} {ampm}'
         # dt is naive UTC (the storage convention); mark the machine-readable
         # timestamp as UTC so browsers/readers don't treat it as local time.
-        iso = dt.isoformat() + 'Z'
+        iso = iso_utc(dt)
         return Markup(f'<time datetime="{iso}" title="{absolute}">{relative}</time>')
 
     @app.context_processor
     def inject_nav_pages():
-        from app.models import Page
+        from app.models import Entry, NavItem
         from sqlalchemy import nullslast
-        pages = (Page.query
-                 .filter_by(show_in_nav=True, is_draft=False)
-                 .order_by(nullslast(Page.nav_position.asc()))
-                 .all())
-        return dict(nav_pages=pages)
+        # Curated nav: NavItem slots joined to their cards, non-draft only (a
+        # draft in the nav simply doesn't show), ordered by position (nulls last).
+        nav_pages = (Entry.query
+                     .join(NavItem, NavItem.entry_id == Entry.id)
+                     .filter(Entry.is_draft == False)  # noqa: E712
+                     .order_by(nullslast(NavItem.position.asc()))
+                     .all())
+        return dict(nav_pages=nav_pages)
 
     @app.context_processor
     def inject_entry_url():
@@ -177,7 +179,7 @@ def create_app():
     def inject_site_settings():
         from app.models import SiteSettings
         from markupsafe import Markup as _Markup
-        settings = db.session.get(SiteSettings, 1)
+        settings = SiteSettings.get()
         icon_svg = ''
         if settings and settings.site_icon:
             from app.icons import get_icon_svg

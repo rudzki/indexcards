@@ -35,6 +35,16 @@ def create_fts_table():
         rebuild_fts()
 
 
+def _index_row(entry_id, title, body):
+    """Insert one row into the FTS index. Shared by update_fts_entry (single
+    row, delete-then-insert) and rebuild_fts (bulk). title/body are already
+    HTML-escaped by the callers via _fts_text."""
+    db.session.execute(db.text(
+        'INSERT INTO entry_fts(rowid, title, body) '
+        'VALUES (:id, :title, :body)'
+    ), {'id': entry_id, 'title': title, 'body': body})
+
+
 def update_fts_entry(entry, commit=True):
     body = _fts_text(strip_markdown(entry.body_markdown))
     title = _fts_text(entry.title)
@@ -42,10 +52,7 @@ def update_fts_entry(entry, commit=True):
     db.session.execute(db.text(
         'DELETE FROM entry_fts WHERE rowid = :id'
     ), {'id': entry.id})
-    db.session.execute(db.text(
-        'INSERT INTO entry_fts(rowid, title, body) '
-        'VALUES (:id, :title, :body)'
-    ), {'id': entry.id, 'title': title, 'body': body})
+    _index_row(entry.id, title, body)
     if commit:
         db.session.commit()
 
@@ -64,10 +71,7 @@ def rebuild_fts():
     for entry in Entry.query.all():
         body = _fts_text(strip_markdown(entry.body_markdown))
         title = _fts_text(entry.title)
-        db.session.execute(db.text(
-            'INSERT INTO entry_fts(rowid, title, body) '
-            'VALUES (:id, :title, :body)'
-        ), {'id': entry.id, 'title': title, 'body': body})
+        _index_row(entry.id, title, body)
     db.session.commit()
 
 

@@ -2,17 +2,18 @@ from flask import render_template, redirect, url_for, request, flash
 from flask_login import current_user
 
 from app import db
-from app.models import (User, Registration, SiteSettings, EditLog, Entry, AuditLog,
-                        Page, EditLock, log_audit)
+from app.models import (User, Registration, SiteSettings, DEFAULT_SITE_TITLE, EditLog,
+                        Entry, AuditLog, EditLock, log_audit)
 from app.mail import send_email, render_email
 from app.registration import VALID_ROLES, create_registration
 from app.views.admin import admin_bp, admin_required
+from app.views._helpers import apply_sort
 
 
 @admin_bp.route('/users/', methods=['GET', 'POST'])
 @admin_required
 def users():
-    site_settings = db.session.get(SiteSettings, 1)
+    site_settings = SiteSettings.get()
     if not site_settings or not site_settings.multiuser_enabled:
         return redirect(url_for('admin.settings'))
 
@@ -33,7 +34,7 @@ def users():
             log_audit('invite_sent', detail=email, user_id=current_user.id)
 
             signup_url = url_for('auth.signup_token', token=reg.token, _external=True)
-            site_title = site_settings.site_title or 'Index Cards'
+            site_title = site_settings.display_title if site_settings else DEFAULT_SITE_TITLE
             text, html = render_email('invite', site_title=site_title, signup_url=signup_url,
                                       invited_by=current_user.display_name)
             if send_email(to=email, subject=f'You\'ve been invited to {site_title}',
@@ -44,10 +45,11 @@ def users():
 
         return redirect(url_for('admin.users'))
 
-    sort = request.args.get('sort', 'joined')
-    order = request.args.get('order', 'desc')
-    sort_col = {'name': User.display_name, 'email': User.email, 'role': User.role, 'joined': User.created_at}.get(sort, User.created_at)
-    all_users = User.query.order_by(sort_col.asc() if order == 'asc' else sort_col.desc()).all()
+    q, sort, order = apply_sort(User.query, request, {
+        'name': User.display_name, 'email': User.email,
+        'role': User.role, 'joined': User.created_at,
+    }, 'joined')
+    all_users = q.all()
     pending = Registration.query.filter_by(accepted=False).order_by(Registration.created_at.desc()).all()
     admin_count = User.query.filter_by(role='admin').count()
     return render_template('admin/users.html', users=all_users, pending=pending,
@@ -97,9 +99,8 @@ def delete_user(user_id):
     Entry.query.filter_by(created_by=user.id).update({'created_by': None})
     Registration.query.filter_by(invited_by=user.id).update({'invited_by': None})
     AuditLog.query.filter_by(user_id=user.id).update({'user_id': None})
-    # These also reference user.id; leaving them would create rows pointing at a
+    # EditLock also references user.id; leaving it would create rows pointing at a
     # nonexistent user once FK enforcement (or a Postgres port) arrives.
-    Page.query.filter_by(created_by=user.id).update({'created_by': None})
     EditLock.query.filter_by(user_id=user.id).delete()
     db.session.delete(user)
     db.session.commit()
@@ -117,8 +118,8 @@ def resend_invite(reg_id):
         return redirect(url_for('admin.users'))
 
     signup_url = url_for('auth.signup_token', token=reg.token, _external=True)
-    site_settings = db.session.get(SiteSettings, 1)
-    site_title = (site_settings.site_title if site_settings else 'Index Cards') or 'Index Cards'
+    site_settings = SiteSettings.get()
+    site_title = site_settings.display_title if site_settings else DEFAULT_SITE_TITLE
     inviter = db.session.get(User, reg.invited_by) if reg.invited_by else None
     invited_by_name = inviter.display_name if inviter else site_title
     text, html = render_email('invite', site_title=site_title, signup_url=signup_url,
@@ -151,15 +152,10 @@ def subscribers():
 @admin_bp.route('/logs/')
 @admin_required
 def logs():
-    sort = request.args.get('sort', 'time')
-    order = request.args.get('order', 'desc')
-    q = AuditLog.query
-    if sort == 'action':
-        col = AuditLog.action
-    elif sort == 'user':
-        q = q.outerjoin(User, AuditLog.user_id == User.id)
-        col = User.email
-    else:
-        col = AuditLog.created_at
-    entries = q.order_by(col.asc() if order == 'asc' else col.desc()).limit(200).all()
+    q, sort, order = apply_sort(AuditLog.query, request, {
+        'time': AuditLog.created_at,
+        'action': AuditLog.action,
+        'user': (User.email, AuditLog.user),  # join User to sort by editor email
+    }, 'time')
+    entries = q.limit(200).all()
     return render_template('admin/logs.html', logs=entries, sort=sort, order=order)

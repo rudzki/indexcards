@@ -4,10 +4,11 @@ import secrets
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
-from app.models import Entry, Page, SiteSettings, make_slug, log_audit, entry_url, site_requires_login, site_requires_admin, set_published
+from app.models import Entry, SiteSettings, make_slug, log_audit, entry_url, iso_utc, site_requires_login, site_requires_admin, set_published
 from app.markdown import render_markdown
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
+from app.views._helpers import validated_image_ext
 from app import locks
 from app import db, limiter, csrf
 
@@ -18,7 +19,7 @@ def _check_visibility():
     """Return an error response when the caller may not view a private site:
     401 if login is required and the caller is anonymous, 403 if the site is
     admin-only and the caller is a non-admin."""
-    settings = db.session.get(SiteSettings, 1)
+    settings = SiteSettings.get()
     if not site_requires_login(settings):
         return None
     if not current_user.is_authenticated:
@@ -28,20 +29,13 @@ def _check_visibility():
     return None
 
 
-def _fmt(dt):
-    # Timestamps are naive UTC (storage convention); the literal Z marks it.
-    if not dt:
-        return None
-    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-
 def _entry_summary(entry):
     return {
         'slug': entry.slug,
         'title': entry.title,
         'summary': entry.summary or '',
-        'published_at': _fmt(entry.published_at),
-        'updated_at': _fmt(entry.updated_at),
+        'published_at': iso_utc(entry.published_at),
+        'updated_at': iso_utc(entry.updated_at),
         'url': entry_url(entry, external=True),
     }
 
@@ -66,7 +60,7 @@ def public_entries():
     per_page = min(request.args.get('per_page', 20, type=int), 100)
 
     q = (Entry.query
-         .filter_by(is_draft=False)
+         .filter_by(is_draft=False, is_listed=True)
          .order_by(Entry.sort_title))
 
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
@@ -88,7 +82,7 @@ def public_entry(slug):
     if denied:
         return denied
 
-    entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
+    entry = Entry.query.filter_by(slug=slug, is_draft=False, is_listed=True).first()
     if not entry:
         return jsonify({'error': 'Not found'}), 404
 
@@ -103,14 +97,16 @@ def search_entries():
     if err:
         return err
     q = request.args.get('q', '').strip().lower()
-    # Entries already nested under a parent can't themselves take a child
-    # (hierarchy is capped at two levels), so the "pick a parent" UI excludes them.
+    # The "pick a parent" UI excludes entries that can't take a child: ones
+    # already nested under a parent (hierarchy is capped at two levels) and
+    # unlisted cards (hierarchy stays tied to the index — listed cards only).
     for_parent = request.args.get('for_parent') == '1'
 
     if not q:
         entry_q = Entry.query.filter(Entry.is_draft == False)  # noqa: E712
         if for_parent:
-            entry_q = entry_q.filter(Entry.parent_id.is_(None))
+            entry_q = entry_q.filter(Entry.parent_id.is_(None),
+                                     Entry.is_listed == True)  # noqa: E712
         entries = entry_q.order_by(Entry.sort_title).limit(20).all()
         return jsonify([{
             'id': entry.id,
@@ -126,7 +122,8 @@ def search_entries():
         Entry.is_draft == False  # noqa: E712
     )
     if for_parent:
-        entry_q = entry_q.filter(Entry.parent_id.is_(None))
+        entry_q = entry_q.filter(Entry.parent_id.is_(None),
+                                 Entry.is_listed == True)  # noqa: E712
     entries = entry_q.limit(10).all()
 
     results = [{
@@ -157,17 +154,13 @@ def quick_create_entry():
     existing = Entry.query.filter_by(slug=slug).first()
     if existing:
         return jsonify({'id': existing.id, 'title': existing.title, 'slug': existing.slug})
-    # Entries and pages share the /<slug>/ namespace; an entry created over a
-    # page's slug would silently shadow it in the resolver, so reject the
-    # collision the same way save_entry() does.
-    if Page.query.filter_by(slug=slug).first():
-        return jsonify({'error': 'That title is already used by a page.'}), 400
 
     # Quick-create produces a published *stub*, not a hidden draft: the caller
     # (a [[wikilink]] or the parent picker) needs the new entry to be a real,
     # followable target immediately. is_stub drives the "still being written"
-    # banner on the page and the stub styling on links pointing at it. We don't
-    # fire integrations here — an empty placeholder isn't a "new entry" worth
+    # banner on the page and the stub styling on links pointing at it. It's
+    # listed by default (joins the stream once fleshed out). We don't fire
+    # integrations here — an empty placeholder isn't a "new entry" worth
     # announcing; that happens when it's fleshed out and saved from the editor.
     entry = Entry(slug=slug, title=title, is_stub=True, created_by=current_user.id)
     set_published(entry, True)
@@ -203,8 +196,8 @@ def upload_image():
     f = request.files.get('image')
     if not f or not f.filename:
         return jsonify({'error': 'No file provided'}), 400
-    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
-    if ext not in _ALLOWED_IMAGE_TYPES:
+    ext = validated_image_ext(f, _ALLOWED_IMAGE_TYPES)
+    if not ext:
         return jsonify({'error': 'Invalid file type'}), 400
     filename = secrets.token_hex(16) + '.' + ext
     f.save(os.path.join(current_app.config['UPLOAD_DIR'], filename))

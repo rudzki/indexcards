@@ -1,11 +1,14 @@
-"""P0 — the shared /<slug>/ namespace: collisions, reserved slugs, resolver."""
+"""P0 — the single /<slug>/ namespace: collisions, reserved slugs, resolver.
+
+Entry and Page merged into one card model, so slug uniqueness is now a single
+UNIQUE(slug) on `entry`; listed vs unlisted is just the is_listed flag.
+"""
 
 import unittest
 
 from tests.base import BaseTest
 
-from app import db
-from app.models import Entry, Page
+from app.models import Entry
 
 
 class SaveEntryCollisionTests(BaseTest):
@@ -14,12 +17,15 @@ class SaveEntryCollisionTests(BaseTest):
         self.admin = self._make_user('admin')
         self._login(self.admin)
 
-    def test_new_entry_rejected_on_page_slug(self):
+    def test_new_entry_rejected_on_unlisted_card_slug(self):
+        # An unlisted card ("page") owns slug foo; a new listed card can't take it.
         self._add_page('Foo', slug='foo')
         resp = self.client.post('/dashboard/entry/new/',
                                 data={'title': 'Foo', 'body_markdown': ''})
         self.assertEqual(resp.status_code, 200)  # re-rendered form, not a redirect
-        self.assertIsNone(Entry.query.filter_by(slug='foo').first())
+        cards = Entry.query.filter_by(slug='foo').all()
+        self.assertEqual(len(cards), 1)  # still just the original unlisted card
+        self.assertFalse(cards[0].is_listed)
 
     def test_new_entry_rejected_on_existing_entry_slug(self):
         self._add_entry('Foo', slug='foo')
@@ -32,38 +38,28 @@ class SaveEntryCollisionTests(BaseTest):
                          data={'title': 'Admin Page', 'slug': 'admin'})
         self.assertIsNone(Entry.query.filter_by(slug='admin').first())
 
+    def test_unlisted_card_created_via_editor(self):
+        # Leaving "Show in index & feeds" unchecked makes an unlisted card.
+        self.client.post('/dashboard/entry/new/',
+                         data={'title': 'About', 'body_markdown': 'hi'})
+        about = Entry.query.filter_by(slug='about').first()
+        self.assertIsNotNone(about)
+        self.assertFalse(about.is_listed)
 
-class SavePageCollisionTests(BaseTest):
-    def setUp(self):
-        super().setUp()
-        self.admin = self._make_user('admin')
-        self._login(self.admin)
+    def test_listed_card_created_via_editor(self):
+        self.client.post('/dashboard/entry/new/',
+                         data={'title': 'News', 'body_markdown': 'hi', 'is_listed': 'on'})
+        news = Entry.query.filter_by(slug='news').first()
+        self.assertIsNotNone(news)
+        self.assertTrue(news.is_listed)
 
-    def test_page_rejected_on_entry_slug(self):
-        self._add_entry('Foo', slug='foo')
-        resp = self.client.post('/dashboard/pages/new/',
-                                data={'title': 'Foo', 'body_markdown': ''})
+
+class ResolverTests(BaseTest):
+    def test_unlisted_card_reachable_by_url(self):
+        self._add_page('About', slug='about', body='about us')
+        resp = self.client.get('/about/')
         self.assertEqual(resp.status_code, 200)
-        self.assertIsNone(Page.query.filter_by(slug='foo').first())
-
-    def test_reserved_slug_rejected(self):
-        self.client.post('/dashboard/pages/new/',
-                         data={'title': 'API', 'slug': 'api'})
-        self.assertIsNone(Page.query.filter_by(slug='api').first())
-
-
-class ResolverPrecedenceTests(BaseTest):
-    def test_entry_wins_over_page_on_same_slug(self):
-        # The collision guards normally prevent this, but if both exist the
-        # resolver must deterministically prefer the entry.
-        self._add_entry('Entry Title', slug='dup', body='entry body')
-        page = Page(title='Page Title', slug='dup', body_html='<p>page body</p>')
-        page.update_sort_title()
-        db.session.add(page)
-        db.session.commit()
-        resp = self.client.get('/dup/')
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn(b'Entry Title', resp.data)
+        self.assertIn(b'About', resp.data)
 
     def test_child_flat_url_301s_to_nested(self):
         parent = self._add_entry('Parent', slug='parent')

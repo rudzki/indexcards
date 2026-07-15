@@ -13,7 +13,7 @@
     <form method="post" class="settings-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <fieldset>
-            <legend>General</legend>
+            <legend>Site identity</legend>
             <div class="field">
                 <label for="site_title">Site Title</label>
                 <input type="text" id="site_title" name="site_title" value="{{ settings.site_title }}">
@@ -105,6 +105,46 @@
                 <label for="footer_text">Footer Text</label>
                 <textarea id="footer_text" name="footer_text" rows="3">{{ settings.footer_text }}</textarea>
             </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Site navigation</legend>
+            <div class="field">
+                <label>Navigation menu</label>
+                <p class="field-hint mb-0">Curate the links in the site header. Any published entry can be added — listed or not — and reordered.</p>
+                {% if nav_items %}
+                <ul class="nav-manage-list">
+                    {% for item in nav_items %}
+                    <li>
+                        <span class="nav-manage-title">
+                            {{ item.entry.title }}
+                            {% if not item.entry.is_listed %}<span class="entry-stub-label">Unlisted</span>{% endif %}
+                        </span>
+                        <span class="nav-manage-actions">
+                            <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_move', nav_id=item.id) }}" name="direction" value="up" class="btn-small" title="Move up" aria-label="Move {{ item.entry.title }} up"{% if loop.first %} disabled{% endif %}>↑</button>
+                            <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_move', nav_id=item.id) }}" name="direction" value="down" class="btn-small" title="Move down" aria-label="Move {{ item.entry.title }} down"{% if loop.last %} disabled{% endif %}>↓</button>
+                            <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_remove', nav_id=item.id) }}" class="btn-small btn-danger" title="Remove" aria-label="Remove {{ item.entry.title }} from navigation">×</button>
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="field-hint">No navigation links yet.</p>
+                {% endif %}
+            </div>
+            {% if nav_candidates %}
+            <div class="field">
+                <label for="nav_entry_id" class="sr-only">Card to add to navigation</label>
+                <div class="nav-manage-add">
+                    <select name="entry_id" id="nav_entry_id" form="nav-action-form">
+                        {% for cand in nav_candidates %}
+                        <option value="{{ cand.id }}">{{ cand.title }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_add') }}" class="btn btn-xs">Add to navigation</button>
+                </div>
+            </div>
+            {% endif %}
         </fieldset>
 
         <fieldset>
@@ -340,50 +380,11 @@
         <button type="submit" class="btn btn-primary">Save Settings</button>
     </form>
 
-    <section class="settings-nav-manage">
-        <h2>Navigation menu</h2>
-        <p class="field-hint">Curate the links in the site header. Any published entry can be added — listed or not — and dragged into order.</p>
-        {% if nav_items %}
-        <ul class="nav-manage-list">
-            {% for item in nav_items %}
-            <li>
-                <span class="nav-manage-title">
-                    {{ item.entry.title }}
-                    {% if not item.entry.is_listed %}<span class="entry-stub-label">Unlisted</span>{% endif %}
-                </span>
-                <span class="nav-manage-actions">
-                    <form method="post" action="{{ url_for('admin.nav_move', nav_id=item.id) }}" class="inline-form">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" name="direction" value="up" class="btn-small" title="Move up" aria-label="Move {{ item.entry.title }} up"{% if loop.first %} disabled{% endif %}>↑</button>
-                        <button type="submit" name="direction" value="down" class="btn-small" title="Move down" aria-label="Move {{ item.entry.title }} down"{% if loop.last %} disabled{% endif %}>↓</button>
-                    </form>
-                    <form method="post" action="{{ url_for('admin.nav_remove', nav_id=item.id) }}" class="inline-form">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn-small btn-danger" title="Remove" aria-label="Remove {{ item.entry.title }} from navigation">×</button>
-                    </form>
-                </span>
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p class="field-hint">No navigation links yet.</p>
-        {% endif %}
-        {% if nav_candidates %}
-        <form method="post" action="{{ url_for('admin.nav_add') }}" class="nav-manage-add">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label for="nav_entry_id" class="sr-only">Entry to add to navigation</label>
-            <select name="entry_id" id="nav_entry_id">
-                {% for cand in nav_candidates %}
-                <option value="{{ cand.id }}">{{ cand.title }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-xs">Add to navigation</button>
-        </form>
-        {% endif %}
-    </section>
-
 </div>
 
+<form id="nav-action-form" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
 <form id="upload-site-image-form" method="post" action="{{ url_for('admin.upload_site_image') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 </form>

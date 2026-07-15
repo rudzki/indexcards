@@ -2,7 +2,7 @@
 {% if current_user.can_write %}
 <nav class="admin-nav" aria-label="Admin navigation">
     <div class="admin-nav-links" id="admin-nav-links">
-        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if ep in ('admin.dashboard', 'admin.new_entry', 'admin.edit_entry', 'admin.preview_entry', 'admin.bulk_entries') }}">Cards</a>
+        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if ep in ('admin.dashboard', 'admin.new_entry', 'admin.edit_entry', 'admin.preview_entry', 'admin.bulk_entries') }}">Entries</a>
         {% if current_user.is_admin %}
             {% if site_settings.multiuser_enabled %}<a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep in ('admin.users', 'admin.change_role', 'admin.delete_user', 'admin.resend_invite', 'admin.revoke_invite') }}">Users</a>{% endif %}
             <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if ep in ('admin.settings', 'admin.upload_site_image', 'admin.remove_site_image') }}">Settings</a>

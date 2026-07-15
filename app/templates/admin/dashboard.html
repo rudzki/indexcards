@@ -10,14 +10,14 @@
     <div class="admin-header">
         <div class="admin-title">
             {% include 'admin/_nav_toggle.html' %}
-            <h1>Cards</h1>
+            <h1>Entries</h1>
         </div>
-        <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs">New Card</a>
+        <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs">New Entry</a>
     </div>
 
     {% include 'admin/_nav.html' %}
 
-    <nav class="admin-subnav" aria-label="Filter cards">
+    <nav class="admin-subnav" aria-label="Filter entries">
         {% for key, label in [('all', 'All'), ('listed', 'Listed'), ('unlisted', 'Unlisted')] %}
         <a href="{{ url_for('admin.dashboard', listed=key, sort=sort, order=order) }}"
            class="{{ 'active' if listed == key }}">{{ label }}</a>
@@ -112,11 +112,11 @@
                 <li><a href="{{ url_for('admin.dashboard', page=pagination.next_num, sort=sort, order=order, listed=listed) }}" aria-label="Next page">&raquo;</a></li>
             {% endif %}
             </ul>
-            <span class="pagination-count">{{ pagination.total }} cards</span>
+            <span class="pagination-count">{{ pagination.total }} entries</span>
         </nav>
         {% endif %}
     {% else %}
-        <p>No cards yet. <a href="{{ url_for('admin.new_entry') }}">Create your first card.</a></p>
+        <p>No entries yet. <a href="{{ url_for('admin.new_entry') }}">Create your first entry.</a></p>
     {% endif %}
 </div>
 {% endblock %}

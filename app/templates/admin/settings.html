@@ -342,7 +342,7 @@
 
     <section class="settings-nav-manage">
         <h2>Navigation menu</h2>
-        <p class="field-hint">Curate the links in the site header. Any published card can be added — listed or not — and dragged into order.</p>
+        <p class="field-hint">Curate the links in the site header. Any published entry can be added — listed or not — and dragged into order.</p>
         {% if nav_items %}
         <ul class="nav-manage-list">
             {% for item in nav_items %}
@@ -371,7 +371,7 @@
         {% if nav_candidates %}
         <form method="post" action="{{ url_for('admin.nav_add') }}" class="nav-manage-add">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label for="nav_entry_id" class="sr-only">Card to add to navigation</label>
+            <label for="nav_entry_id" class="sr-only">Entry to add to navigation</label>
             <select name="entry_id" id="nav_entry_id">
                 {% for cand in nav_candidates %}
                 <option value="{{ cand.id }}">{{ cand.title }}</option>

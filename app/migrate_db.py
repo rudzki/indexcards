@@ -112,6 +112,9 @@ def _run_migrations():
     if has_table('site_settings') and not has_column('site_settings', 'brand_color'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN brand_color TEXT DEFAULT ''")
 
+    if has_table('site_settings') and not has_column('site_settings', 'announcement_banner'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN announcement_banner TEXT DEFAULT ''")
+
     if has_table('site_settings'):
         if not has_column('site_settings', 'mailchimp_api_key'):
             cursor.execute("ALTER TABLE site_settings ADD COLUMN mailchimp_api_key TEXT DEFAULT ''")

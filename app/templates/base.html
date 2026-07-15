@@ -81,6 +81,28 @@
         </div>
     </header>
 
+    {% if site_settings.announcement_banner %}
+    <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
+        <div class="banner" role="status">
+            <span aria-hidden="true">📣</span>
+            <div>{{ site_settings.announcement_banner }}</div>
+            <button type="button" class="close" aria-label="Dismiss announcement" id="site-announcement-close">×</button>
+        </div>
+    </div>
+    <script>
+    (function() {
+        var wrap = document.getElementById('site-announcement-wrap');
+        var msg = {{ site_settings.announcement_banner|tojson }};
+        try { if (localStorage.getItem('announcement-dismissed') === msg) return; } catch (e) {}
+        wrap.hidden = false;
+        document.getElementById('site-announcement-close').addEventListener('click', function() {
+            try { localStorage.setItem('announcement-dismissed', msg); } catch (e) {}
+            wrap.hidden = true;
+        });
+    })();
+    </script>
+    {% endif %}
+
     {% block banner %}{% endblock %}
     <main class="site-main">
         {% block content %}{% endblock %}

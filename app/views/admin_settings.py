@@ -49,6 +49,7 @@ def settings():
     if request.method == 'POST':
         site_settings.site_title = request.form.get('site_title', '').strip()
         site_settings.footer_text = request.form.get('footer_text', '').strip()
+        site_settings.announcement_banner = request.form.get('announcement_banner', '').strip()
 
         site_settings.search_enabled = 'search_enabled' in request.form
         site_settings.subscribe_enabled = 'subscribe_enabled' in request.form

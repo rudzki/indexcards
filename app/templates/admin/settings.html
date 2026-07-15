@@ -25,11 +25,11 @@
                     {% if settings.site_icon %}
                         <i class="bi bi-{{ settings.site_icon }}" id="icon-preview"></i>
                         <span id="icon-label">{{ settings.site_icon }}</span>
-                        <button type="button" class="btn-small" id="icon-clear">Clear</button>
+                        <button type="button" class="btn btn-xs" id="icon-clear">Clear</button>
                     {% else %}
                         <span id="icon-label" class="field-hint">None selected</span>
                     {% endif %}
-                    <button type="button" class="btn-small" id="icon-pick-btn">Choose icon…</button>
+                    <button type="button" class="btn btn-primary btn-xs" id="icon-pick-btn">Choose icon…</button>
                 </div>
                 <div class="icon-picker" id="icon-picker" style="display:none;">
                     <div class="icon-picker-header">
@@ -104,6 +104,11 @@
             <div class="field">
                 <label for="footer_text">Footer Text</label>
                 <textarea id="footer_text" name="footer_text" rows="3">{{ settings.footer_text }}</textarea>
+            </div>
+            <div class="field">
+                <label for="announcement_banner">Announcement Banner</label>
+                <textarea id="announcement_banner" name="announcement_banner" rows="2">{{ settings.announcement_banner }}</textarea>
+                <p class="field-hint field-hint-mt mb-0">Shows a dismissible site-wide banner above every page. Leave blank to hide it.</p>
             </div>
         </fieldset>
 

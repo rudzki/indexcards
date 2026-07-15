@@ -2254,12 +2254,20 @@ select {
 }
 
 .admin-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.5625rem 0.875rem;
   color: var(--ink-3);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   font-weight: 600;
   transition: color .12s;
+}
+
+.admin-nav a i {
+  font-size: 0.9375rem;
+  opacity: 0.85;
 }
 
 .admin-nav a:hover {
@@ -2879,6 +2887,41 @@ details.disclosure .inner {
 
 .invite-pending .admin-table tr:last-child td {
   border-bottom: none
+}
+
+/* ── Announcement banner (site-wide, see styleguide) ─────── */
+
+.site-banner-wrap {
+  max-width: var(--max-width);
+  margin: 1.5rem auto -1rem;
+  padding: 0 1.5rem;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  background: var(--purple-bg);
+  border: 1px solid color-mix(in srgb, var(--purple) 35%, transparent);
+  border-radius: 10px;
+  padding: .6rem 1rem;
+  font-size: 14px;
+}
+
+.banner .close {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  padding: 0 .15rem;
+  font: inherit;
+  line-height: 1;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.banner .close:hover {
+  color: var(--ink);
 }
 
 /* ── Preview / stub banners ──────────────────────────────── */

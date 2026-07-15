@@ -320,6 +320,7 @@ class SiteSettings(db.Model):
     search_enabled = db.Column(db.Boolean, default=True)
     subscribe_enabled = db.Column(db.Boolean, default=True)
     footer_text = db.Column(db.Text, default='')
+    announcement_banner = db.Column(db.Text, default='')
     multiuser_enabled = db.Column(db.Boolean, default=False)
     registration_method = db.Column(db.Text, default='invite')
     registration_domain = db.Column(db.Text, default='')

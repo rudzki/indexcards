@@ -14,17 +14,42 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
+        settings = db.session.get(SiteSettings, 1)
+        site_title = (settings.site_title if settings else None) or 'Index Cards'
         user = User.query.filter_by(email=email).first()
         if user:
             token = user.generate_login_token()
             db.session.commit()
 
             login_url = url_for('auth.verify_login', token=token, _external=True)
-            settings = db.session.get(SiteSettings, 1)
-            site_title = (settings.site_title if settings else None) or 'Index Cards'
             text, html = render_email('login', site_title=site_title, login_url=login_url)
             send_email(to=email, subject='Your login link', body_text=text, body_html=html)
-        flash('If that email is registered, a login link has been sent. Check your inbox.', 'success')
+        elif (settings and settings.multiuser_enabled
+                and settings.registration_method == 'domain'):
+            # No account yet, but domain-based registration is open. If the
+            # email is in the allowed domain, start the signup flow (emailed
+            # token) so a legitimate user isn't stranded at the login box.
+            # We never create a User here — typing an address only sends a
+            # signup link; the account is created when that link is clicked.
+            allowed_domain = (settings.registration_domain or '').strip().lower()
+            if allowed_domain and email.endswith(f'@{allowed_domain}'):
+                existing_reg = Registration.query.filter_by(
+                    email=email, accepted=False).first()
+                if not (existing_reg and not existing_reg.is_expired):
+                    reg = create_registration(email, invited_by=None)
+                    db.session.commit()
+                    log_audit('user_registered', detail=email)
+
+                    signup_url = url_for(
+                        'auth.signup_token', token=reg.token, _external=True)
+                    text, html = render_email(
+                        'signup', site_title=site_title, signup_url=signup_url)
+                    send_email(to=email, subject='Complete your signup',
+                               body_text=text, body_html=html)
+        # Uniform response whether we sent a login link, a signup link, or
+        # nothing — so the login box can't be used to enumerate accounts.
+        flash('If that email is registered or eligible to join, a link has '
+              'been sent. Check your inbox.', 'success')
         return render_template('login.html', sent=True)
     return render_template('login.html', sent=False)
 

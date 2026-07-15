@@ -52,6 +52,45 @@ class LoginFlowTests(BaseTest):
         self.assertIn(b'If that email is registered', resp.data)
         self.assertIsNotNone(db.session.get(User, user.id).login_token)
 
+    def test_domain_login_unknown_email_starts_signup(self):
+        # Domain registration open: an unknown but in-domain email typed at the
+        # login box gets funneled into the signup flow (emailed token), and no
+        # User is created just from submitting the form.
+        self._set_setting(multiuser_enabled=True, registration_method='domain',
+                          registration_domain='example.com')
+        with mock.patch('app.views.auth.send_email', return_value=True) as sent:
+            resp = self.client.post('/login', data={'email': 'new@example.com'})
+        self.assertIn(b'If that email is registered', resp.data)
+        self.assertEqual(Registration.query.filter_by(email='new@example.com').count(), 1)
+        self.assertEqual(User.query.count(), 0)
+        self.assertEqual(sent.call_args.kwargs['subject'], 'Complete your signup')
+
+    def test_domain_login_wrong_domain_no_registration(self):
+        self._set_setting(multiuser_enabled=True, registration_method='domain',
+                          registration_domain='example.com')
+        with mock.patch('app.views.auth.send_email', return_value=True) as sent:
+            resp = self.client.post('/login', data={'email': 'someone@other.com'})
+        self.assertIn(b'If that email is registered', resp.data)
+        self.assertEqual(Registration.query.count(), 0)
+        sent.assert_not_called()
+
+    def test_invite_method_login_unknown_email_no_registration(self):
+        # Default (invite-only) registration: the login box must not auto-start
+        # a signup for an unknown email.
+        self._set_setting(multiuser_enabled=True, registration_method='invite')
+        with mock.patch('app.views.auth.send_email', return_value=True) as sent:
+            self.client.post('/login', data={'email': 'new@example.com'})
+        self.assertEqual(Registration.query.count(), 0)
+        sent.assert_not_called()
+
+    def test_domain_login_does_not_duplicate_pending_registration(self):
+        self._set_setting(multiuser_enabled=True, registration_method='domain',
+                          registration_domain='example.com')
+        with mock.patch('app.views.auth.send_email', return_value=True):
+            self.client.post('/login', data={'email': 'new@example.com'})
+            self.client.post('/login', data={'email': 'new@example.com'})
+        self.assertEqual(Registration.query.filter_by(email='new@example.com').count(), 1)
+
     def test_valid_token_logs_in_and_is_single_use(self):
         user = self._make_user('author', email='u@example.com')
         with self._acting_as(user):

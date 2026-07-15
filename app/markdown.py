@@ -117,6 +117,25 @@ def render_markdown(text):
     return html
 
 
+INLINE_ALLOWED_TAGS = ['strong', 'em', 'del', 'a', 'code', 'br', 'abbr', 'q', 'cite']
+INLINE_ALLOWED_ATTRS = {'a': ['href', 'title', 'class'], 'abbr': ['title']}
+
+
+def render_inline_markdown(text):
+    """Render a short one-off string (footer text, announcement banner) with
+    inline markdown only — bold, italic, links, code, strikethrough — with no
+    block wrappers. Paragraph breaks collapse to <br> so the result drops into
+    a single element."""
+    if not text:
+        return ''
+    md = _new_markdown()
+    html = md(text.strip())
+    # Collapse mistune's block wrappers: paragraph breaks become line breaks.
+    html = re.sub(r'</p>\s*<p>', '<br>', html)
+    html = re.sub(r'</?p>', '', html).strip()
+    return bleach.clean(html, tags=INLINE_ALLOWED_TAGS, attributes=INLINE_ALLOWED_ATTRS)
+
+
 def extract_internal_links(markdown_text):
     if not markdown_text:
         return set()

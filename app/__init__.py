@@ -111,6 +111,12 @@ def create_app():
             db.session.add(SiteSettings(id=1, site_title='Index Cards'))
             db.session.commit()
 
+    @app.template_filter('inline_markdown')
+    def inline_markdown_filter(text):
+        from markupsafe import Markup
+        from app.markdown import render_inline_markdown
+        return Markup(render_inline_markdown(text))
+
     @app.template_filter('timeago')
     def timeago_filter(dt):
         from markupsafe import Markup

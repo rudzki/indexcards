@@ -2901,8 +2901,8 @@ details.disclosure .inner {
   display: flex;
   align-items: center;
   gap: .7rem;
-  background: var(--purple-bg);
-  border: 1px solid color-mix(in srgb, var(--purple) 35%, transparent);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: .6rem 1rem;
   font-size: 14px;

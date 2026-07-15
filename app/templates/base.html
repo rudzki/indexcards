@@ -85,7 +85,7 @@
     <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
         <div class="banner" role="status">
             <span aria-hidden="true">📣</span>
-            <div>{{ site_settings.announcement_banner }}</div>
+            <div>{{ site_settings.announcement_banner|inline_markdown }}</div>
             <button type="button" class="close" aria-label="Dismiss announcement" id="site-announcement-close">×</button>
         </div>
     </div>
@@ -124,7 +124,7 @@
                 </div>
                 {% endif %}
                 {% if site_settings.footer_text %}
-                    <p class="footer-text{% if show_subscribe %} footer-text-below-subscribe{% endif %}">{{ site_settings.footer_text }}</p>
+                    <p class="footer-text{% if show_subscribe %} footer-text-below-subscribe{% endif %}">{{ site_settings.footer_text|inline_markdown }}</p>
                 {% endif %}
             </div>
             {% endif %}

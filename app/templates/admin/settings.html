@@ -256,6 +256,15 @@
         <details class="disclosure">
             <summary>Email configuration</summary>
             <div class="inner">
+            {% if smtp_env_configured %}
+            <div class="callout callout-info">
+                <span class="ic">i</span>
+                <div>
+                    <b>SMTP is configured in the environment (.env)</b>
+                    <p>Those values override the fields below, which are ignored while set. Remove the <code>SMTP_*</code> variables from <code>.env</code> to use these settings instead.</p>
+                </div>
+            </div>
+            {% endif %}
             <p class="field-hint">Leave blank to print emails to the console instead of sending.</p>
             <div class="field-row">
                 <div class="field">

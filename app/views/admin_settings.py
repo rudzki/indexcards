@@ -89,7 +89,9 @@ def settings():
         {'id': 'midnight', 'name': 'Midnight', 'dark_bg': '#080c16', 'surface_bg': '#0e1424', 'light_bg': '#f0f4ff', 'brand': '#6b8fff'},
         {'id': 'stone',    'name': 'Stone',    'dark_bg': '#111110', 'surface_bg': '#1a1917', 'light_bg': '#f9f8f6', 'brand': '#b0a890'},
     ]
-    return render_template('admin/settings.html', settings=site_settings, icon_names=icon_names, themes=themes)
+    from app.mail import smtp_env_configured
+    return render_template('admin/settings.html', settings=site_settings, icon_names=icon_names,
+                           themes=themes, smtp_env_configured=smtp_env_configured())
 
 
 @admin_bp.route('/settings/upload-image/', methods=['POST'])

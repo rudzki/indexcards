@@ -149,6 +149,32 @@ class SendEmailTests(BaseTest):
         finally:
             self.app.debug = False
 
+    def test_env_config_overrides_site_settings(self):
+        # Site Settings point at one host; env config must win.
+        self._set_setting(smtp_host='db.example.com', smtp_port=25,
+                          smtp_from_address='db@example.com', smtp_use_tls=False)
+        overrides = dict(SMTP_HOST='env.example.com', SMTP_PORT=2525,
+                         SMTP_USERNAME='envuser', SMTP_PASSWORD='envpass',
+                         SMTP_USE_TLS=True, SMTP_FROM_ADDRESS='env@example.com')
+        with mock.patch.dict(self.app.config, overrides), \
+                mock.patch('app.mail.smtplib.SMTP') as smtp_cls:
+            server = smtp_cls.return_value
+            self.assertTrue(send_email('x@y.com', 'Subj', 'body'))
+            smtp_cls.assert_called_once_with('env.example.com', 2525)
+            server.starttls.assert_called_once()
+            server.login.assert_called_once_with('envuser', 'envpass')
+            args = server.sendmail.call_args[0]
+            self.assertEqual(args[0], 'env@example.com')
+
+    def test_env_host_used_even_when_site_settings_blank(self):
+        overrides = dict(SMTP_HOST='env.example.com', SMTP_PORT=None,
+                         SMTP_USERNAME=None, SMTP_PASSWORD=None,
+                         SMTP_USE_TLS=True, SMTP_FROM_ADDRESS='env@example.com')
+        with mock.patch.dict(self.app.config, overrides), \
+                mock.patch('app.mail.smtplib.SMTP') as smtp_cls:
+            self.assertTrue(send_email('x@y.com', 'Subj', 'body'))
+            smtp_cls.assert_called_once_with('env.example.com', 587)  # default port
+
 
 class DigestCliTests(BaseTest):
     def _run(self, *args):

@@ -81,11 +81,6 @@
         </div>
     </header>
 
-    {# The draft-preview bar stays full-bleed against the header chrome; the
-       stub callout below sits inset in the content flow (see block banner).
-       The site announcement is the full-bleed system bar. #}
-    {% block banner %}{% endblock %}
-
     {% if site_settings.announcement_banner %}
     <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
         <div class="banner" role="status">
@@ -106,7 +101,7 @@
     })();
     </script>
     {% endif %}
-
+    {% block banner %}{% endblock %}
     <main class="site-main">
         {% block content %}{% endblock %}
     </main>

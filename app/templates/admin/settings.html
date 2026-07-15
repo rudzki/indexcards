@@ -141,7 +141,7 @@
                         <option value="{{ cand.id }}">{{ cand.title }}</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_add') }}" class="btn btn-xs">Add to navigation</button>
+                    <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_add') }}" class="btn">Add to navigation</button>
                 </div>
             </div>
             {% endif %}

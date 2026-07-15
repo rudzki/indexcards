@@ -2901,7 +2901,7 @@ details.disclosure .inner {
   display: flex;
   align-items: center;
   gap: .7rem;
-  background: var(--surface-2);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: .6rem 1rem;

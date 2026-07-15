@@ -81,6 +81,10 @@
         </div>
     </header>
 
+    {# Full-bleed system bars (draft preview / stub) stay flush against the
+       header chrome; the announcement callout below sits in the content flow. #}
+    {% block banner %}{% endblock %}
+
     {% if site_settings.announcement_banner %}
     <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
         <div class="banner" role="status">
@@ -103,7 +107,6 @@
     </script>
     {% endif %}
 
-    {% block banner %}{% endblock %}
     <main class="site-main">
         {% block content %}{% endblock %}
     </main>

@@ -19,9 +19,6 @@
         {% endif %}
     </div>
 
-    {# On a failed save the page is re-rendered from a POST; repopulate every
-       field from the submitted form so the user's typed content survives the
-       round-trip instead of being reset to the (possibly empty) entry. #}
     {% set posted = request.method == 'POST' %}
     <form method="post" class="editor-form" data-entry-id="{{ entry.id if entry else 'new' }}"
           {% if lock_type and lock_id %}data-lock-type="{{ lock_type }}" data-lock-id="{{ lock_id }}"{% endif %}>

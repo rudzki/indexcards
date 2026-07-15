@@ -81,14 +81,14 @@
         </div>
     </header>
 
-    {# Full-bleed system bars (draft preview / stub) stay flush against the
-       header chrome; the announcement callout below sits in the content flow. #}
+    {# The draft-preview bar stays full-bleed against the header chrome; the
+       stub callout below sits inset in the content flow (see block banner).
+       The site announcement is the full-bleed system bar. #}
     {% block banner %}{% endblock %}
 
     {% if site_settings.announcement_banner %}
     <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
         <div class="banner" role="status">
-            <span aria-hidden="true">📣</span>
             <div>{{ site_settings.announcement_banner|inline_markdown }}</div>
             <button type="button" class="close" aria-label="Dismiss announcement" id="site-announcement-close">×</button>
         </div>

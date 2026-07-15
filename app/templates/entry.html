@@ -8,17 +8,21 @@
 
 {% block banner %}
 {% if is_preview %}
-<div class="preview-banner">
-    <span>Draft preview</span>
-    <form method="post" action="{{ url_for('admin.publish_entry', entry_id=entry.id) }}" class="inline-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn btn-primary btn-small">Publish</button>
-    </form>
+<div class="inset-banner-wrap">
+    <div class="preview-banner">
+        <span>Draft preview</span>
+        <form method="post" action="{{ url_for('admin.publish_entry', entry_id=entry.id) }}" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-small">Publish</button>
+        </form>
+    </div>
 </div>
 {% endif %}
 {% if entry.is_stub %}
-<div class="stub-banner">
-    <span>This entry is a stub and still being written.</span>
+<div class="inset-banner-wrap">
+    <div class="stub-banner">
+        <span>This entry is a stub and still being written.</span>
+    </div>
 </div>
 {% endif %}
 {% endblock %}

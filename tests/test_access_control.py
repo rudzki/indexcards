@@ -26,10 +26,10 @@ class CanModifyMatrixTests(BaseTest):
         for e in (self.by_admin, self.by_author, self.orphan):
             self.assertTrue(self.admin.can_modify(e))
 
-    def test_editor_all_except_admin_authored(self):
-        self.assertFalse(self.editor.can_modify(self.by_admin))
-        self.assertTrue(self.editor.can_modify(self.by_author))
-        self.assertTrue(self.editor.can_modify(self.orphan))
+    def test_editor_modifies_everything(self):
+        # Editors are trusted with all content, including admin-authored.
+        for e in (self.by_admin, self.by_author, self.orphan):
+            self.assertTrue(self.editor.can_modify(e))
 
     def test_author_own_only(self):
         self.assertTrue(self.author.can_modify(self.by_author))
@@ -54,10 +54,27 @@ class RouteGuardTests(BaseTest):
         editor = self._make_user('editor')
         self._login(editor)
         self.assertEqual(self.client.get('/dashboard/settings/').status_code, 403)
-        self.assertEqual(
-            self.client.post('/dashboard/entries/bulk/',
-                             data={'bulk_action': 'delete'}).status_code, 403)
         self.assertEqual(self.client.get('/dashboard/export/json/').status_code, 403)
+
+    def test_editor_can_bulk_delete_admin_content(self):
+        admin = self._make_user('admin')
+        editor = self._make_user('editor')
+        entry = self._add_entry('Admin card', created_by=admin.id)
+        self._login(editor)
+        self.client.post('/dashboard/entries/bulk/',
+                         data={'entry_ids': [entry.id], 'bulk_action': 'delete'})
+        self.assertIsNone(db.session.get(Entry, entry.id))
+
+    def test_author_bulk_delete_only_affects_own(self):
+        author = self._make_user('author')
+        other = self._make_user('author')
+        mine = self._add_entry('Mine', slug='mine', created_by=author.id)
+        theirs = self._add_entry('Theirs', slug='theirs', created_by=other.id)
+        self._login(author)
+        self.client.post('/dashboard/entries/bulk/',
+                         data={'entry_ids': [mine.id, theirs.id], 'bulk_action': 'delete'})
+        self.assertIsNone(db.session.get(Entry, mine.id))
+        self.assertIsNotNone(db.session.get(Entry, theirs.id))
 
     def test_non_editor_blocked_from_page_routes(self):
         author = self._make_user('author')

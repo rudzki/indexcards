@@ -7,7 +7,7 @@ from app.models import Entry, EditLog, log_audit, entry_url, set_published
 from app.search import delete_fts_entry
 from app.locks import acquire_lock, active_locks
 from app.entries import save_entry
-from app.views.admin import admin_bp, admin_required, writer_required
+from app.views.admin import admin_bp, writer_required
 
 
 def build_revisions(items):
@@ -137,8 +137,11 @@ def preview_entry(entry_id):
 
 
 @admin_bp.route('/entries/bulk/', methods=['POST'])
-@admin_required
+@writer_required
 def bulk_entries():
+    # Any writer may run bulk actions; the per-entry can_modify checks below
+    # scope each action to what the caller is actually allowed to touch, so an
+    # author only affects their own entries while editors/admins affect all.
     entry_ids = request.form.getlist('entry_ids', type=int)
     action = request.form.get('bulk_action', '')
 

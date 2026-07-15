@@ -5,7 +5,7 @@ from app import db
 from app.models import Page, log_audit, set_published
 from app.locks import acquire_lock, active_locks
 from app.pages import save_page
-from app.views.admin import admin_bp, admin_required, editor_required
+from app.views.admin import admin_bp, editor_required
 
 
 @admin_bp.route('/pages/')
@@ -38,7 +38,7 @@ def edit_page(page_id):
 
 
 @admin_bp.route('/pages/<int:page_id>/delete/', methods=['POST'])
-@admin_required
+@editor_required
 def delete_page(page_id):
     page = db.get_or_404(Page, page_id)
     page_title = page.title

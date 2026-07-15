@@ -199,7 +199,9 @@ class User(UserMixin, db.Model):
         if self.role == 'admin':
             return True
         if self.role == 'editor':
-            return not entry.author or entry.author.role != 'admin'
+            # Editors are trusted with all content, including entries and pages
+            # authored by an admin — they can edit and delete anything.
+            return True
         if self.role == 'author':
             return entry.created_by == self.id
         return False

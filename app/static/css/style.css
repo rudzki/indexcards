@@ -3005,6 +3005,13 @@ details.disclosure .inner {
   color: var(--ink);
 }
 
+.banner-inner {
+  width: 100%;
+  max-width: var(--max-width);
+  display: flex;
+  justify-content: space-between;
+}
+
 /* ── Stub banner (inset callout in the content flow) ── */
 
 .inset-banner-wrap {

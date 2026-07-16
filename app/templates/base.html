@@ -84,8 +84,10 @@
     {% if site_settings.announcement_banner and viewer_can_see_site %}
     <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
         <div class="banner" role="status">
-            <div>{{ site_settings.announcement_banner|inline_markdown }}</div>
-            <button type="button" class="close" aria-label="Dismiss announcement" id="site-announcement-close">×</button>
+            <div class="banner-inner">
+                <div>{{ site_settings.announcement_banner|inline_markdown }}</div>
+                <button type="button" class="close" aria-label="Dismiss announcement" id="site-announcement-close">×</button>
+            </div>
         </div>
     </div>
     <script>

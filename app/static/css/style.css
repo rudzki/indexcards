@@ -2180,6 +2180,15 @@ select.select-xs {
   gap: 0.75rem
 }
 
+.editor-actions-left label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400;
+  color: var(--ink);
+  cursor: pointer;
+}
+
 /* ── Toolbar separator ───────────────────────────────────── */
 
 .toolbar-sep {

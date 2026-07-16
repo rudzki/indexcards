@@ -84,29 +84,22 @@
             {% endif %}
             <div class="editor-actions">
                 <div class="editor-actions-left">
-
                     <button type="submit" class="btn btn-primary">Save</button>
                     {% set draft_checked = ('is_draft' in request.form) if posted else (entry and entry.is_draft) %}
                     {% set stub_checked = ('is_stub' in request.form) if posted else (entry and entry.is_stub) %}
                     {% set listed_checked = ('is_listed' in request.form) if posted else (entry.is_listed if entry else True) %}
-                    <div class="field field-inline">
-                        <label>
-                            <input type="checkbox" name="is_draft" {% if draft_checked %}checked{% endif %}>
-                            Draft
-                        </label>
-                    </div>
-                    <div class="field field-inline">
-                        <label>
-                            <input type="checkbox" name="is_stub" {% if stub_checked %}checked{% endif %}>
-                            Stub
-                        </label>
-                    </div>
-                    <div class="field field-inline">
-                        <label>
-                            <input type="checkbox" name="is_listed" {% if listed_checked %}checked{% endif %}>
-                            Show in index and feeds
-                        </label>
-                    </div>
+                    <label>
+                        <input type="checkbox" name="is_draft" {% if draft_checked %}checked{% endif %}>
+                        Draft
+                    </label>
+                    <label>
+                        <input type="checkbox" name="is_stub" {% if stub_checked %}checked{% endif %}>
+                        Stub
+                    </label>
+                    <label>
+                        <input type="checkbox" name="is_listed" {% if listed_checked %}checked{% endif %}>
+                        Show in index and feeds
+                    </label>
                 </div>
                 {% if entry and current_user.can_modify(entry) %}
                     <button type="submit" form="delete-entry-form" class="btn-small btn-danger" title="Delete entry"

@@ -1915,10 +1915,7 @@ select.select-xs {
 }
 
 .editor-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 1rem;
   font-family: var(--mono);
   font-size: 11px;
   text-transform: uppercase;

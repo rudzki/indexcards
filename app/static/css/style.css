@@ -768,12 +768,12 @@ a.site-title:hover {
 }
 
 .badge-draft {
-  background: var(--surface-2);
-  color: var(--ink-2)
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
 .badge-draft .dot {
-  background: var(--ink-3)
+  background: var(--warn);
 }
 
 .badge-review {
@@ -3040,6 +3040,12 @@ details.disclosure .inner {
 .color-palette .swatch-custom .swatch-dot {
   color: #fff;
   font-size: 0.75rem;
+}
+
+/* The native color input is driven via JS; keep it out of the click stack
+   so the radio stays the selectable control (matching the other swatches). */
+.color-palette .swatch-custom input[type="color"] {
+  pointer-events: none;
 }
 
 .invite-pending {

@@ -102,8 +102,8 @@
                     {% endfor %}
                     <label class="swatch swatch-custom" title="Custom color">
                         <input type="radio" name="color" value="#6b7785" id="group-color-custom-radio">
-                        <input type="color" value="#6b7785" id="group-color-custom-input" aria-label="Custom badge color">
                         <span class="swatch-dot" aria-hidden="true"><i class="bi bi-eyedropper"></i></span>
+                        <input type="color" value="#6b7785" id="group-color-custom-input" aria-label="Custom badge color" tabindex="-1">
                     </label>
                 </div>
             </div>
@@ -123,7 +123,19 @@
                 radio.checked = true;
                 swatch.style.setProperty('--swatch', input.value);
             }
+            // Clicking the swatch selects it and opens the native color picker.
+            swatch.addEventListener('click', function (e) {
+                radio.checked = true;
+                if (e.target !== input) {
+                    if (typeof input.showPicker === 'function') {
+                        input.showPicker();
+                    } else {
+                        input.click();
+                    }
+                }
+            });
             input.addEventListener('input', sync);
+            input.addEventListener('change', sync);
         })();
     </script>
 

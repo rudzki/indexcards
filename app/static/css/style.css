@@ -337,7 +337,6 @@ a.site-title:hover {
 }
 
 .site-nav .sep {
-  margin: 0 0.35em;
   color: var(--ink-3);
 }
 
@@ -3437,6 +3436,10 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     margin-left: calc(50% - 50vw);
     width: 100vw;
     border-top: 1px solid var(--line);
+  }
+
+  .site-nav .sep {
+    display: none;
   }
 
   .site-search {

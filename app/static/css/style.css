@@ -1914,6 +1914,34 @@ select.select-xs {
   margin-bottom: 1.25rem;
 }
 
+.editor-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--ink-3);
+}
+
+.editor-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ink-3);
+}
+
+.editor-breadcrumb a:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.editor-breadcrumb-sep {
+  color: var(--line);
+}
+
 .editor-heading-row {
   display: flex;
   align-items: baseline;
@@ -1947,7 +1975,6 @@ select.select-xs {
 .editor-author {
   font-size: 0.8125rem;
   color: var(--ink-3);
-  margin-left: auto
 }
 
 .editor-form {

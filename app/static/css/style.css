@@ -782,8 +782,13 @@ a.site-title:hover {
    dot (.badge::before) inherits currentColor, so it picks up the group color. */
 .badge-group {
   background: color-mix(in srgb, var(--group-color, #6b7785) 16%, var(--surface-2));
-  color: var(--group-color, #6b7785);
-  border: 1px solid color-mix(in srgb, var(--group-color, #6b7785) 32%, transparent);
+  background: var(--group-color, #6b7785);
+  color: color-mix(in srgb, var(--group-color, #6b7785) 20%, #fff);
+  border: 1px solid color-mix(in srgb, var(--group-color, #6b7785) 20%, #fff);
+}
+
+.badge.badge-group::before {
+  display: none;
 }
 
 .badge-review .dot {

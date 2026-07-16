@@ -7,8 +7,6 @@
     <div class="editor-heading">
         <nav class="editor-breadcrumb" aria-label="Breadcrumb">
             <a href="{{ url_for('admin.dashboard') }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> Entries</a>
-            <span class="editor-breadcrumb-sep" aria-hidden="true">/</span>
-            <span aria-current="page">{% if entry %}Edit{% else %}New{% endif %}</span>
         </nav>
         <div class="editor-heading-row">
         <h1>{% if entry %}Edit Entry{% else %}New Entry{% endif %}</h1>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
 
 {% block title %}Users — {{ site_settings.site_title }}{% endblock %}
 
@@ -20,6 +21,7 @@
                     <th class="col-primary"><a href="{{ sort_url('email') }}" class="sort-link">Email{{ sort_ind('email') }}</a></th>
                     <th><a href="{{ sort_url('name') }}" class="sort-link">Name{{ sort_ind('name') }}</a></th>
                     <th><a href="{{ sort_url('role') }}" class="sort-link">Role{{ sort_ind('role') }}</a></th>
+                    {% if groups_enabled %}<th>Groups</th>{% endif %}
                     <th>Digest?</th>
                     <th><a href="{{ sort_url('joined') }}" class="sort-link">Joined{{ sort_ind('joined') }}</a></th>
                     <th class="admin-actions">Actions</th>
@@ -44,6 +46,12 @@
                             </form>
                         {% endif %}
                     </td>
+                    {% if groups_enabled %}
+                    <td>
+                        {% for group in user.groups %}{{ macros.group_badge(group) }} {% endfor %}
+                        {% if not user.groups %}<span class="listed-mark listed-mark-off">—</span>{% endif %}
+                    </td>
+                    {% endif %}
                     <td>{% if user.subscribed %}✓{% endif %}</td>
                     <td class="col-nowrap">{{ user.created_at|timeago }}</td>
                     <td class="admin-actions">

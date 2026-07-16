@@ -2008,9 +2008,23 @@ select.select-xs {
   min-width: 0;
 }
 
-.slug-field-row .editor-view-link {
+.slug-view-link {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.75rem;
+  border-left: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 0.8125rem;
   white-space: nowrap;
   flex-shrink: 0;
+  transition: color .12s, background .12s;
+}
+
+.slug-view-link:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+  text-decoration: none;
 }
 
 .slug-input-wrapper {

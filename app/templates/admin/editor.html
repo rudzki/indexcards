@@ -41,10 +41,10 @@
                                placeholder="entry-title"
                                spellcheck="false">
                         <button type="button" class="slug-copy-btn" id="slug-copy-btn" title="Copy URL"><i class="bi bi-clipboard"></i></button>
+                        {% if entry and not entry.is_draft %}
+                        <a href="{{ entry_url(entry) }}" class="slug-view-link" target="_blank" title="View entry"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
+                        {% endif %}
                     </div>
-                    {% if entry and not entry.is_draft %}
-                    <a href="{{ entry_url(entry) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
-                    {% endif %}
                 </div>
             </div>
             <div class="field">

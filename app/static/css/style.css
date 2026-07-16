@@ -2974,6 +2974,11 @@ details.disclosure .inner {
   align-items: flex-end
 }
 
+/* Add-member form sits inside the Members fieldset, below the roster table */
+fieldset > .invite-form {
+  margin-top: 1.25rem;
+}
+
 /* Create-group form: vertical rhythm between fields */
 .create-group-form {
   display: flex;

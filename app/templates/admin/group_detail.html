@@ -15,10 +15,10 @@
         <a href="{{ url_for('admin.groups') }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> All groups</a>
     </nav>
 
-    <div class="invite-section">
-        <form method="post" action="{{ url_for('admin.group_edit', group_id=group.id) }}" class="settings-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <h2>Group details</h2>
+    <form method="post" action="{{ url_for('admin.group_edit', group_id=group.id) }}" class="settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <fieldset>
+            <legend>Group details</legend>
             <div class="field">
                 <label for="group-name">Name</label>
                 <input type="text" id="group-name" name="name" value="{{ group.name }}" required>
@@ -28,22 +28,71 @@
                 <input type="text" id="group-desc" name="description" value="{{ group.description }}"
                        placeholder="Shown on the public Groups page">
             </div>
-            <div class="field field-small">
-                <label for="group-color">Badge color</label>
-                <input type="color" id="group-color" name="color" value="{{ group.color or '#6b7785' }}">
+            <div class="field">
+                <label>Badge color</label>
+                {% set group_palette = ['#6b7785', '#35618c', '#2f7d6b', '#4b7a3f', '#8a6d2f', '#a1503e', '#7a4f8c', '#9c4670'] %}
+                {% set current_color = group.color or '#6b7785' %}
+                {% set is_custom = current_color|lower not in group_palette %}
+                <div class="color-palette">
+                    {% for c in group_palette %}
+                    <label class="swatch" style="--swatch: {{ c }}">
+                        <input type="radio" name="color" value="{{ c }}"{% if current_color|lower == c %} checked{% endif %}>
+                        <span class="swatch-dot" aria-hidden="true"></span>
+                    </label>
+                    {% endfor %}
+                    <label class="swatch swatch-custom" title="Custom color" style="--swatch: {{ current_color if is_custom else '#6b7785' }}">
+                        <input type="radio" name="color" value="{{ current_color if is_custom else '#6b7785' }}" id="group-color-custom-radio"{% if is_custom %} checked{% endif %}>
+                        <span class="swatch-dot" aria-hidden="true"><i class="bi bi-eyedropper"></i></span>
+                        <input type="color" value="{{ current_color if is_custom else '#6b7785' }}" id="group-color-custom-input" aria-label="Custom badge color" tabindex="-1">
+                    </label>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Save</button>
-        </form>
-    </div>
+        </fieldset>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+    <script>
+        (function () {
+            var input = document.getElementById('group-color-custom-input');
+            var radio = document.getElementById('group-color-custom-radio');
+            if (!input || !radio) return;
+            var swatch = radio.closest('.swatch');
+            function sync() {
+                radio.value = input.value;
+                radio.checked = true;
+                swatch.style.setProperty('--swatch', input.value);
+            }
+            // Clicking the swatch selects it and opens the native color picker.
+            swatch.addEventListener('click', function (e) {
+                radio.checked = true;
+                if (e.target !== input) {
+                    if (typeof input.showPicker === 'function') {
+                        input.showPicker();
+                    } else {
+                        input.click();
+                    }
+                }
+            });
+            input.addEventListener('input', sync);
+            input.addEventListener('change', sync);
+        })();
+    </script>
 
-    <div class="invite-section">
-        <h2>Members</h2>
+    <fieldset>
+        <legend>Members</legend>
         {% if group.members %}
         <table class="admin-table">
+            <thead>
+                <tr>
+                    <th class="col-primary">Email</th>
+                    <th>Name</th>
+                    <th class="admin-actions">Actions</th>
+                </tr>
+            </thead>
             <tbody>
                 {% for user in group.members %}
                 <tr>
-                    <td class="col-primary">{{ user.display_name }} <span class="field-hint">{{ user.email }}</span></td>
+                    <td class="col-primary col-mono">{{ user.email }}</td>
+                    <td>{{ user.display_name }}</td>
                     <td class="admin-actions">
                         <div class="admin-actions-wrap">
                             <form method="post" action="{{ url_for('admin.group_remove_member', group_id=group.id, user_id=user.id) }}" class="inline-form">
@@ -76,6 +125,6 @@
             </div>
         </form>
         {% endif %}
-    </div>
+    </fieldset>
 </div>
 {% endblock %}

@@ -334,7 +334,11 @@ a.site-title:hover {
 
 .site-nav a.active {
   color: var(--ink);
+}
 
+.site-nav .sep {
+  margin: 0 0.35em;
+  color: var(--ink-3);
 }
 
 .nav-toggle {

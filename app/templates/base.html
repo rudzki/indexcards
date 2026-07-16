@@ -59,6 +59,13 @@
                 <i class="bi bi-list"></i>
             </button>
             <nav class="site-nav" id="site-nav" aria-label="Main navigation">
+
+                {% for p in nav_pages %}
+                <a href="{{ entry_url(p) }}" class="{{ 'active' if request.endpoint in ('main.entry_page', 'main.child_entry_page') and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
+                {% endfor %}
+
+                {% if nav_pages %} <span class="sep">/</span> {% endif %}
+
                 {% if current_user.is_authenticated %}
                     {% if current_user.can_write %}
                         <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.blueprint == 'admin' }}">Dashboard</a>
@@ -74,9 +81,7 @@
                     <a href="{{ url_for('auth.signup_form') }}">Register</a>
                 {% endif %}
 
-                {% for p in nav_pages %}
-                <a href="{{ entry_url(p) }}" class="{{ 'active' if request.endpoint in ('main.entry_page', 'main.child_entry_page') and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
-                {% endfor %}
+
             </nav>
             {% if site_settings.search_enabled %}
             <form class="site-search" action="{{ url_for('main.search') }}" method="get" role="search">

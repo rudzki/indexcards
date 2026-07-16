@@ -139,14 +139,14 @@
             </div>
             {% if nav_candidates %}
             <div class="field">
-                <label for="nav_entry_id" class="sr-only">Card to add to navigation</label>
+                <label for="nav_entry_id" class="sr-only">Add to navigation</label>
                 <div class="nav-manage-add">
-                    <select name="entry_id" id="nav_entry_id" form="nav-action-form">
+                    <select name="entry_id" id="nav_entry_id" form="nav-action-form" class="select-xs">
                         {% for cand in nav_candidates %}
                         <option value="{{ cand.id }}">{{ cand.title }}</option>
                         {% endfor %}
                     </select>
-                    <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_add') }}" class="btn">Add to navigation</button>
+                    <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_add') }}" class="btn btn-xs">Add</button>
                 </div>
             </div>
             {% endif %}

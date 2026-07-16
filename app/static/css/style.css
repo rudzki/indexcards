@@ -955,6 +955,11 @@ select {
   cursor: pointer;
 }
 
+select.select-xs {
+  padding: 6px 11px;
+  font-size: 12.5px;
+}
+
 [data-theme="light"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5560'/%3E%3C/svg%3E");
 }
@@ -2582,22 +2587,28 @@ details.disclosure .inner {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
   font-size: 0.9375rem;
   color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
 .nav-manage-actions {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .nav-manage-add {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.nav-manage-add select {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Integrations ────────────────────────────────────────── */
@@ -2723,7 +2734,7 @@ details.disclosure .inner {
 .icon-picker-current {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
   margin-top: 0.25rem
 }
 
@@ -2808,10 +2819,6 @@ details.disclosure .inner {
 
 #icon-label {
   display: none
-}
-
-#icon-pick-btn {
-  padding: 0.2rem 0
 }
 
 /* ── Error pages ─────────────────────────────────────────── */

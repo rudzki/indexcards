@@ -79,23 +79,53 @@
     {% endif %}
 
     <div class="invite-section">
-        <form method="post" class="invite-form">
+        <form method="post" class="invite-form create-group-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <h2>Create a group</h2>
-            <div class="field-row">
-                <div class="field">
-                    <input type="text" name="name" placeholder="Group name" required>
-                </div>
-                <div class="field field-small">
-                    <input type="color" name="color" value="#6b7785" title="Badge color" aria-label="Badge color">
-                </div>
-                <button type="submit" class="btn btn-primary">Create</button>
+            <div class="field">
+                <label for="group-name">Name</label>
+                <input type="text" id="group-name" name="name" placeholder="Group name" required>
             </div>
             <div class="field">
-                <input type="text" name="description" placeholder="Description (shown on the public Groups page)">
+                <label for="group-description">Description</label>
+                <input type="text" id="group-description" name="description" placeholder="Shown on the public Groups page">
+            </div>
+            <div class="field">
+                <label>Badge color</label>
+                {% set group_palette = ['#6b7785', '#35618c', '#2f7d6b', '#4b7a3f', '#8a6d2f', '#a1503e', '#7a4f8c', '#9c4670'] %}
+                <div class="color-palette">
+                    {% for c in group_palette %}
+                    <label class="swatch" style="--swatch: {{ c }}">
+                        <input type="radio" name="color" value="{{ c }}"{% if loop.first %} checked{% endif %}>
+                        <span class="swatch-dot" aria-hidden="true"></span>
+                    </label>
+                    {% endfor %}
+                    <label class="swatch swatch-custom" title="Custom color">
+                        <input type="radio" name="color" value="#6b7785" id="group-color-custom-radio">
+                        <input type="color" value="#6b7785" id="group-color-custom-input" aria-label="Custom badge color">
+                        <span class="swatch-dot" aria-hidden="true"><i class="bi bi-eyedropper"></i></span>
+                    </label>
+                </div>
+            </div>
+            <div class="field-actions">
+                <button type="submit" class="btn btn-primary">Create group</button>
             </div>
         </form>
     </div>
+    <script>
+        (function () {
+            var input = document.getElementById('group-color-custom-input');
+            var radio = document.getElementById('group-color-custom-radio');
+            if (!input || !radio) return;
+            var swatch = radio.closest('.swatch');
+            function sync() {
+                radio.value = input.value;
+                radio.checked = true;
+                swatch.style.setProperty('--swatch', input.value);
+            }
+            input.addEventListener('input', sync);
+        })();
+    </script>
 
     <div class="invite-section">
         <h2>Site-wide group access</h2>
@@ -133,7 +163,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="btn btn-secondary">Grant</button>
+                <button type="submit" class="btn btn-primary">Grant</button>
             </div>
         </form>
         {% endif %}

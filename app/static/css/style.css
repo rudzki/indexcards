@@ -784,10 +784,9 @@ a.site-title:hover {
 /* Per-group badge: tinted from the group's own --group-color, set inline. The
    dot (.badge::before) inherits currentColor, so it picks up the group color. */
 .badge-group {
-  background: color-mix(in srgb, var(--group-color, #6b7785) 16%, var(--surface-2));
   background: var(--group-color, #6b7785);
-  color: color-mix(in srgb, var(--group-color, #6b7785) 20%, #fff);
-  border: 1px solid color-mix(in srgb, var(--group-color, #6b7785) 20%, #fff);
+  color: color-mix(in srgb, var(--group-color, #6b7785) 12%, #fff);
+  border: none;
 }
 
 .index-entry .badge-group {
@@ -2973,6 +2972,74 @@ details.disclosure .inner {
 
 .invite-form .field-row {
   align-items: flex-end
+}
+
+/* Create-group form: vertical rhythm between fields */
+.create-group-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.create-group-form h2 {
+  margin: 0;
+}
+
+.create-group-form .field-actions {
+  margin-top: 0.25rem;
+}
+
+/* Preset badge-color palette */
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.color-palette .swatch {
+  position: relative;
+  width: 1.75rem;
+  height: 1.75rem;
+  cursor: pointer;
+}
+
+.color-palette .swatch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.color-palette .swatch-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--swatch, #6b7785);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.color-palette .swatch:hover .swatch-dot {
+  transform: scale(1.1);
+}
+
+/* Selected ring, drawn in the surface color so it reads on any theme */
+.color-palette .swatch input:checked ~ .swatch-dot {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--swatch, #6b7785);
+}
+
+.color-palette .swatch input:focus-visible ~ .swatch-dot {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--info);
+}
+
+/* Custom-color swatch: eyedropper hint over the chosen color */
+.color-palette .swatch-custom .swatch-dot {
+  color: #fff;
+  font-size: 0.75rem;
 }
 
 .invite-pending {

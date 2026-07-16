@@ -5,17 +5,21 @@
 {% block content %}
 <div class="editor-page">
     <div class="editor-heading">
+        <div class="editor-heading-row">
         <h1>{% if entry %}Edit Entry{% else %}New Entry{% endif %}</h1>
         {% if entry %}
             {% if not entry.is_draft %}
                 <a href="{{ entry_url(entry) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
             {% endif %}
             <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
+            <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs editor-new-btn">New Entry</a>
+        {% endif %}
+        </div>
+        <div class="editor-heading-row">
             {% if site_settings.show_authors and entry.author %}
                 <span class="editor-author">by {{ entry.author.display_name }}</span>
             {% endif %}
-            <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs editor-new-btn">New Entry</a>
-        {% endif %}
+        </div>
     </div>
 
     {% set posted = request.method == 'POST' %}

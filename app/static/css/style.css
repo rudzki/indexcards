@@ -778,6 +778,14 @@ a.site-title:hover {
   color: var(--warn)
 }
 
+/* Per-group badge: tinted from the group's own --group-color, set inline. The
+   dot (.badge::before) inherits currentColor, so it picks up the group color. */
+.badge-group {
+  background: color-mix(in srgb, var(--group-color, #6b7785) 16%, var(--surface-2));
+  color: var(--group-color, #6b7785);
+  border: 1px solid color-mix(in srgb, var(--group-color, #6b7785) 32%, transparent);
+}
+
 .badge-review .dot {
   background: var(--warn)
 }
@@ -2458,6 +2466,14 @@ select.select-xs {
   margin-left: 0.35rem;
 }
 
+.listed-mark {
+  color: var(--ink);
+}
+
+.listed-mark-off {
+  color: var(--ink-3);
+}
+
 .col-nowrap {
   white-space: nowrap
 }
@@ -3896,4 +3912,75 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   content: '/';
   margin: 0 0.35em;
   color: var(--ink-3);
+}
+
+/* ---- Groups ---- */
+.entry-groups-badges {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.editor-groups {
+  margin-bottom: 1rem;
+}
+
+.editor-groups-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.editor-group-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.groups-page {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.groups-intro {
+  color: var(--ink-2);
+  margin-bottom: 1.5rem;
+}
+
+.groups-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.group-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 8px);
+  padding: 1rem 1.15rem;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.group-card-desc {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.group-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.group-status-member {
+  color: var(--ok);
 }

@@ -6,11 +6,13 @@ from datetime import datetime
 import os
 
 from flask import Blueprint, render_template, redirect, request, flash, url_for, abort, jsonify, Response, send_file, make_response, current_app
-from flask_login import current_user, login_user
+from flask_login import current_user, login_user, login_required
 from markupsafe import Markup, escape
 
 from app import db, limiter
-from app.models import Entry, User, SiteSettings, DEFAULT_SITE_TITLE, EditLog, entry_url, utcnow
+from app.models import (Entry, User, SiteSettings, DEFAULT_SITE_TITLE, EditLog, entry_url, utcnow,
+                        accessible_entries_filter, user_can_read_entry,
+                        Group, GroupJoinRequest, groups_feature_enabled, log_audit)
 from app.markdown import mark_missing_links, extract_toc, INTERNAL_LINK_RE
 from app.entries import entry_backlinks, last_editor_of
 from app.search import search_entries
@@ -24,6 +26,7 @@ main_bp = Blueprint('main', __name__)
 def index():
     entries = (Entry.query
                .filter_by(is_draft=False, is_listed=True)
+               .filter(accessible_entries_filter(current_user))
                .order_by(Entry.sort_title)
                .all())
 
@@ -68,6 +71,10 @@ def index():
 def entry_page(slug):
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if entry:
+        # 404 (not 403) for a grouped entry the viewer can't read, so its
+        # existence never leaks.
+        if not user_can_read_entry(current_user, entry):
+            abort(404)
         if entry.parent_id:
             return redirect(entry_url(entry), code=301)
         return _render_entry_page(entry)
@@ -83,6 +90,8 @@ def child_entry_page(parent_slug, slug):
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if not entry or not entry.parent_id:
         abort(404)
+    if not user_can_read_entry(current_user, entry):
+        abort(404)
     # A child whose parent was deleted (orphaned parent_id) has no canonical
     # nested URL — fall back to its flat page instead of crashing on parent.slug.
     if not entry.parent or entry.parent.slug != parent_slug:
@@ -97,14 +106,15 @@ def _render_entry_page(entry):
         # 404s for readers, so it should render as missing, not as a live link.
         rows = (Entry.query.with_entities(Entry.slug, Entry.is_stub)
                 .filter(Entry.slug.in_(linked_slugs),
-                        Entry.is_draft == False).all())  # noqa: E712
+                        Entry.is_draft == False)  # noqa: E712
+                .filter(accessible_entries_filter(current_user)).all())
         existing_slugs = {r[0] for r in rows}
         stub_slugs = {r[0] for r in rows if r[1]}
     else:
         existing_slugs = set()
         stub_slugs = set()
     body_html = mark_missing_links(entry.body_html, existing_slugs, stub_slugs)
-    backlinks = entry_backlinks(entry)
+    backlinks = entry_backlinks(entry, user=current_user)
     toc = extract_toc(body_html)
     last_editor = last_editor_of(entry)
 
@@ -116,6 +126,7 @@ def _render_entry_page(entry):
     if entry.is_listed:
         prev_entry = (Entry.query
                       .filter(Entry.is_draft == False, Entry.is_listed == True,  # noqa: E712
+                              accessible_entries_filter(current_user),
                               db.or_(Entry.sort_title < entry.sort_title,
                                      db.and_(Entry.sort_title == entry.sort_title,
                                              Entry.id < entry.id)))
@@ -123,6 +134,7 @@ def _render_entry_page(entry):
                       .first())
         next_entry = (Entry.query
                       .filter(Entry.is_draft == False, Entry.is_listed == True,  # noqa: E712
+                              accessible_entries_filter(current_user),
                               db.or_(Entry.sort_title > entry.sort_title,
                                      db.and_(Entry.sort_title == entry.sort_title,
                                              Entry.id > entry.id)))
@@ -137,12 +149,16 @@ def _render_entry_page(entry):
         p = db.session.get(Entry, cursor.parent_id)
         if not p or p.id in {a.id for a in ancestors}:
             break
+        # Don't surface a gated ancestor in the breadcrumb to a non-member.
+        if not user_can_read_entry(current_user, p):
+            break
         ancestors.append(p)
         cursor = p
     ancestors.reverse()
 
     children = (Entry.query
                 .filter_by(parent_id=entry.id, is_draft=False)
+                .filter(accessible_entries_filter(current_user))
                 .order_by(Entry.sort_title)
                 .all())
 
@@ -159,7 +175,10 @@ def _build_activity_events(since=None, show_history=True):
     vs "edited"."""
     events = []
 
-    entry_q = Entry.query.filter_by(is_draft=False, is_listed=True)
+    # Filtered by group access: the heatmap exposes entry titles/URLs on the
+    # public homepage, so a gated entry must not leak through it.
+    entry_q = (Entry.query.filter_by(is_draft=False, is_listed=True)
+               .filter(accessible_entries_filter(current_user)))
     if since:
         entry_q = entry_q.filter(Entry.published_at >= since)
     entries = entry_q.all()
@@ -248,7 +267,7 @@ def search():
             entries = Entry.query.filter(
                 Entry.id.in_(entry_ids),
                 Entry.is_draft == False  # noqa: E712
-            ).all()
+            ).filter(accessible_entries_filter(current_user)).all()
             entry_map = {e.id: e for e in entries}
             results = [
                 {'entry': entry_map[eid], 'excerpt': Markup(excerpts.get(eid, ''))}
@@ -282,10 +301,68 @@ def search():
 @main_bp.route('/random')
 def random_entry():
     from sqlalchemy.sql.expression import func
-    entry = Entry.query.filter_by(is_draft=False, is_listed=True).order_by(func.random()).first()
+    entry = (Entry.query.filter_by(is_draft=False, is_listed=True)
+             .filter(accessible_entries_filter(current_user))
+             .order_by(func.random()).first())
     if entry:
         return redirect(entry_url(entry))
     return redirect(url_for('main.index'))
+
+
+@main_bp.route('/groups')
+def groups_page():
+    """Public discovery page: every group, its description, and a state-aware
+    join button. Gated by the feature flag (404 when off) but NOT in the request
+    gate's allowlist, so it inherits site visibility automatically."""
+    settings = SiteSettings.get()
+    if not groups_feature_enabled(settings):
+        abort(404)
+    all_groups = Group.query.order_by(Group.name).all()
+
+    member_ids = set()
+    pending_ids = set()
+    has_all_access = False
+    if current_user.is_authenticated:
+        has_all_access = current_user.is_admin or current_user.all_groups
+        member_ids = {g.id for g in current_user.groups}
+        pending_ids = {r.group_id for r in GroupJoinRequest.query.filter_by(
+            user_id=current_user.id, status='pending').all()}
+
+    items = []
+    for g in all_groups:
+        if has_all_access or g.id in member_ids:
+            state = 'member'
+        elif not current_user.is_authenticated:
+            state = 'anonymous'
+        elif g.id in pending_ids:
+            state = 'pending'
+        else:
+            state = 'can_request'
+        items.append({'group': g, 'state': state})
+    return render_template('groups.html', items=items)
+
+
+@main_bp.route('/groups/<int:group_id>/request', methods=['POST'])
+@login_required
+def request_group(group_id):
+    settings = SiteSettings.get()
+    if not groups_feature_enabled(settings):
+        abort(404)
+    group = db.session.get(Group, group_id)
+    if not group:
+        abort(404)
+    # No-op (with friendly message) for cases where a request makes no sense.
+    if current_user.is_admin or current_user.all_groups or group in current_user.groups:
+        flash('You already have access to this group.', 'info')
+    elif GroupJoinRequest.query.filter_by(
+            user_id=current_user.id, group_id=group.id, status='pending').first():
+        flash('Your request to join is already pending.', 'info')
+    else:
+        db.session.add(GroupJoinRequest(user_id=current_user.id, group_id=group.id))
+        db.session.commit()
+        log_audit('group_join_requested', detail=group.name, user_id=current_user.id)
+        flash(f'Request to join "{group.name}" sent.', 'success')
+    return redirect(url_for('main.groups_page'))
 
 
 @main_bp.route('/healthz')

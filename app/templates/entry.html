@@ -30,6 +30,9 @@
     </nav>
     <header class="entry-header">
         <h1 class="entry-title p-name">{{ entry.title }}</h1>
+        {% if groups_enabled and entry.groups %}
+            <div class="entry-groups-badges">{{ macros.group_badges(entry) }}</div>
+        {% endif %}
     </header>
 
     {% if toc is defined and toc|length > 2 %}

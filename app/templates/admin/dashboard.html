@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
 
 {% block title %}Admin — {{ site_settings.site_title }}{% endblock %}
 
@@ -34,6 +35,7 @@
                         <th class="col-title col-primary" aria-sort="{{ 'ascending' if sort == 'title' and order == 'asc' else 'descending' if sort == 'title' and order == 'desc' else 'none' }}"><a href="{{ sort_url('title') }}" class="sort-link">Title{{ sort_indicator('title') }}</a></th>
                         <th class="col-status" aria-sort="{{ 'ascending' if sort == 'status' and order == 'asc' else 'descending' if sort == 'status' and order == 'desc' else 'none' }}"><a href="{{ sort_url('status') }}" class="sort-link">Status{{ sort_indicator('status') }}</a></th>
                         <th class="col-status">Listed</th>
+                        {% if groups_enabled %}<th class="col-status">Groups</th>{% endif %}
                         <th class="col-updated" aria-sort="{{ 'ascending' if sort == 'updated' and order == 'asc' else 'descending' if sort == 'updated' and order == 'desc' else 'none' }}"><a href="{{ sort_url('updated') }}" class="sort-link">Updated{{ sort_indicator('updated') }}</a></th>
                         <th class="admin-actions">Actions</th>
                     </tr>
@@ -57,7 +59,8 @@
                             {% endif %}
                         </td>
                         <td class="col-status">{% if entry.is_draft %}<span class="badge badge-draft">Draft</span>{% else %}<span class="badge badge-published">Published</span>{% endif %}</td>
-                        <td class="col-status">{% if entry.is_listed %}<span class="badge badge-published">Listed</span>{% else %}<span class="entry-stub-label">Unlisted</span>{% endif %}</td>
+                        <td class="col-status">{% if entry.is_listed %}<span class="listed-mark" title="Listed" aria-label="Listed">✓</span>{% else %}<span class="listed-mark listed-mark-off" title="Unlisted" aria-label="Unlisted">—</span>{% endif %}</td>
+                        {% if groups_enabled %}<td class="col-status">{% if entry.groups %}{{ macros.group_badges(entry) }}{% else %}<span class="listed-mark listed-mark-off">—</span>{% endif %}</td>{% endif %}
                         <td class="col-updated col-nowrap">{{ entry.updated_at|timeago }}</td>
                         <td class="admin-actions">
                             <div class="admin-actions-wrap">

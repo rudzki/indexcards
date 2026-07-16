@@ -14,6 +14,26 @@
     toggle.addEventListener('change', update);
 })();
 
+// Warn before turning groups off (or multi-user off, which forces groups off)
+// while entries are restricted to groups — doing so re-exposes them under normal
+// visibility rules.
+(function() {
+    var groups = document.getElementById('groups_enabled');
+    var multiuser = document.getElementById('multiuser_enabled');
+    var form = groups && groups.closest('form');
+    if (!groups || !form) return;
+    var wasEnabled = groups.checked;
+    var count = parseInt(groups.getAttribute('data-grouped-count'), 10) || 0;
+    form.addEventListener('submit', function(e) {
+        var nowEnabled = groups.checked && (!multiuser || multiuser.checked);
+        if (wasEnabled && !nowEnabled && count > 0) {
+            var msg = count + ' ' + (count === 1 ? 'entry is' : 'entries are')
+                + ' restricted to groups and will become visible under normal rules. Continue?';
+            if (!window.confirm(msg)) e.preventDefault();
+        }
+    });
+})();
+
 (function() {
     var dataEl = document.getElementById('icon-names-data');
     if (!dataEl) return;

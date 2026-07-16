@@ -3,7 +3,8 @@ from flask_login import login_required, current_user
 from markupsafe import Markup
 
 from app import db
-from app.models import Entry, EditLog, NavItem, log_audit, entry_url, set_published
+from app.models import (Entry, EditLog, NavItem, log_audit, entry_url, set_published,
+                        assignable_groups, accessible_entries_filter)
 from app.search import delete_fts_entry
 from app.locks import acquire_lock, active_locks
 from app.entries import save_content
@@ -39,6 +40,9 @@ def dashboard():
     else:
         q = Entry.query.filter_by(created_by=current_user.id)
 
+    # Hide grouped entries the viewer can't read (admins bypass via the filter).
+    q = q.filter(accessible_entries_filter(current_user))
+
     if listed == 'listed':
         q = q.filter(Entry.is_listed == True)  # noqa: E712
     elif listed == 'unlisted':
@@ -61,7 +65,9 @@ def new_entry():
     if request.method == 'POST':
         return save_content(None)
     prefill_title = request.args.get('title', '').replace('-', ' ').strip().title()
-    return render_template('admin/editor.html', entry=None, prefill_title=prefill_title)
+    return render_template('admin/editor.html', entry=None, prefill_title=prefill_title,
+                           assignable_groups=assignable_groups(current_user),
+                           entry_group_ids=set())
 
 
 @admin_bp.route('/entry/<int:entry_id>/edit/', methods=['GET', 'POST'])
@@ -76,7 +82,9 @@ def edit_entry(entry_id):
     if blocker:
         flash(f'"{entry.title}" is currently being edited by {blocker}.', 'warning')
         return redirect(url_for('admin.dashboard'))
-    return render_template('admin/editor.html', entry=entry, lock_type='entry', lock_id=entry_id)
+    return render_template('admin/editor.html', entry=entry, lock_type='entry', lock_id=entry_id,
+                           assignable_groups=assignable_groups(current_user),
+                           entry_group_ids={g.id for g in entry.groups})
 
 
 @admin_bp.route('/entry/<int:entry_id>/delete/', methods=['POST'])

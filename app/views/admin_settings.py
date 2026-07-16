@@ -6,7 +6,7 @@ from flask import render_template, redirect, url_for, request, flash, current_ap
 from sqlalchemy import func, nullslast
 
 from app import db
-from app.models import SiteSettings, Entry, NavItem
+from app.models import SiteSettings, Entry, NavItem, entry_groups
 from app.registration import VALID_ROLES
 from app.views.admin import admin_bp, admin_required
 from app.views._helpers import validated_image_ext
@@ -55,6 +55,10 @@ def settings():
         site_settings.subscribe_enabled = 'subscribe_enabled' in request.form
 
         site_settings.multiuser_enabled = 'multiuser_enabled' in request.form
+        # Groups depend on multi-user; force off if multi-user is off so the two
+        # can't drift out of sync from a hand-posted form.
+        site_settings.groups_enabled = (
+            'groups_enabled' in request.form and site_settings.multiuser_enabled)
 
         # Enums are validated against their allowlists (see _ENUM_SETTINGS).
         site_settings.registration_method = validated_choice(request.form, 'registration_method')
@@ -115,9 +119,13 @@ def settings():
                       .filter(Entry.is_draft == False)  # noqa: E712
                       .order_by(Entry.sort_title).all()
                       if e.id not in in_nav]
+    # How many entries are currently restricted to a group — drives the confirm
+    # dialog when an admin turns groups off (option A re-exposes them).
+    grouped_entry_count = db.session.query(entry_groups.c.entry_id).distinct().count()
     return render_template('admin/settings.html', settings=site_settings, icon_names=icon_names,
                            themes=themes, smtp_env_configured=smtp_env_configured(),
-                           nav_items=nav_items, nav_candidates=nav_candidates)
+                           nav_items=nav_items, nav_candidates=nav_candidates,
+                           grouped_entry_count=grouped_entry_count)
 
 
 @admin_bp.route('/nav/add/', methods=['POST'])

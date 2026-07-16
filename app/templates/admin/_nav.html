@@ -5,6 +5,7 @@
         <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if ep in ('admin.dashboard', 'admin.new_entry', 'admin.edit_entry', 'admin.bulk_entries') }}"><i class="bi bi-card-list" aria-hidden="true"></i>Entries</a>
         {% if current_user.is_admin %}
             {% if site_settings.multiuser_enabled %}<a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep in ('admin.users', 'admin.change_role', 'admin.delete_user', 'admin.resend_invite', 'admin.revoke_invite') }}"><i class="bi bi-people" aria-hidden="true"></i>Users</a>{% endif %}
+            {% if site_settings.multiuser_enabled and site_settings.groups_enabled %}<a href="{{ url_for('admin.groups') }}" class="{{ 'active' if ep.startswith('admin.group') }}"><i class="bi bi-collection" aria-hidden="true"></i>Groups</a>{% endif %}
             <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if ep in ('admin.settings', 'admin.upload_site_image', 'admin.remove_site_image') }}"><i class="bi bi-gear" aria-hidden="true"></i>Settings</a>
             <a href="{{ url_for('admin.integrations') }}" class="{{ 'active' if ep == 'admin.integrations' }}"><i class="bi bi-plug" aria-hidden="true"></i>Integrations</a>
             <a href="{{ url_for('admin.data') }}" class="{{ 'active' if ep in ('admin.data', 'admin.export_markdown', 'admin.export_json', 'admin.import_json', 'admin.add_test_data', 'admin.remove_test_data') }}"><i class="bi bi-database" aria-hidden="true"></i>Data</a>

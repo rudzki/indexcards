@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
 
 {% block title %}{% if entry %}Edit: {{ entry.title }}{% else %}New Entry{% endif %} — {{ site_settings.site_title }}{% endblock %}
 
@@ -80,6 +81,21 @@
                     <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
                 </div>
                 <input type="text" id="changelog" name="changelog" placeholder="What changed?">
+            </div>
+            {% endif %}
+            {% set groups = assignable_groups|default([]) %}
+            {% if groups %}
+            <div class="field editor-groups">
+                <label>Groups <span class="field-hint">(only members can read this entry — leave unchecked for public)</span></label>
+                <div class="editor-groups-list">
+                    {% for g in groups %}
+                        {% set gchecked = (g.id|string in request.form.getlist('group_ids')) if posted else (g.id in (entry_group_ids|default([]))) %}
+                        <label class="editor-group-option">
+                            <input type="checkbox" name="group_ids" value="{{ g.id }}" {% if gchecked %}checked{% endif %}>
+                            {{ macros.group_badge(g) }}
+                        </label>
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
             <div class="editor-actions">

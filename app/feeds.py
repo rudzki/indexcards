@@ -6,9 +6,12 @@ def feeds_available(settings):
 
 
 def feed_entries():
+    # Grouped (restricted) entries are always excluded from the feed — it's an
+    # anonymous, broadcast channel with no per-recipient membership to honor.
     db_entries = (Entry.query
                   .filter_by(is_draft=False, is_stub=False, is_listed=True)
                   .filter(Entry.published_at.isnot(None))
+                  .filter(~Entry.groups.any())
                   .order_by(Entry.updated_at.desc())
                   .limit(20)
                   .all())

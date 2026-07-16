@@ -46,7 +46,7 @@ RESERVED_SLUGS = {
     'feed', 'search', 'login', 'logout', 'signup', 'subscribe',
     'confirm', 'unsubscribe', 'random', 'healthz', 'admin', 'dashboard',
     'static', 'favicon', 'site-image', 'uploads',
-    'notes', 'account', 'setup', 'api',
+    'notes', 'account', 'setup', 'api', 'groups',
 }
 
 
@@ -76,6 +76,15 @@ def site_requires_admin(settings):
     return bool(settings and settings.site_visibility == 'admin')
 
 
+def groups_feature_enabled(settings):
+    """True when the groups feature is active. Gated by BOTH the multi-user
+    switch and the groups switch — groups need real user accounts to mean
+    anything, so multi-user is a genuine dependency, not just UI nesting. Single
+    source of truth for every groups surface (access filtering, admin UI, the
+    public /groups page, badges)."""
+    return bool(settings and settings.multiuser_enabled and settings.groups_enabled)
+
+
 def set_published(obj, published):
     """Set draft/published state on a card.
 
@@ -87,6 +96,24 @@ def set_published(obj, published):
     if first_publish:
         obj.published_at = utcnow()
     return first_publish
+
+
+# Many-to-many join tables for the groups feature. Defined before Entry/User so
+# they're in scope for the relationship() calls below. Rows cascade on delete so
+# removing a group (or entry/user) doesn't leave dangling association rows —
+# SQLite FK enforcement is off, so the cascade is enforced by us deleting the
+# owning row via the ORM, which issues the secondary DELETEs.
+entry_groups = db.Table(
+    'entry_groups',
+    db.Column('entry_id', db.Integer, db.ForeignKey('entry.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), primary_key=True),
+)
+
+group_members = db.Table(
+    'group_members',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), primary_key=True),
+)
 
 
 class Entry(db.Model):
@@ -118,6 +145,11 @@ class Entry(db.Model):
     incoming_links = db.relationship('Backlink', foreign_keys='Backlink.target_entry_id',
                                      backref='target_entry', cascade='all, delete-orphan')
     author = db.relationship('User', backref='entries')
+    # Groups this entry is restricted to. Empty == public (subject to the usual
+    # is_draft/is_listed/site_visibility gates). Non-empty == readable only by
+    # members of one of these groups (plus admins / All-Groups users). See
+    # user_can_read_entry / accessible_entries_filter.
+    groups = db.relationship('Group', secondary=entry_groups, backref='entries')
 
     __table_args__ = (
         db.Index('ix_entry_parent_id', 'parent_id'),
@@ -200,6 +232,11 @@ class User(UserMixin, db.Model):
     login_token = db.Column(db.Text, unique=True)
     login_token_expires = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=utcnow)
+    # All-Groups grant: this user can read every grouped entry regardless of
+    # explicit membership (distinct from admin, which also bypasses).
+    all_groups = db.Column(db.Boolean, default=False)
+
+    groups = db.relationship('Group', secondary=group_members, backref='members')
 
     @property
     def is_admin(self):
@@ -312,6 +349,87 @@ class NavItem(db.Model):
     )
 
 
+class Group(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text, unique=True, nullable=False)
+    slug = db.Column(db.Text, unique=True, nullable=False)
+    description = db.Column(db.Text, default='')
+    color = db.Column(db.Text, default='#6b7785')  # hex, for the badge
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+
+class GroupJoinRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.Text, default='pending')  # pending | approved | denied
+    created_at = db.Column(db.DateTime, default=utcnow)
+    decided_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    decided_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref='join_requests')
+    group = db.relationship('Group', backref='join_requests')
+    decider = db.relationship('User', foreign_keys=[decided_by])
+
+    __table_args__ = (
+        db.Index('ix_join_request_group_status', 'group_id', 'status'),
+        db.Index('ix_join_request_user', 'user_id'),
+    )
+
+
+def user_can_read_entry(user, entry):
+    """Whether `user` may read `entry` under the groups predicate. Used for the
+    single-entry 404 decision. Layered on top of is_draft/is_listed/site
+    visibility — this only ever *removes* access for a grouped entry.
+
+    When the feature is off, groups are ignored entirely (option A): grouped
+    entries fall back to normal visibility."""
+    settings = SiteSettings.get()
+    if not groups_feature_enabled(settings):
+        return True
+    if not entry.groups:  # public (ungrouped) content
+        return True
+    if user and user.is_authenticated and (user.is_admin or user.all_groups):
+        return True
+    if user and user.is_authenticated:
+        member_ids = {g.id for g in user.groups}
+        return any(g.id in member_ids for g in entry.groups)
+    return False
+
+
+def accessible_entries_filter(user):
+    """A SQLAlchemy clause to `.filter()` any Entry query so grouped entries the
+    `user` can't read are dropped. Mirrors user_can_read_entry in set form. When
+    the feature is off, returns a true() no-op so callers need no branching."""
+    from sqlalchemy import true
+    settings = SiteSettings.get()
+    if not groups_feature_enabled(settings):
+        return true()
+    if user and user.is_authenticated and (user.is_admin or user.all_groups):
+        return true()
+    ungrouped = ~Entry.groups.any()
+    if user and user.is_authenticated:
+        member_ids = [g.id for g in user.groups]
+        if member_ids:
+            return db.or_(ungrouped, Entry.groups.any(Group.id.in_(member_ids)))
+    return ungrouped
+
+
+def assignable_groups(user):
+    """Groups `user` may tag an entry with. A writer can only assign groups they
+    can already read, so they can never lock themselves out of their own entry:
+    admins / All-Groups users get every group; everyone else gets the groups they
+    belong to. Empty when the feature is off. Ordered by name for the picker."""
+    settings = SiteSettings.get()
+    if not groups_feature_enabled(settings):
+        return []
+    if user and user.is_authenticated and (user.is_admin or user.all_groups):
+        return Group.query.order_by(Group.name).all()
+    if user and user.is_authenticated:
+        return sorted(user.groups, key=lambda g: g.name)
+    return []
+
+
 class SiteSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     site_title = db.Column(db.Text, default=DEFAULT_SITE_TITLE)
@@ -322,6 +440,9 @@ class SiteSettings(db.Model):
     footer_text = db.Column(db.Text, default='')
     announcement_banner = db.Column(db.Text, default='')
     multiuser_enabled = db.Column(db.Boolean, default=False)
+    # "Enable groups" — only meaningful when multiuser_enabled is also on (see
+    # groups_feature_enabled). Off by default.
+    groups_enabled = db.Column(db.Boolean, default=False)
     registration_method = db.Column(db.Text, default='invite')
     registration_domain = db.Column(db.Text, default='')
     default_role = db.Column(db.Text, default='viewer')

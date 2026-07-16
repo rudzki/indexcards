@@ -4,7 +4,7 @@ import secrets
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
-from app.models import Entry, SiteSettings, make_slug, log_audit, entry_url, iso_utc, site_requires_login, site_requires_admin, set_published
+from app.models import Entry, SiteSettings, make_slug, log_audit, entry_url, iso_utc, site_requires_login, site_requires_admin, set_published, accessible_entries_filter, user_can_read_entry
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
 from app.views._helpers import validated_image_ext
@@ -60,6 +60,7 @@ def public_entries():
 
     q = (Entry.query
          .filter_by(is_draft=False, is_listed=True)
+         .filter(accessible_entries_filter(current_user))
          .order_by(Entry.sort_title))
 
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
@@ -82,7 +83,7 @@ def public_entry(slug):
         return denied
 
     entry = Entry.query.filter_by(slug=slug, is_draft=False, is_listed=True).first()
-    if not entry:
+    if not entry or not user_can_read_entry(current_user, entry):
         return jsonify({'error': 'Not found'}), 404
 
     return jsonify(_entry_full(entry))
@@ -102,7 +103,8 @@ def search_entries():
     for_parent = request.args.get('for_parent') == '1'
 
     if not q:
-        entry_q = Entry.query.filter(Entry.is_draft == False)  # noqa: E712
+        entry_q = (Entry.query.filter(Entry.is_draft == False)  # noqa: E712
+                   .filter(accessible_entries_filter(current_user)))
         if for_parent:
             entry_q = entry_q.filter(Entry.parent_id.is_(None),
                                      Entry.is_listed == True)  # noqa: E712
@@ -119,7 +121,7 @@ def search_entries():
     entry_q = Entry.query.filter(
         Entry.title.ilike(f'%{q_escaped}%', escape='\\'),
         Entry.is_draft == False  # noqa: E712
-    )
+    ).filter(accessible_entries_filter(current_user))
     if for_parent:
         entry_q = entry_q.filter(Entry.parent_id.is_(None),
                                  Entry.is_listed == True)  # noqa: E712
@@ -179,7 +181,7 @@ def entry_preview(slug):
     if denied:
         return denied
     entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
-    if not entry:
+    if not entry or not user_can_read_entry(current_user, entry):
         return jsonify({'error': 'not found'}), 404
     return jsonify({'title': entry.title, 'summary': entry.summary or ''})
 

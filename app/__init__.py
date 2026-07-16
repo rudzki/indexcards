@@ -41,6 +41,7 @@ def create_app():
     from app.views import admin_entries  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_users  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_settings  # noqa: F401 - registers routes on admin_bp
+    from app.views import admin_groups  # noqa: F401 - registers routes on admin_bp
     from app.views import admin_import_export  # noqa: F401 - registers routes on admin_bp
     from app.api import api_bp
 
@@ -153,13 +154,16 @@ def create_app():
 
     @app.context_processor
     def inject_nav_pages():
-        from app.models import Entry, NavItem
+        from app.models import Entry, NavItem, accessible_entries_filter
+        from flask_login import current_user
         from sqlalchemy import nullslast
         # Curated nav: NavItem slots joined to their cards, non-draft only (a
         # draft in the nav simply doesn't show), ordered by position (nulls last).
+        # A gated card in the nav must not show to a non-member.
         nav_pages = (Entry.query
                      .join(NavItem, NavItem.entry_id == Entry.id)
                      .filter(Entry.is_draft == False)  # noqa: E712
+                     .filter(accessible_entries_filter(current_user))
                      .order_by(nullslast(NavItem.position.asc()))
                      .all())
         return dict(nav_pages=nav_pages)
@@ -183,7 +187,7 @@ def create_app():
 
     @app.context_processor
     def inject_site_settings():
-        from app.models import SiteSettings, site_requires_login, site_requires_admin
+        from app.models import SiteSettings, site_requires_login, site_requires_admin, groups_feature_enabled
         from flask_login import current_user
         from markupsafe import Markup as _Markup
         settings = SiteSettings.get()
@@ -204,7 +208,8 @@ def create_app():
                 viewer_can_see_site = False
             elif site_requires_admin(settings) and not current_user.is_admin:
                 viewer_can_see_site = False
-        return dict(site_settings=settings, viewer_can_see_site=viewer_can_see_site)
+        return dict(site_settings=settings, viewer_can_see_site=viewer_can_see_site,
+                    groups_enabled=groups_feature_enabled(settings))
 
     @app.errorhandler(403)
     def forbidden(e):

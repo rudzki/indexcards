@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+
+{% block title %}Groups — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-title">
+        {% include 'admin/_nav_toggle.html' %}
+        <h1>Groups</h1>
+    </div>
+    {% include 'admin/_nav.html' %}
+
+    {% if pending %}
+    <div class="join-requests">
+        <h2>Pending join requests</h2>
+        <table class="admin-table">
+            <tbody>
+                {% for req in pending %}
+                <tr>
+                    <td class="col-primary">{{ req.user.display_name if req.user else '—' }}
+                        <span class="field-hint">{{ req.user.email if req.user else '' }}</span></td>
+                    <td>{% if req.group %}{{ macros.group_badge(req.group) }}{% endif %}</td>
+                    <td class="col-nowrap">{{ req.created_at|timeago }}</td>
+                    <td class="admin-actions">
+                        <div class="admin-actions-wrap">
+                            <form method="post" action="{{ url_for('admin.group_request_decide', req_id=req.id, action='approve') }}" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-small" title="Approve"><i class="bi bi-check-lg"></i> Approve</button>
+                            </form>
+                            <form method="post" action="{{ url_for('admin.group_request_decide', req_id=req.id, action='deny') }}" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-small btn-danger" title="Deny"><i class="bi bi-x-lg"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if groups %}
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th class="col-primary">Group</th>
+                    <th>Description</th>
+                    <th>Members</th>
+                    <th>Entries</th>
+                    <th class="admin-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td class="col-primary"><a href="{{ url_for('admin.group_detail', group_id=group.id) }}">{{ macros.group_badge(group) }}</a></td>
+                    <td>{{ group.description }}</td>
+                    <td>{{ group.members|length }}</td>
+                    <td>{{ group.entries|length }}</td>
+                    <td class="admin-actions">
+                        <div class="admin-actions-wrap">
+                            <a href="{{ url_for('admin.group_detail', group_id=group.id) }}" class="btn-small" title="Manage"><i class="bi bi-pencil"></i></a>
+                            <form method="post" action="{{ url_for('admin.group_delete', group_id=group.id) }}" class="inline-form"
+                                  data-confirm="Delete &quot;{{ group.name }}&quot;? {{ group.entries|length }} entr{{ 'y' if group.entries|length == 1 else 'ies' }} restricted only to this group will become visible to everyone."
+                                  data-confirm-label="Delete" onsubmit="return askConfirm(event)">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-small btn-danger" title="Delete"><i class="bi bi-trash3"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No groups yet.</p>
+    {% endif %}
+
+    <div class="invite-section">
+        <form method="post" class="invite-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h2>Create a group</h2>
+            <div class="field-row">
+                <div class="field">
+                    <input type="text" name="name" placeholder="Group name" required>
+                </div>
+                <div class="field field-small">
+                    <input type="color" name="color" value="#6b7785" title="Badge color" aria-label="Badge color">
+                </div>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+            <div class="field">
+                <input type="text" name="description" placeholder="Description (shown on the public Groups page)">
+            </div>
+        </form>
+    </div>
+
+    <div class="invite-section">
+        <h2>Site-wide group access</h2>
+        <p class="field-hint">Users with all-groups access can read every grouped entry without joining each group.</p>
+        {% if all_access_users %}
+        <table class="admin-table">
+            <tbody>
+                {% for user in all_access_users %}
+                <tr>
+                    <td class="col-primary">{{ user.display_name }} <span class="field-hint">{{ user.email }}</span></td>
+                    <td class="admin-actions">
+                        <div class="admin-actions-wrap">
+                            <form method="post" action="{{ url_for('admin.group_toggle_all_access') }}" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                <button type="submit" class="btn-small btn-danger" title="Revoke all-groups access">Revoke</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% if grant_candidates %}
+        <form method="post" action="{{ url_for('admin.group_toggle_all_access') }}" class="invite-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="all_groups" value="on">
+            <div class="field-row">
+                <div class="field">
+                    <select name="user_id" required>
+                        <option value="">Grant all-groups access to…</option>
+                        {% for user in grant_candidates %}
+                        <option value="{{ user.id }}">{{ user.display_name }} ({{ user.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-secondary">Grant</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

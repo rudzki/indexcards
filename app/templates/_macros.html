@@ -1,3 +1,11 @@
+{% macro group_badge(group) %}
+<span class="badge badge-group" style="--group-color: {{ group.color or '#6b7785' }}">{{ group.name }}</span>
+{%- endmacro %}
+
+{% macro group_badges(entry) %}
+    {%- for g in entry.groups -%}{{ group_badge(g) }} {% endfor -%}
+{% endmacro %}
+
 {% macro author_name(user, p_name=False) %}
     {%- set name_class = 'p-name author-name' if p_name else 'author-name' -%}
     {%- if user.bio or user.link -%}

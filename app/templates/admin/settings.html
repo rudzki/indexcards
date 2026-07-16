@@ -295,6 +295,19 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="field">
+                    <label>
+                        <input type="checkbox" name="groups_enabled" id="groups_enabled"
+                               data-grouped-count="{{ grouped_entry_count }}"
+                               {% if settings.groups_enabled %}checked{% endif %}>
+                        Enable groups
+                    </label>
+                    <p class="field-hint mb-0">Restrict some entries to named groups — only members can read them. Adds group management and a public Groups page where users can request to join.</p>
+                    {% if settings.groups_enabled %}
+                        <p class="field-hint mb-0"><a href="{{ url_for('admin.groups') }}">Manage groups &amp; join requests →</a></p>
+                    {% endif %}
+                </div>
             </div>
         </fieldset>
 

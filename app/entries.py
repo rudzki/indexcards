@@ -2,7 +2,9 @@ from flask import flash, render_template, redirect, url_for, request
 from flask_login import current_user
 
 from app import db
-from app.models import Entry, Backlink, EditLog, SiteSettings, RESERVED_SLUGS, make_slug, log_audit, set_published, utcnow
+from app.models import (Entry, Backlink, EditLog, Group, SiteSettings, RESERVED_SLUGS,
+                        make_slug, log_audit, set_published, utcnow,
+                        groups_feature_enabled, assignable_groups, accessible_entries_filter)
 from app.markdown import render_markdown, extract_internal_links
 from app.search import update_fts_entry
 
@@ -77,6 +79,18 @@ def save_content(entry):
             entry.parent_id = None
     else:
         entry.parent_id = None
+
+    # Group assignment. Only when the feature is on. A writer may only assign
+    # groups they can read (assignable_groups), unioned with the groups already on
+    # the entry — so editing an entry that carries a group you're not in keeps
+    # that group rather than silently stripping it, and no one can lock themselves
+    # out of their own entry.
+    if groups_feature_enabled(SiteSettings.get()):
+        existing_ids = {g.id for g in entry.groups} if entry.id else set()
+        allowed_ids = {g.id for g in assignable_groups(current_user)} | existing_ids
+        submitted_ids = set(request.form.getlist('group_ids', type=int))
+        chosen_ids = submitted_ids & allowed_ids
+        entry.groups = Group.query.filter(Group.id.in_(chosen_ids)).all() if chosen_ids else []
 
     db.session.flush()
 
@@ -158,15 +172,19 @@ def sync_backlinks(entry):
             db.session.add(Backlink(source_entry_id=entry.id, target_entry_id=target.id))
 
 
-def entry_backlinks(entry, include_drafts=False):
+def entry_backlinks(entry, include_drafts=False, user=None):
     """Cards that link to `entry`. Public views exclude drafts; the admin
     preview passes include_drafts=True so a draft link target still shows as a
-    live backlink (its intentional difference from the public view)."""
+    live backlink (its intentional difference from the public view). When `user`
+    is given, grouped source cards the user can't read are excluded so a gated
+    entry never leaks through a backlink."""
     q = (Entry.query
          .join(Entry.outgoing_links)
          .filter(Entry.outgoing_links.any(target_entry_id=entry.id)))
     if not include_drafts:
         q = q.filter(Entry.is_draft == False)  # noqa: E712
+    if user is not None:
+        q = q.filter(accessible_entries_filter(user))
     return q.all()
 
 
@@ -185,6 +203,10 @@ def _fire_integrations(entry, is_new, changelog):
     from app.integrations import notify_slack_entry, fire_outgoing_webhook
     site_settings = SiteSettings.get()
     if not site_settings:
+        return
+    # A grouped (restricted) entry is private — never broadcast it to Slack or an
+    # outgoing webhook, which are public announcement channels.
+    if entry.groups:
         return
     event = 'entry.published' if is_new else 'entry.updated'
     notify_slack_entry(entry, is_new=is_new, changelog=changelog, settings=site_settings)

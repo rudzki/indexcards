@@ -103,6 +103,11 @@ def _run_migrations():
             cursor.execute("ALTER TABLE site_settings ADD COLUMN alpha_jump_enabled BOOLEAN DEFAULT 1")
         if not has_column('site_settings', 'feeds_enabled'):
             cursor.execute("ALTER TABLE site_settings ADD COLUMN feeds_enabled BOOLEAN DEFAULT 1")
+        if not has_column('site_settings', 'groups_enabled'):
+            cursor.execute("ALTER TABLE site_settings ADD COLUMN groups_enabled BOOLEAN DEFAULT 0")
+
+    if has_table('user') and not has_column('user', 'all_groups'):
+        cursor.execute("ALTER TABLE user ADD COLUMN all_groups BOOLEAN DEFAULT 0")
 
     if has_table('site_settings') and not has_column('site_settings', 'site_icon'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN site_icon TEXT DEFAULT ''")

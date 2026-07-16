@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+
+{% block title %}Groups — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="groups-page">
+    <h1>Groups</h1>
+    <p class="groups-intro">Some entries are restricted to a group. Join a group to read its content.</p>
+
+    {% if items %}
+    <ul class="groups-list">
+        {% for item in items %}
+        <li class="group-card">
+            <div class="group-card-head">
+                {{ macros.group_badge(item.group) }}
+            </div>
+            {% if item.group.description %}
+                <p class="group-card-desc">{{ item.group.description }}</p>
+            {% endif %}
+            <div class="group-card-action">
+                {% if item.state == 'member' %}
+                    <span class="group-status group-status-member"><i class="bi bi-check-circle" aria-hidden="true"></i> You have access</span>
+                {% elif item.state == 'pending' %}
+                    <span class="group-status group-status-pending"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Requested</span>
+                {% elif item.state == 'can_request' %}
+                    <form method="post" action="{{ url_for('main.request_group', group_id=item.group.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-secondary btn-small">Request to Join</button>
+                    </form>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-secondary btn-small">Log in to request</a>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+        <p>No groups yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

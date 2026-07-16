@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+
+{% block title %}{{ group.name }} — Groups — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-title">
+        {% include 'admin/_nav_toggle.html' %}
+        <h1>{{ macros.group_badge(group) }}</h1>
+    </div>
+    {% include 'admin/_nav.html' %}
+
+    <nav class="editor-breadcrumb" aria-label="Breadcrumb">
+        <a href="{{ url_for('admin.groups') }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> All groups</a>
+    </nav>
+
+    <div class="invite-section">
+        <form method="post" action="{{ url_for('admin.group_edit', group_id=group.id) }}" class="settings-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h2>Group details</h2>
+            <div class="field">
+                <label for="group-name">Name</label>
+                <input type="text" id="group-name" name="name" value="{{ group.name }}" required>
+            </div>
+            <div class="field">
+                <label for="group-desc">Description</label>
+                <input type="text" id="group-desc" name="description" value="{{ group.description }}"
+                       placeholder="Shown on the public Groups page">
+            </div>
+            <div class="field field-small">
+                <label for="group-color">Badge color</label>
+                <input type="color" id="group-color" name="color" value="{{ group.color or '#6b7785' }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+
+    <div class="invite-section">
+        <h2>Members</h2>
+        {% if group.members %}
+        <table class="admin-table">
+            <tbody>
+                {% for user in group.members %}
+                <tr>
+                    <td class="col-primary">{{ user.display_name }} <span class="field-hint">{{ user.email }}</span></td>
+                    <td class="admin-actions">
+                        <div class="admin-actions-wrap">
+                            <form method="post" action="{{ url_for('admin.group_remove_member', group_id=group.id, user_id=user.id) }}" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-small btn-danger" title="Remove {{ user.display_name }}"><i class="bi bi-x-circle"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="field-hint">No members yet.</p>
+        {% endif %}
+
+        {% if candidates %}
+        <form method="post" action="{{ url_for('admin.group_add_member', group_id=group.id) }}" class="invite-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="field-row">
+                <div class="field">
+                    <select name="user_id" required>
+                        <option value="">Add a member…</option>
+                        {% for user in candidates %}
+                        <option value="{{ user.id }}">{{ user.display_name }} ({{ user.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

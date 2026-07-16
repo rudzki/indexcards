@@ -3344,6 +3344,21 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     display: none;
   }
 
+  .editor-actions {
+    flex-direction: column;
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  .editor-actions-left {
+    flex-direction: column-reverse;
+    align-items: start;
+  }
+
+  .editor-actions-left > button {
+    margin-top: 1.5rem;
+  }
+
 }
 
 @media screen and (max-width: 768px) {

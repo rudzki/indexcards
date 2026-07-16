@@ -1956,6 +1956,13 @@ select.select-xs {
   flex-shrink: 0;
 }
 
+.editor-changelog-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .editor-view-link {
   font-size: 0.8125rem;
   color: var(--ink-3);
@@ -1988,6 +1995,22 @@ select.select-xs {
 
 .editor-meta-top .field-hint {
   margin: 0;
+}
+
+.slug-field-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.slug-field-row .slug-input-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.slug-field-row .editor-view-link {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .slug-input-wrapper {

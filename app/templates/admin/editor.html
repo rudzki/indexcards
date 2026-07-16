@@ -11,10 +11,6 @@
         <div class="editor-heading-row">
         <h1>{% if entry %}Edit Entry{% else %}New Entry{% endif %}</h1>
         {% if entry %}
-            {% if not entry.is_draft %}
-                <a href="{{ entry_url(entry) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
-            {% endif %}
-            <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
             <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs editor-new-btn">New Entry</a>
         {% endif %}
         </div>
@@ -36,14 +32,19 @@
             </div>
             <div class="field">
                 <label for="slug">URL{% if entry %} <span class="field-hint">(changing this will break existing links)</span>{% endif %}</label>
-                <div class="slug-input-wrapper">
-                    <span class="slug-prefix">{{ request.host_url }}</span>
-                    <input type="text" id="slug" name="slug"
-                           value="{{ request.form.slug if posted else (entry.slug if entry else '') }}"
-                           data-is-new="{{ 'true' if not entry else 'false' }}"
-                           placeholder="entry-title"
-                           spellcheck="false">
-                    <button type="button" class="slug-copy-btn" id="slug-copy-btn" title="Copy URL"><i class="bi bi-clipboard"></i></button>
+                <div class="slug-field-row">
+                    <div class="slug-input-wrapper">
+                        <span class="slug-prefix">{{ request.host_url }}</span>
+                        <input type="text" id="slug" name="slug"
+                               value="{{ request.form.slug if posted else (entry.slug if entry else '') }}"
+                               data-is-new="{{ 'true' if not entry else 'false' }}"
+                               placeholder="entry-title"
+                               spellcheck="false">
+                        <button type="button" class="slug-copy-btn" id="slug-copy-btn" title="Copy URL"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    {% if entry and not entry.is_draft %}
+                    <a href="{{ entry_url(entry) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
+                    {% endif %}
                 </div>
             </div>
             <div class="field">
@@ -74,7 +75,10 @@
         <div class="editor-meta-bottom">
             {% if entry %}
             <div class="field editor-changelog">
-                <label for="changelog">Changelog message</label>
+                <div class="editor-changelog-label">
+                    <label for="changelog">Changelog message</label>
+                    <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
+                </div>
                 <input type="text" id="changelog" name="changelog" placeholder="What changed?">
             </div>
             {% endif %}

@@ -102,7 +102,7 @@
     </nav>
     {% endif %}
 
-    <nav class="entry-nav-arrows background-accent">
+    <nav class="entry-nav-arrows">
         <ul>
             {% if prev_entry %}<li class="entry-nav-prev"><a href="{{ entry_url(prev_entry) }}">← {{ prev_entry.title }}</a></li>{% endif %}
             <li class="entry-nav-center"><a href="{{ url_for('main.index') }}">Contents</a></li>

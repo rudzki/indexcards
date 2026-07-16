@@ -3573,23 +3573,28 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   text-align: center;
   margin-top: 2.5rem;
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 
 .entry-nav-arrows a {
-  color: var(--ink-2);
+  color: var(--ink);
 }
 
 .entry-nav-arrows a:hover {
-  color: var(--ink);
+  color: var(--ink-2);
 }
 
 .entry-nav-arrows ul {
   list-style: none;
   padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .entry-nav-center {
@@ -3876,13 +3881,12 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 }
 
 .entry-nav-arrows li {
-  text-align: center;
+  display: flex;
+  align-items: center;
 }
 
-.entry-nav-arrows li:first-of-type {
-  padding-top: 0 !important;
-}
-
-.entry-nav-arrows li:last-of-type {
-  padding-bottom: 0 !important;
+.entry-nav-arrows li+li::before {
+  content: '/';
+  margin: 0 0.35em;
+  color: var(--ink-3);
 }

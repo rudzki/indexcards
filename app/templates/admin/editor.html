@@ -86,7 +86,7 @@
             {% set groups = assignable_groups|default([]) %}
             {% if groups %}
             <div class="field editor-groups">
-                <label>Groups <span class="field-hint">(only members can read this entry — leave unchecked for public)</span></label>
+                <label>Groups <span class="field-hint">Limit viewing to selected groups</span></label>
                 <div class="editor-groups-list">
                     {% for g in groups %}
                         {% set gchecked = (g.id|string in request.form.getlist('group_ids')) if posted else (g.id in (entry_group_ids|default([]))) %}

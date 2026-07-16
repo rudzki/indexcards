@@ -787,6 +787,10 @@ a.site-title:hover {
   border: 1px solid color-mix(in srgb, var(--group-color, #6b7785) 20%, #fff);
 }
 
+.index-entry .badge-group {
+  margin-left: 0.5rem;
+}
+
 .badge.badge-group::before {
   display: none;
 }

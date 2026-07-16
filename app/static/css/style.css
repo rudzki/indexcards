@@ -3019,7 +3019,8 @@ details.disclosure .inner {
   justify-content: center;
   gap: .7rem;
   background: var(--color-error);
-  border: 1px solid var(--ink);
+  border: 1px solid #fff;
+  color: #fff;
   padding: .6rem 1rem;
   font-size: 14px;
 }

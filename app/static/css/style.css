@@ -1961,6 +1961,7 @@ select.select-xs {
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
+  margin-bottom: 0.25rem;
 }
 
 .editor-view-link {

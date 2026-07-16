@@ -7,15 +7,14 @@
     <div class="editor-heading">
         <h1>{% if entry %}Edit Entry{% else %}New Entry{% endif %}</h1>
         {% if entry %}
-            {% if entry.is_draft %}
-                <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="editor-view-link" target="_blank"><i class="bi bi-eye"></i> Preview</a>
-            {% else %}
+            {% if not entry.is_draft %}
                 <a href="{{ entry_url(entry) }}" class="editor-view-link" target="_blank"><i class="bi bi-box-arrow-up-right"></i> View entry</a>
             {% endif %}
             <a href="{{ url_for('admin.entry_history', entry_id=entry.id) }}" class="editor-view-link"><i class="bi bi-clock-history"></i> History</a>
             {% if site_settings.show_authors and entry.author %}
                 <span class="editor-author">by {{ entry.author.display_name }}</span>
             {% endif %}
+            <a href="{{ url_for('admin.new_entry') }}" class="btn btn-primary btn-xs editor-new-btn">New Entry</a>
         {% endif %}
     </div>
 
@@ -41,7 +40,7 @@
                 </div>
             </div>
             <div class="field">
-                <label for="parent_search">Parent Entry <span class="field-hint">(optional)</span></label>
+                <label for="parent_search">Parent Entry</label>
                 <div class="parent-field-wrap">
                     <input type="text" id="parent_search" class="parent-search-input"
                            placeholder="Search entries…"
@@ -50,7 +49,6 @@
                     <input type="hidden" name="parent_id" id="parent_id"
                            value="{{ request.form.parent_id if posted else (entry.parent_id if entry and entry.parent_id else '') }}">
                 </div>
-                <p class="field-hint field-hint-mt">Makes this a subpage of another entry. Shown in breadcrumbs.</p>
             </div>
             <div class="field">
                 <label for="summary">Summary <span class="field-hint">(one sentence)</span></label>
@@ -62,7 +60,6 @@
             <div class="editor-toolbar" id="editor-toolbar"></div>
             <label for="body_markdown" class="sr-only">Entry body</label>
             <textarea id="body_markdown" name="body_markdown" rows="20">{{ request.form.body_markdown if posted else (entry.body_markdown if entry else '') }}</textarea>
-            <div id="editor-preview" class="editor-preview" style="display:none;"></div>
         </div>
 
         <div class="editor-stats" id="editor-stats"></div>
@@ -70,7 +67,7 @@
         <div class="editor-meta-bottom">
             {% if entry %}
             <div class="field editor-changelog">
-                <label for="changelog">Changelog message <span class="field-hint">(optional)</span></label>
+                <label for="changelog">Changelog message</label>
                 <input type="text" id="changelog" name="changelog" placeholder="What changed?">
             </div>
             {% endif %}
@@ -78,9 +75,6 @@
                 <div class="editor-actions-left">
 
                     <button type="submit" class="btn btn-primary">Save</button>
-                    {% if entry %}
-                        <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="btn" target="_blank">Preview</a>
-                    {% endif %}
                     {% set draft_checked = ('is_draft' in request.form) if posted else (entry and entry.is_draft) %}
                     {% set stub_checked = ('is_stub' in request.form) if posted else (entry and entry.is_stub) %}
                     {% set listed_checked = ('is_listed' in request.form) if posted else (entry.is_listed if entry else True) %}
@@ -99,7 +93,7 @@
                     <div class="field field-inline">
                         <label>
                             <input type="checkbox" name="is_listed" {% if listed_checked %}checked{% endif %}>
-                            Show in index &amp; feeds
+                            Show in index and feeds
                         </label>
                     </div>
                 </div>

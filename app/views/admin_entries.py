@@ -117,29 +117,6 @@ def publish_entry(entry_id):
     return redirect(entry_url(entry))
 
 
-@admin_bp.route('/preview/<int:entry_id>/')
-@login_required
-def preview_entry(entry_id):
-    entry = db.get_or_404(Entry, entry_id)
-    if not current_user.can_modify(entry):
-        abort(403)
-    from app.markdown import mark_missing_links, extract_toc
-    from app.entries import entry_backlinks, last_editor_of
-    rows = Entry.query.with_entities(Entry.slug, Entry.is_stub).all()
-    existing_slugs = {r[0] for r in rows}
-    stub_slugs = {r[0] for r in rows if r[1]}
-    body_html = mark_missing_links(entry.body_html, existing_slugs, stub_slugs)
-    toc = extract_toc(body_html)
-    # Preview includes draft link targets as live backlinks — its intentional
-    # difference from the public view (see entry_backlinks).
-    backlinks = entry_backlinks(entry, include_drafts=True)
-    last_editor = last_editor_of(entry)
-    return render_template('entry.html', entry=entry, body_html=Markup(body_html),
-                           backlinks=backlinks, note_backlinks=[], toc=toc, is_preview=True,
-                           last_editor=last_editor,
-                           ancestors=[], children=[], prev_entry=None, next_entry=None)
-
-
 @admin_bp.route('/entries/bulk/', methods=['POST'])
 @writer_required
 def bulk_entries():

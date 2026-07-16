@@ -7,17 +7,6 @@
 {% block og_description %}{% if entry.summary %}<meta property="og:description" content="{{ entry.summary }}">{% endif %}{% endblock %}
 
 {% block banner %}
-{% if is_preview %}
-<div class="inset-banner-wrap">
-    <div class="preview-banner">
-        <span>Draft preview</span>
-        <form method="post" action="{{ url_for('admin.publish_entry', entry_id=entry.id) }}" class="inline-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-primary btn-small">Publish</button>
-        </form>
-    </div>
-</div>
-{% endif %}
 {% if entry.is_stub %}
 <div class="inset-banner-wrap">
     <div class="stub-banner">
@@ -74,12 +63,12 @@
         <button class="btn-small copy-link-btn" title="Copy link" aria-label="Copy link" onclick="copyEntryLink(this)"><i class="bi bi-link-45deg" aria-hidden="true"></i></button>
         {% if current_user.is_authenticated and current_user.can_modify(entry) %}
             <span class="entry-actions">
-                <a href="{{ url_for('admin.edit_entry', entry_id=entry.id) }}">Edit</a>
+                <a class="btn btn-primary btn-xs" href="{{ url_for('admin.edit_entry', entry_id=entry.id) }}">Edit</a>
                 <form method="post" action="{{ url_for('admin.delete_entry', entry_id=entry.id) }}" class="inline-form"
                       data-confirm='Delete "{{ entry.title }}"?' data-confirm-label="Delete"
                       onsubmit="return askConfirm(event)">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn-small btn-danger">Delete</button>
+                    <button type="submit" class="btn btn-xs btn-danger">Delete</button>
                 </form>
             </span>
         {% endif %}

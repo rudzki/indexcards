@@ -61,9 +61,7 @@
                         <td class="col-updated col-nowrap">{{ entry.updated_at|timeago }}</td>
                         <td class="admin-actions">
                             <div class="admin-actions-wrap">
-                                {% if entry.is_draft %}
-                                    <a href="{{ url_for('admin.preview_entry', entry_id=entry.id) }}" class="btn-small" title="Preview" aria-label="Preview {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
-                                {% else %}
+                                {% if not entry.is_draft %}
                                     <a href="{{ entry_url(entry) }}" class="btn-small" title="View" aria-label="View {{ entry.title }}"><i class="bi bi-eye" aria-hidden="true"></i></a>
                                 {% endif %}
                                 {% if current_user.can_modify(entry) %}

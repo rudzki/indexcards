@@ -183,7 +183,8 @@ def create_app():
 
     @app.context_processor
     def inject_site_settings():
-        from app.models import SiteSettings
+        from app.models import SiteSettings, site_requires_login, site_requires_admin
+        from flask_login import current_user
         from markupsafe import Markup as _Markup
         settings = SiteSettings.get()
         icon_svg = ''
@@ -192,7 +193,18 @@ def create_app():
             icon_svg = _Markup(get_icon_svg(settings.site_icon, size=20))
         if settings:
             settings.site_icon_svg = icon_svg
-        return dict(site_settings=settings)
+        # Whether the current viewer is allowed to see the site content, per the
+        # same visibility rules the request gate enforces (see
+        # require_login_for_private_site). Used to keep site-wide chrome like the
+        # announcement banner off pages that stay public on a locked-down site
+        # (login/signup), where it would otherwise leak to unauthorized visitors.
+        viewer_can_see_site = True
+        if site_requires_login(settings):
+            if not current_user.is_authenticated:
+                viewer_can_see_site = False
+            elif site_requires_admin(settings) and not current_user.is_admin:
+                viewer_can_see_site = False
+        return dict(site_settings=settings, viewer_can_see_site=viewer_can_see_site)
 
     @app.errorhandler(403)
     def forbidden(e):

@@ -666,7 +666,6 @@ function showLinkDialog(view) {
 document.addEventListener("DOMContentLoaded", () => {
     const textarea = document.getElementById("body_markdown");
     const toolbar = document.getElementById("editor-toolbar");
-    const previewDiv = document.getElementById("editor-preview");
 
     if (!textarea || !toolbar) return;
 
@@ -709,6 +708,4 @@ document.addEventListener("DOMContentLoaded", () => {
         setInterval(updateStats, 1000);
         updateStats();
     }
-
-    if (previewDiv) previewDiv.remove();
 });

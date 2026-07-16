@@ -5,7 +5,6 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 
 from app.models import Entry, SiteSettings, make_slug, log_audit, entry_url, iso_utc, site_requires_login, site_requires_admin, set_published
-from app.markdown import render_markdown
 from app.search import update_fts_entry
 from app.entries import RESERVED_SLUGS
 from app.views._helpers import validated_image_ext
@@ -221,12 +220,3 @@ def acquire_lock(content_type, content_id):
 def release_lock(content_type, content_id):
     locks.release_lock(content_type, content_id)
     return jsonify({'ok': True})
-
-
-@api_bp.route('/preview', methods=['POST'])
-@login_required
-def preview():
-    data = request.get_json()
-    markdown = data.get('markdown', '') if data else ''
-    html = render_markdown(markdown)
-    return jsonify({'html': html})

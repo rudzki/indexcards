@@ -81,7 +81,7 @@
         </div>
     </header>
 
-    {% if site_settings.announcement_banner %}
+    {% if site_settings.announcement_banner and viewer_can_see_site %}
     <div class="site-banner-wrap" id="site-announcement-wrap" hidden>
         <div class="banner" role="status">
             <div>{{ site_settings.announcement_banner|inline_markdown }}</div>

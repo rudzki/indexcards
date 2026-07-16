@@ -531,6 +531,8 @@ a.site-title:hover {
   font-size: 15px;
   font-weight: 600;
   font-family: var(--font);
+  letter-spacing: normal;
+  text-transform: none;
   cursor: pointer;
   transition: .12s ease;
   line-height: normal;

@@ -21,7 +21,7 @@
     <a class="u-url" href="{{ request.base_url }}" hidden></a>
     <nav class="entry-breadcrumb" aria-label="Breadcrumb">
         <ol>
-            <li><a href="{{ url_for('main.index') }}">Contents</a></li>
+            <li><a href="{{ url_for('main.index') }}">&larr; Index</a></li>
             {% for ancestor in ancestors %}
             <li><a href="{{ entry_url(ancestor) }}">{{ ancestor.title }}</a></li>
             {% endfor %}
@@ -105,7 +105,7 @@
     <nav class="entry-nav-arrows">
         <ul>
             {% if prev_entry %}<li class="entry-nav-prev"><a href="{{ entry_url(prev_entry) }}">← {{ prev_entry.title }}</a></li>{% endif %}
-            <li class="entry-nav-center"><a href="{{ url_for('main.index') }}">Contents</a></li>
+            <li class="entry-nav-center"><a href="{{ url_for('main.index') }}">Index</a></li>
             {% if next_entry %}<li class="entry-nav-next"><a href="{{ entry_url(next_entry) }}">{{ next_entry.title }} →</a></li>{% endif %}
         </ul>
     </nav>

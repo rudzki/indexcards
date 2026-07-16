@@ -1911,10 +1911,13 @@ select.select-xs {
 }
 
 .editor-heading {
+  margin-bottom: 1.25rem;
+}
+
+.editor-heading-row {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  margin-bottom: 1.25rem;
 }
 
 .editor-heading h1 {

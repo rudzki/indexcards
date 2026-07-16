@@ -3018,9 +3018,8 @@ details.disclosure .inner {
   align-items: center;
   justify-content: center;
   gap: .7rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--color-error);
+  border: 1px solid var(--ink);
   padding: .6rem 1rem;
   font-size: 14px;
 }

@@ -77,7 +77,7 @@
         </details>
 
         <details class="disclosure">
-            <summary>Custom Code</summary>
+            <summary>Custom code</summary>
             <div class="inner">
             <div class="field">
                 <label for="custom_css">Custom CSS</label>
@@ -97,8 +97,9 @@
             </div>
         </details>
 
-        <fieldset>
-            <legend>Mailchimp</legend>
+        <details class="disclosure">
+            <summary>Mailchimp</summary>
+            <div class="inner">
             <p class="field-hint">Automatically add new subscribers to a Mailchimp audience when they confirm their subscription.</p>
             <div class="field">
                 <label for="mailchimp_api_key">API Key</label>
@@ -124,10 +125,12 @@
             {% if settings.mailchimp_configured %}
             <p class="field-hint" style="color: var(--color-success);">&#10003; Mailchimp is connected.</p>
             {% endif %}
-        </fieldset>
+            </div>
+        </details>
 
-        <fieldset>
-            <legend>Slack</legend>
+        <details class="disclosure">
+            <summary>Slack</summary>
+            <div class="inner">
             <p class="field-hint">Post a message to a Slack channel when entries are published or updated.</p>
             <div class="field">
                 <label for="slack_webhook_url">Incoming Webhook URL</label>
@@ -153,10 +156,12 @@
             {% if settings.slack_configured %}
             <p class="field-hint" style="color: var(--color-success);">&#10003; Slack is connected.</p>
             {% endif %}
-        </fieldset>
+            </div>
+        </details>
 
-        <fieldset>
-            <legend>Outgoing Webhook</legend>
+        <details class="disclosure">
+            <summary>Outgoing Webhook</summary>
+            <div class="inner">
             {% if site_settings.site_visibility != 'public' %}
             <p class="field-hint mb-0">Outgoing webhooks are only available when site visibility is set to <strong>Public</strong>. Update this in <a href="{{ url_for('admin.settings') }}">Settings</a>.</p>
             {% else %}
@@ -197,7 +202,8 @@
 }</pre>
             </div>
             {% endif %}
-        </fieldset>
+            </div>
+        </details>
 
         <button type="submit" class="btn btn-primary">Save Integrations</button>
     </form>

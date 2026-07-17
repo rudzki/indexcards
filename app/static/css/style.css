@@ -3569,6 +3569,14 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   .admin-nav .admin-nav-links.open a.active {
     border-bottom: 1px solid var(--line);
   }
+
+  /* .admin-subnav-visibility, */
+  .admin-subnav-type {
+    display: none;
+  }
+
+
+
 }
 
 /* ── Print ───────────────────────────────────────────────── */

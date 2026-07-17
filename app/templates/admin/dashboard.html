@@ -19,27 +19,28 @@
     {% include 'admin/_nav.html' %}
 
     <div class="admin-filters">
-        <nav class="admin-subnav" aria-label="Filter by status">
+        <nav class="admin-subnav admin-subnav-status" aria-label="Filter by status">
             {% for key, label in [('all', 'All'), ('published', 'Published'), ('draft', 'Draft')] %}
             <a href="{{ url_for('admin.dashboard', status=key, listed=listed, stub=stub, sort=sort, order=order) }}"
                class="{{ 'active' if status == key }}">{{ label }}</a>
             {% endfor %}
         </nav>
 
-        <nav class="admin-subnav" aria-label="Filter by visibility">
+        <nav class="admin-subnav admin-subnav-visibility" aria-label="Filter by visibility">
             {% for key, label in [('all', 'All'), ('listed', 'Listed'), ('unlisted', 'Unlisted')] %}
             <a href="{{ url_for('admin.dashboard', listed=key, status=status, stub=stub, sort=sort, order=order) }}"
                class="{{ 'active' if listed == key }}">{{ label }}</a>
             {% endfor %}
         </nav>
 
-        <nav class="admin-subnav" aria-label="Filter by type">
+        <nav class="admin-subnav admin-subnav-type" aria-label="Filter by type">
             <a href="{{ url_for('admin.dashboard', stub='all', status=status, listed=listed, sort=sort, order=order) }}"
                class="{{ 'active' if stub == 'all' }}">All</a>
             <a href="{{ url_for('admin.dashboard', stub='stub', status=status, listed=listed) }}"
                class="{{ 'active' if stub == 'stub' }}">Stubs{% if stub_count %} <span class="subnav-count">{{ stub_count }}</span>{% endif %}</a>
         </nav>
     </div>
+
 
     {% if entries or pagination.total %}
         <form method="post" action="{{ url_for('admin.bulk_entries') }}">

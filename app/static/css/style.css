@@ -2384,6 +2384,16 @@ select.select-xs {
 
 /* Dashboard filter — a segmented control, deliberately distinct from the
    underline tab nav above it so the two levels don't read as one row. */
+/* The three filter pill bars sit inline with breathing room between them,
+   wrapping together on narrow screens. */
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin: 0 0 1.5rem;
+}
+
 .admin-subnav {
   display: inline-flex;
   gap: 2px;
@@ -2393,6 +2403,11 @@ select.select-xs {
   border: 1px solid var(--line);
   border-radius: var(--r-pill);
   font-size: 0.8125rem;
+}
+
+/* Inside the labeled filter bar the container owns the spacing. */
+.admin-filters .admin-subnav {
+  margin: 0;
 }
 
 .admin-subnav a {

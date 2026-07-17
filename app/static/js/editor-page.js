@@ -198,7 +198,7 @@
     var btn = document.getElementById('save-button');
     if (!draft || !btn) return;
     draft.addEventListener('change', function() {
-        btn.textContent = draft.checked ? 'Save as Draft' : 'Publish';
+        btn.textContent = draft.checked ? 'Save' : 'Publish';
     });
 })();
 

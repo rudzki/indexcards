@@ -3,7 +3,7 @@
 
 {% block title %}Admin — {{ site_settings.site_title }}{% endblock %}
 
-{% macro sort_url(col) %}{{ url_for('admin.dashboard', sort=col, order='desc' if (sort == col and order == 'asc') else 'asc', page=1, listed=listed) }}{% endmacro %}
+{% macro sort_url(col) %}{{ url_for('admin.dashboard', sort=col, order='desc' if (sort == col and order == 'asc') else 'asc', page=1, status=status, listed=listed, stub=stub) }}{% endmacro %}
 {% macro sort_indicator(col) %}{% if sort == col %} <span aria-hidden="true">{{ '↑' if order == 'asc' else '↓' }}</span>{% endif %}{% endmacro %}
 
 {% block content %}
@@ -18,10 +18,24 @@
 
     {% include 'admin/_nav.html' %}
 
-    <nav class="admin-subnav" aria-label="Filter entries">
+    <nav class="admin-subnav" aria-label="Filter by status">
+        {% for key, label in [('all', 'All'), ('published', 'Published'), ('draft', 'Draft')] %}
+        <a href="{{ url_for('admin.dashboard', status=key, listed=listed, stub=stub, sort=sort, order=order) }}"
+           class="{{ 'active' if status == key }}">{{ label }}</a>
+        {% endfor %}
+    </nav>
+
+    <nav class="admin-subnav" aria-label="Filter by visibility">
         {% for key, label in [('all', 'All'), ('listed', 'Listed'), ('unlisted', 'Unlisted')] %}
-        <a href="{{ url_for('admin.dashboard', listed=key, sort=sort, order=order) }}"
+        <a href="{{ url_for('admin.dashboard', listed=key, status=status, stub=stub, sort=sort, order=order) }}"
            class="{{ 'active' if listed == key }}">{{ label }}</a>
+        {% endfor %}
+    </nav>
+
+    <nav class="admin-subnav" aria-label="Filter by type">
+        {% for key, label in [('all', 'All'), ('stub', 'Stubs'), ('full', 'Full')] %}
+        <a href="{{ url_for('admin.dashboard', stub=key, status=status, listed=listed, sort=sort, order=order) }}"
+           class="{{ 'active' if stub == key }}">{{ label }}</a>
         {% endfor %}
     </nav>
 
@@ -98,11 +112,11 @@
         <nav class="pagination" aria-label="Page navigation">
             <ul>
             {% if pagination.has_prev %}
-                <li><a href="{{ url_for('admin.dashboard', page=pagination.prev_num, sort=sort, order=order, listed=listed) }}" aria-label="Previous page">&laquo;</a></li>
+                <li><a href="{{ url_for('admin.dashboard', page=pagination.prev_num, sort=sort, order=order, status=status, listed=listed, stub=stub) }}" aria-label="Previous page">&laquo;</a></li>
             {% endif %}
             {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                 {% if p %}
-                    <li><a href="{{ url_for('admin.dashboard', page=p, sort=sort, order=order, listed=listed) }}"
+                    <li><a href="{{ url_for('admin.dashboard', page=p, sort=sort, order=order, status=status, listed=listed, stub=stub) }}"
                        class="{{ 'pagination-active' if p == pagination.page }}"
                        {% if p == pagination.page %}aria-current="page"{% endif %}>{{ p }}</a></li>
                 {% else %}
@@ -110,7 +124,7 @@
                 {% endif %}
             {% endfor %}
             {% if pagination.has_next %}
-                <li><a href="{{ url_for('admin.dashboard', page=pagination.next_num, sort=sort, order=order, listed=listed) }}" aria-label="Next page">&raquo;</a></li>
+                <li><a href="{{ url_for('admin.dashboard', page=pagination.next_num, sort=sort, order=order, status=status, listed=listed, stub=stub) }}" aria-label="Next page">&raquo;</a></li>
             {% endif %}
             </ul>
             <span class="pagination-count">{{ pagination.total }} entries</span>

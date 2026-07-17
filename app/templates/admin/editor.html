@@ -103,7 +103,7 @@
                     {% set draft_checked = ('is_draft' in request.form) if posted else (entry and entry.is_draft) %}
                     {% set stub_checked = ('is_stub' in request.form) if posted else (entry and entry.is_stub) %}
                     {% set listed_checked = ('is_listed' in request.form) if posted else (entry.is_listed if entry else True) %}
-                    <button type="submit" class="btn btn-primary" id="save-button">{% if draft_checked %}Save as Draft{% else %}Publish{% endif %}</button>
+                    <button type="submit" class="btn btn-primary" id="save-button">{% if draft_checked %}Save{% else %}Publish{% endif %}</button>
                     <label>
                         <input type="checkbox" name="is_draft" id="is-draft-checkbox" {% if draft_checked %}checked{% endif %}>
                         Draft

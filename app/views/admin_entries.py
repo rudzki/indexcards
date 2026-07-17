@@ -31,9 +31,14 @@ def dashboard():
         return redirect(url_for('main.index'))
 
     page = request.args.get('page', 1, type=int)
-    # Listing filter: the merged dashboard lists every card; 'listed'/'unlisted'
-    # narrow to one side of the is_listed flag (former entries vs former pages).
+    # Independent, combinable filter axes:
+    #   status  — publication state via is_draft (published vs draft)
+    #   listed  — listing visibility via is_listed (former entries vs former pages)
+    #   stub    — placeholder state via is_stub (stubs vs full entries)
+    # They combine, so a viewer can narrow to e.g. draft + unlisted stubs.
+    status = request.args.get('status', 'all')
     listed = request.args.get('listed', 'all')
+    stub = request.args.get('stub', 'all')
 
     if current_user.is_admin or current_user.is_editor:
         q = Entry.query
@@ -43,10 +48,20 @@ def dashboard():
     # Hide grouped entries the viewer can't read (admins bypass via the filter).
     q = q.filter(accessible_entries_filter(current_user))
 
+    if status == 'published':
+        q = q.filter(Entry.is_draft == False)  # noqa: E712
+    elif status == 'draft':
+        q = q.filter(Entry.is_draft == True)  # noqa: E712
+
     if listed == 'listed':
         q = q.filter(Entry.is_listed == True)  # noqa: E712
     elif listed == 'unlisted':
         q = q.filter(Entry.is_listed == False)  # noqa: E712
+
+    if stub == 'stub':
+        q = q.filter(Entry.is_stub == True)  # noqa: E712
+    elif stub == 'full':
+        q = q.filter(Entry.is_stub == False)  # noqa: E712
 
     q, sort, order = apply_sort(q, request, {
         'title': Entry.sort_title, 'status': Entry.is_draft, 'updated': Entry.updated_at,
@@ -56,7 +71,8 @@ def dashboard():
     locked_entries = active_locks('entry')
     return render_template('admin/dashboard.html', entries=pagination.items,
                            pagination=pagination, sort=sort, order=order,
-                           listed=listed, locked_entries=locked_entries)
+                           status=status, listed=listed, stub=stub,
+                           locked_entries=locked_entries)
 
 
 @admin_bp.route('/entry/new/', methods=['GET', 'POST'])

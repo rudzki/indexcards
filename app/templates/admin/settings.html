@@ -130,7 +130,7 @@
             {% if settings.site_visibility == 'public' %}
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="feeds_enabled" {% if settings.feeds_enabled %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="feeds_enabled" {% if settings.feeds_enabled %}checked{% endif %}>
                     Enable JSON and RSS feeds
                 </label>
             </div>
@@ -141,31 +141,31 @@
             <legend>Options</legend>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="subscribe_enabled" {% if settings.subscribe_enabled %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="subscribe_enabled" {% if settings.subscribe_enabled %}checked{% endif %}>
                     Enable email subscriptions
                 </label>
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="search_enabled" {% if settings.search_enabled %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="search_enabled" {% if settings.search_enabled %}checked{% endif %}>
                     Enable search
                 </label>
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="show_history" {% if settings.show_history %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="show_history" {% if settings.show_history %}checked{% endif %}>
                     Show edit history
                 </label>
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="show_authors" {% if settings.show_authors %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="show_authors" {% if settings.show_authors %}checked{% endif %}>
                     Show author names on entries
                 </label>
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="alpha_jump_enabled" {% if settings.alpha_jump_enabled %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="alpha_jump_enabled" {% if settings.alpha_jump_enabled %}checked{% endif %}>
                     Enable alphabetical jump links on index
                 </label>
             </div>
@@ -196,7 +196,7 @@
             <legend>Multi-user</legend>
             <div class="field">
                 <label>
-                    <input type="checkbox" name="multiuser_enabled" id="multiuser_enabled"
+                    <input type="checkbox" class="toggle" name="multiuser_enabled" id="multiuser_enabled"
                            {% if settings.multiuser_enabled %}checked{% endif %}>
                     Enable multi-user site
                 </label>
@@ -250,7 +250,7 @@
 
                 <div class="field">
                     <label>
-                        <input type="checkbox" name="groups_enabled" id="groups_enabled"
+                        <input type="checkbox" class="toggle" name="groups_enabled" id="groups_enabled"
                                data-grouped-count="{{ grouped_entry_count }}"
                                {% if settings.groups_enabled %}checked{% endif %}>
                         Enable groups

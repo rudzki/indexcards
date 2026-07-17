@@ -84,7 +84,6 @@
             {% for bl in backlinks %}
                 <li class="h-cite">
                     <a class="u-url p-name" href="{{ entry_url(bl) }}">{{ bl.title }}</a>
-                    {% if bl.summary %}<span class="backlink-summary p-summary"> — {{ bl.summary }}</span>{% endif %}
                 </li>
             {% endfor %}
         </ul>
@@ -98,7 +97,6 @@
             {% for child in children %}
             <li>
                 <a href="{{ entry_url(child) }}">{{ child.title }}</a>
-                {% if child.summary %}<span class="backlink-summary"> — {{ child.summary }}</span>{% endif %}
             </li>
             {% endfor %}
         </ul>

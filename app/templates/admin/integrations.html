@@ -52,7 +52,7 @@
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="smtp_use_tls" {% if settings.smtp_use_tls %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="smtp_use_tls" {% if settings.smtp_use_tls %}checked{% endif %}>
                     Use TLS
                 </label>
             </div>
@@ -69,7 +69,7 @@
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="digest_include_edits" {% if settings.digest_include_edits %}checked{% endif %}>
+                    <input type="checkbox" class="toggle" name="digest_include_edits" {% if settings.digest_include_edits %}checked{% endif %}>
                     Include updated entries
                 </label>
             </div>
@@ -141,14 +141,14 @@
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="slack_announce_new"
+                    <input type="checkbox" class="toggle" name="slack_announce_new"
                            {% if settings.slack_announce_new %}checked{% endif %}>
                     Announce new entries
                 </label>
             </div>
             <div class="field field-inline">
                 <label>
-                    <input type="checkbox" name="slack_announce_updates"
+                    <input type="checkbox" class="toggle" name="slack_announce_updates"
                            {% if settings.slack_announce_updates %}checked{% endif %}>
                     Announce updated entries (only when a changelog message is included)
                 </label>

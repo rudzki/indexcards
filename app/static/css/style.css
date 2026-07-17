@@ -875,6 +875,55 @@ input[type="radio"] {
   cursor: pointer;
 }
 
+/* Toggle switch — a boolean setting rendered as a slider (the guide's .switch),
+   applied directly to the checkbox so the wrapping <label> stays clickable. */
+input[type="checkbox"].toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background .15s, border-color .15s;
+}
+
+input[type="checkbox"].toggle::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  top: 2px;
+  background: var(--ink-3);
+  border-radius: 50%;
+  transition: transform .15s, background .15s;
+}
+
+input[type="checkbox"].toggle:checked {
+  background: var(--ok-bg);
+  border-color: var(--ok-dim);
+}
+
+input[type="checkbox"].toggle:checked::before {
+  transform: translateX(18px);
+  background: var(--ok);
+}
+
+input[type="checkbox"].toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--surface-2);
+}
+
+input[type="checkbox"].toggle:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1776,51 +1825,13 @@ select.select-xs {
   margin-top: 0;
   margin-bottom: 0.5rem;
 }
-/* 
-.entry-backlinks a {
-  color: var(--ink);
-  font-weight: 500;
-} */
-
-/* .entry-backlinks ul {
-  list-style: none;
-  padding: 0;
-  margin: 0
-}
-
-.entry-backlinks li {
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--line-soft)
-}
-
-.entry-backlinks li:last-child {
-  border-bottom: none;
-  padding-bottom: 0
-} */
-
-.backlink-summary {
-  color: var(--ink-2)
-}
 
 .entry-meta {
-  margin-top: 2rem;
-  font-size: 0.8125rem;
-  color: var(--ink-3);
+  margin-top: 2.5rem;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  font-family: var(--mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--ink-3);
-}
-
-.entry-meta .btn-small {
-  font-family: var(--mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .1em;
+  gap: 1rem;
+  font-size: 0.8125rem;
   color: var(--ink-3);
 }
 
@@ -3773,10 +3784,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 .entry-backlinks,
 .entry-children {
   margin-top: 2.5rem;
-  padding: 1.25rem;
-  background: var(--surface);
-  border-radius: 0;
-  border: 1px solid var(--line);
 }
 
 .entry-backlinks h2,
@@ -3785,23 +3792,39 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   margin-bottom: 0.5rem;
 }
 
+/* Compact chip list (from the style guide's .backlinks) — title-only pills. */
 .entry-backlinks ul,
 .entry-children ul {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .entry-backlinks li,
 .entry-children li {
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--line-soft);
+  margin: 0;
 }
 
-.entry-backlinks li:last-child,
-.entry-children li:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.entry-backlinks a,
+.entry-children a {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+  text-decoration: none;
+}
+
+.entry-backlinks a:hover,
+.entry-children a:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+  text-decoration: none;
 }
 
 /* ── Parent field ────────────────────────────────────────── */

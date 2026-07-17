@@ -59,7 +59,7 @@ def public_entries():
     per_page = min(request.args.get('per_page', 20, type=int), 100)
 
     q = (Entry.query
-         .filter_by(is_draft=False, is_listed=True)
+         .filter_by(is_draft=False)
          .filter(accessible_entries_filter(current_user))
          .order_by(Entry.sort_title))
 
@@ -82,7 +82,7 @@ def public_entry(slug):
     if denied:
         return denied
 
-    entry = Entry.query.filter_by(slug=slug, is_draft=False, is_listed=True).first()
+    entry = Entry.query.filter_by(slug=slug, is_draft=False).first()
     if not entry or not user_can_read_entry(current_user, entry):
         return jsonify({'error': 'Not found'}), 404
 
@@ -98,16 +98,14 @@ def search_entries():
         return err
     q = request.args.get('q', '').strip().lower()
     # The "pick a parent" UI excludes entries that can't take a child: ones
-    # already nested under a parent (hierarchy is capped at two levels) and
-    # unlisted cards (hierarchy stays tied to the index — listed cards only).
+    # already nested under a parent (hierarchy is capped at two levels).
     for_parent = request.args.get('for_parent') == '1'
 
     if not q:
         entry_q = (Entry.query.filter(Entry.is_draft == False)  # noqa: E712
                    .filter(accessible_entries_filter(current_user)))
         if for_parent:
-            entry_q = entry_q.filter(Entry.parent_id.is_(None),
-                                     Entry.is_listed == True)  # noqa: E712
+            entry_q = entry_q.filter(Entry.parent_id.is_(None))
         entries = entry_q.order_by(Entry.sort_title).limit(20).all()
         return jsonify([{
             'id': entry.id,
@@ -123,8 +121,7 @@ def search_entries():
         Entry.is_draft == False  # noqa: E712
     ).filter(accessible_entries_filter(current_user))
     if for_parent:
-        entry_q = entry_q.filter(Entry.parent_id.is_(None),
-                                 Entry.is_listed == True)  # noqa: E712
+        entry_q = entry_q.filter(Entry.parent_id.is_(None))
     entries = entry_q.limit(10).all()
 
     results = [{

@@ -25,7 +25,7 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     entries = (Entry.query
-               .filter_by(is_draft=False, is_listed=True)
+               .filter_by(is_draft=False)
                .filter(accessible_entries_filter(current_user))
                .order_by(Entry.sort_title)
                .all())
@@ -65,6 +65,19 @@ def index():
         heatmap_data = _group_events_by_day(events)
 
     return render_template('index.html', entries=entries, index_items=index_items, heatmap_data=heatmap_data)
+
+
+@main_bp.route('/about')
+def about():
+    """The site's About page, authored in Dashboard → Site Content. 404s when
+    empty so a blank page never shows (and the menu link is likewise hidden).
+    Inherits the site's visibility gate like any other content page."""
+    site_settings = SiteSettings.get()
+    if not (site_settings and (site_settings.about_markdown or '').strip()):
+        abort(404)
+    from app.markdown import render_markdown
+    body_html = render_markdown(site_settings.about_markdown)
+    return render_template('about.html', body_html=Markup(body_html))
 
 
 @main_bp.route('/<slug>/')
@@ -118,28 +131,25 @@ def _render_entry_page(entry):
     toc = extract_toc(body_html)
     last_editor = last_editor_of(entry)
 
-    # prev/next is index navigation, so it's listed-only: it walks the index
-    # order (sort_title, id) among listed cards, and an unlisted card — not in
-    # the index — gets neither. The tuple compare keeps same-sort_title siblings
-    # in a stable, complete order (a plain `sort_title <` would skip one).
-    prev_entry = next_entry = None
-    if entry.is_listed:
-        prev_entry = (Entry.query
-                      .filter(Entry.is_draft == False, Entry.is_listed == True,  # noqa: E712
-                              accessible_entries_filter(current_user),
-                              db.or_(Entry.sort_title < entry.sort_title,
-                                     db.and_(Entry.sort_title == entry.sort_title,
-                                             Entry.id < entry.id)))
-                      .order_by(Entry.sort_title.desc(), Entry.id.desc())
-                      .first())
-        next_entry = (Entry.query
-                      .filter(Entry.is_draft == False, Entry.is_listed == True,  # noqa: E712
-                              accessible_entries_filter(current_user),
-                              db.or_(Entry.sort_title > entry.sort_title,
-                                     db.and_(Entry.sort_title == entry.sort_title,
-                                             Entry.id > entry.id)))
-                      .order_by(Entry.sort_title.asc(), Entry.id.asc())
-                      .first())
+    # prev/next walks the index order (sort_title, id) across all published
+    # cards. The tuple compare keeps same-sort_title siblings in a stable,
+    # complete order (a plain `sort_title <` would skip one).
+    prev_entry = (Entry.query
+                  .filter(Entry.is_draft == False,  # noqa: E712
+                          accessible_entries_filter(current_user),
+                          db.or_(Entry.sort_title < entry.sort_title,
+                                 db.and_(Entry.sort_title == entry.sort_title,
+                                         Entry.id < entry.id)))
+                  .order_by(Entry.sort_title.desc(), Entry.id.desc())
+                  .first())
+    next_entry = (Entry.query
+                  .filter(Entry.is_draft == False,  # noqa: E712
+                          accessible_entries_filter(current_user),
+                          db.or_(Entry.sort_title > entry.sort_title,
+                                 db.and_(Entry.sort_title == entry.sort_title,
+                                         Entry.id > entry.id)))
+                  .order_by(Entry.sort_title.asc(), Entry.id.asc())
+                  .first())
 
     ancestors = []
     cursor = entry
@@ -177,7 +187,7 @@ def _build_activity_events(since=None, show_history=True):
 
     # Filtered by group access: the heatmap exposes entry titles/URLs on the
     # public homepage, so a gated entry must not leak through it.
-    entry_q = (Entry.query.filter_by(is_draft=False, is_listed=True)
+    entry_q = (Entry.query.filter_by(is_draft=False)
                .filter(accessible_entries_filter(current_user)))
     if since:
         entry_q = entry_q.filter(Entry.published_at >= since)
@@ -301,7 +311,7 @@ def search():
 @main_bp.route('/random')
 def random_entry():
     from sqlalchemy.sql.expression import func
-    entry = (Entry.query.filter_by(is_draft=False, is_listed=True)
+    entry = (Entry.query.filter_by(is_draft=False)
              .filter(accessible_entries_filter(current_user))
              .order_by(func.random()).first())
     if entry:

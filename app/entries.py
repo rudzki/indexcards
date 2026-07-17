@@ -11,15 +11,13 @@ from app.search import update_fts_entry
 
 def save_content(entry):
     """Save a card (create or update) from the editor form. One write path for
-    all cards — the old entry/page split collapsed into the is_listed flag set
-    here from the "Show in index & feeds" checkbox."""
+    all cards, since the Entry/Page split collapsed into a single model."""
     title = request.form.get('title', '').strip()
     summary = request.form.get('summary', '').strip()
     body_markdown = request.form.get('body_markdown', '')
     changelog = request.form.get('changelog', '').strip() or None
     is_draft = 'is_draft' in request.form
     is_stub = 'is_stub' in request.form
-    is_listed = 'is_listed' in request.form
     parent_id_raw = request.form.get('parent_id', '').strip()
 
     if not title:
@@ -59,21 +57,19 @@ def save_content(entry):
     entry.body_html = render_markdown(body_markdown)
     first_publish = set_published(entry, not is_draft)
     entry.is_stub = is_stub
-    entry.is_listed = is_listed
     entry.update_sort_title()
 
     # An entry that already has children can't itself become a child — that
     # would create a three-level chain, and the index nesting, entry_url, and
     # breadcrumb walk all assume the two-level cap. The picker enforces this
-    # client-side; enforce it here too so a crafted POST can't bypass it. The
-    # parent must also be listed (hierarchy stays tied to the index).
+    # client-side; enforce it here too so a crafted POST can't bypass it.
     entry_has_children = (entry.id is not None
                           and Entry.query.filter_by(parent_id=entry.id).first() is not None)
     if parent_id_raw and parent_id_raw.isdigit() and not entry_has_children:
         proposed_parent_id = int(parent_id_raw)
         parent_entry = db.session.get(Entry, proposed_parent_id)
         if (parent_entry and parent_entry.id != (entry.id or -1) and not parent_entry.parent_id
-                and parent_entry.is_listed and not _creates_cycle(entry, parent_entry)):
+                and not _creates_cycle(entry, parent_entry)):
             entry.parent_id = parent_entry.id
         else:
             entry.parent_id = None
@@ -127,10 +123,7 @@ def save_content(entry):
     # it shouldn't fire a "new entry" webhook/Slack. The announcement lands later
     # when the stub is fleshed out and saved un-stubbed (as an "updated" event,
     # since published_at was already stamped when it first went public).
-    #
-    # Unlisted cards never notify: integrations announce the stream, which they
-    # aren't part of. (They also stay out of index/feeds/digest/API — see 2.3.)
-    if is_listed and not is_draft and not is_stub and (first_publish or content_changed):
+    if not is_draft and not is_stub and (first_publish or content_changed):
         _fire_integrations(entry, is_new=first_publish, changelog=changelog)
 
     flash('Entry saved.', 'success')

@@ -120,6 +120,13 @@ def _run_migrations():
     if has_table('site_settings') and not has_column('site_settings', 'announcement_banner'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN announcement_banner TEXT DEFAULT ''")
 
+    # Site Content page: homepage epigraph + /about page body (footer_text, the
+    # "Colophon", already exists).
+    if has_table('site_settings') and not has_column('site_settings', 'epigraph'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN epigraph TEXT DEFAULT ''")
+    if has_table('site_settings') and not has_column('site_settings', 'about_markdown'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN about_markdown TEXT DEFAULT ''")
+
     if has_table('site_settings'):
         if not has_column('site_settings', 'mailchimp_api_key'):
             cursor.execute("ALTER TABLE site_settings ADD COLUMN mailchimp_api_key TEXT DEFAULT ''")
@@ -201,23 +208,22 @@ def _run_migrations():
         ensure_index('ix_entry_parent_id', 'entry', 'parent_id')
         ensure_index('ix_entry_created_by', 'entry', 'created_by')
 
-    # --- Entry/Page merge: one card model with an is_listed placement flag ---
-    if has_table('entry') and not has_column('entry', 'is_listed'):
-        cursor.execute("ALTER TABLE entry ADD COLUMN is_listed BOOLEAN DEFAULT 1")
-
-    # Copy legacy pages into entry as unlisted cards, and seed nav from the ones
-    # that were in the menu. Idempotent: keyed on slug (globally unique across
-    # the old two tables), so a page already mirrored into entry is skipped on
-    # re-run, and nav slots are seeded at most once per entry. The `page` table
-    # is left in place, unused, until the merge is verified — drop it later.
-    if has_table('page') and has_column('entry', 'is_listed'):
+    # --- Entry/Page merge: one card model, every card is listed ---
+    # Copy any legacy pages into entry, and seed nav from the ones that were in
+    # the menu. Idempotent: keyed on slug (globally unique across the old two
+    # tables), so a page already mirrored into entry is skipped on re-run, and
+    # nav slots are seeded at most once per entry. Former pages become ordinary
+    # entries (the Listed/Unlisted distinction was retired). The `page` table is
+    # left in place, unused. Any `entry.is_listed` column from an earlier merge
+    # is now inert.
+    if has_table('page') and has_table('entry'):
         cursor.execute("""
             INSERT INTO entry
                 (slug, title, summary, body_markdown, body_html, is_draft,
-                 is_stub, is_listed, published_at, created_at, updated_at,
+                 is_stub, published_at, created_at, updated_at,
                  created_by, sort_title)
             SELECT p.slug, p.title, p.summary, p.body_markdown, p.body_html,
-                   p.is_draft, p.is_stub, 0, p.published_at, p.created_at,
+                   p.is_draft, p.is_stub, p.published_at, p.created_at,
                    p.updated_at, p.created_by, p.sort_title
             FROM page p
             WHERE p.slug NOT IN (SELECT slug FROM entry)
@@ -235,12 +241,12 @@ def _run_migrations():
 
         # Make the copied cards searchable. entry_fts is created after migrations
         # on a fresh DB (no pages to copy there anyway), so only index when it
-        # already exists; skip rows already present to stay idempotent.
+        # already exists; index any entry not already present to stay idempotent.
         if has_table('entry_fts'):
             from app.markdown import strip_markdown
             from markupsafe import escape
             indexed = {r[0] for r in cursor.execute("SELECT rowid FROM entry_fts").fetchall()}
-            cursor.execute("SELECT id, title, body_markdown FROM entry WHERE is_listed = 0")
+            cursor.execute("SELECT id, title, body_markdown FROM entry")
             for eid, title, body_md in cursor.fetchall():
                 if eid in indexed:
                     continue

@@ -64,7 +64,11 @@
                 <a href="{{ entry_url(p) }}" class="{{ 'active' if request.endpoint in ('main.entry_page', 'main.child_entry_page') and request.view_args.get('slug') == p.slug }}">{{ p.title }}</a>
                 {% endfor %}
 
-                {% if nav_pages %} <span class="sep">|</span> {% endif %}
+                {% if site_settings.about_markdown %}
+                <a href="{{ url_for('main.about') }}" class="{{ 'active' if request.endpoint == 'main.about' }}">About</a>
+                {% endif %}
+
+                {% if nav_pages or site_settings.about_markdown %} <span class="sep">|</span> {% endif %}
 
                 {% if current_user.is_authenticated %}
                     {% if current_user.can_write %}

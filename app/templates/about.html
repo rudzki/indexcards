@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}About — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<article class="entry-page about-page">
+    <header class="entry-header">
+        <h1 class="entry-title">About</h1>
+    </header>
+    <div class="entry-body">{{ body_html }}</div>
+</article>
+{% endblock %}

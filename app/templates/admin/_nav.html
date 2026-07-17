@@ -7,6 +7,7 @@
             {% if site_settings.multiuser_enabled %}<a href="{{ url_for('admin.users') }}" class="{{ 'active' if ep in ('admin.users', 'admin.change_role', 'admin.delete_user', 'admin.resend_invite', 'admin.revoke_invite') }}"><i class="bi bi-person" aria-hidden="true"></i>Users</a>{% endif %}
             {% if site_settings.multiuser_enabled and site_settings.groups_enabled %}<a href="{{ url_for('admin.groups') }}" class="{{ 'active' if ep.startswith('admin.group') }}"><i class="bi bi-people" aria-hidden="true"></i>Groups</a>{% endif %}
             <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if ep in ('admin.settings', 'admin.upload_site_image', 'admin.remove_site_image') }}"><i class="bi bi-gear" aria-hidden="true"></i>Settings</a>
+            <a href="{{ url_for('admin.content') }}" class="{{ 'active' if ep == 'admin.content' }}"><i class="bi bi-file-text" aria-hidden="true"></i>Site Content</a>
             <a href="{{ url_for('admin.integrations') }}" class="{{ 'active' if ep == 'admin.integrations' }}"><i class="bi bi-plug" aria-hidden="true"></i>Integrations</a>
             <a href="{{ url_for('admin.data') }}" class="{{ 'active' if ep in ('admin.data', 'admin.export_markdown', 'admin.export_json', 'admin.import_json', 'admin.add_test_data', 'admin.remove_test_data') }}"><i class="bi bi-database" aria-hidden="true"></i>Data</a>
             <a href="{{ url_for('admin.logs') }}" class="{{ 'active' if ep == 'admin.logs' }}"><i class="bi bi-terminal" aria-hidden="true"></i>Logs</a>

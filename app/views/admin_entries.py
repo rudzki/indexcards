@@ -33,14 +33,12 @@ def dashboard():
     page = request.args.get('page', 1, type=int)
     # Independent, combinable filter axes:
     #   status  — publication state via is_draft (published vs draft)
-    #   listed  — listing visibility via is_listed (former entries vs former pages)
     #   stub    — narrows to placeholders via is_stub. This one is a plain
     #             all/stub toggle, not a tri-state: its whole job is surfacing
     #             the stubs still waiting to be fleshed out, so the complement
     #             ("full entries only") view carries no workflow and is omitted.
-    # They combine, so a viewer can narrow to e.g. draft + unlisted stubs.
+    # They combine, so a viewer can narrow to e.g. draft stubs.
     status = request.args.get('status', 'all')
-    listed = request.args.get('listed', 'all')
     stub = request.args.get('stub', 'all')
 
     if current_user.is_admin or current_user.is_editor:
@@ -59,11 +57,6 @@ def dashboard():
         q = q.filter(Entry.is_draft == False)  # noqa: E712
     elif status == 'draft':
         q = q.filter(Entry.is_draft == True)  # noqa: E712
-
-    if listed == 'listed':
-        q = q.filter(Entry.is_listed == True)  # noqa: E712
-    elif listed == 'unlisted':
-        q = q.filter(Entry.is_listed == False)  # noqa: E712
 
     if stub == 'stub':
         q = q.filter(Entry.is_stub == True)  # noqa: E712
@@ -85,7 +78,7 @@ def dashboard():
     locked_entries = active_locks('entry')
     return render_template('admin/dashboard.html', entries=pagination.items,
                            pagination=pagination, sort=sort, order=order,
-                           status=status, listed=listed, stub=stub,
+                           status=status, stub=stub,
                            stub_count=stub_count, locked_entries=locked_entries)
 
 

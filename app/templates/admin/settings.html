@@ -102,10 +102,6 @@
                 </div>
             </div>
             <div class="field">
-                <label for="footer_text">Footer Text</label>
-                <textarea id="footer_text" name="footer_text" rows="2">{{ settings.footer_text }}</textarea>
-            </div>
-            <div class="field">
                 <label for="announcement_banner">Announcement Banner</label>
                 <textarea id="announcement_banner" name="announcement_banner" rows="2">{{ settings.announcement_banner }}</textarea>
                 <p class="field-hint field-hint-mt mb-0">Shows a dismissible site-wide banner above every page. Leave blank to hide it.</p>
@@ -116,14 +112,13 @@
             <legend>Site navigation</legend>
             <div class="field">
                 <label>Navigation menu</label>
-                <p class="field-hint mb-0">Curate the links in the site header. Any published entry can be added — listed or not — and reordered.</p>
+                <p class="field-hint mb-0">Curate the links in the site header. Any published entry can be added and reordered.</p>
                 {% if nav_items %}
                 <ul class="nav-manage-list">
                     {% for item in nav_items %}
                     <li>
                         <span class="nav-manage-title">
                             {{ item.entry.title }}
-                            {% if not item.entry.is_listed %}<span class="badge badge-stub ml-025">Unlisted</span>{% endif %}
                         </span>
                         <span class="nav-manage-actions">
                             <button type="submit" form="nav-action-form" formaction="{{ url_for('admin.nav_move', nav_id=item.id) }}" name="direction" value="up" class="btn-small" title="Move up" aria-label="Move {{ item.entry.title }} up"{% if loop.first %} disabled{% endif %}>↑</button>

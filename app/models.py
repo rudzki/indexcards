@@ -46,7 +46,7 @@ RESERVED_SLUGS = {
     'feed', 'search', 'login', 'logout', 'signup', 'subscribe',
     'confirm', 'unsubscribe', 'random', 'healthz', 'admin', 'dashboard',
     'static', 'favicon', 'site-image', 'uploads',
-    'notes', 'account', 'setup', 'api', 'groups',
+    'notes', 'account', 'setup', 'api', 'groups', 'about',
 }
 
 
@@ -125,11 +125,6 @@ class Entry(db.Model):
     body_html = db.Column(db.Text, default='')
     is_draft = db.Column(db.Boolean, default=False)
     is_stub = db.Column(db.Boolean, default=False)
-    # Whether the card joins the stream: index + feeds + digest + API, and fires
-    # integrations on publish. An unlisted card (is_listed=False) is standalone
-    # content — reachable by direct URL, [[wikilink]], backlink, or the nav — but
-    # kept out of the stream. This is what a "page" became when Entry/Page merged.
-    is_listed = db.Column(db.Boolean, default=True)
     published_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow,
@@ -146,7 +141,7 @@ class Entry(db.Model):
                                      backref='target_entry', cascade='all, delete-orphan')
     author = db.relationship('User', backref='entries')
     # Groups this entry is restricted to. Empty == public (subject to the usual
-    # is_draft/is_listed/site_visibility gates). Non-empty == readable only by
+    # is_draft/site_visibility gates). Non-empty == readable only by
     # members of one of these groups (plus admins / All-Groups users). See
     # user_can_read_entry / accessible_entries_filter.
     groups = db.relationship('Group', secondary=entry_groups, backref='entries')
@@ -336,8 +331,8 @@ def log_audit(action, detail='', user_id=None):
 
 class NavItem(db.Model):
     """A curated nav slot pointing at a card. Nav membership/position is a
-    site-layout decision, orthogonal to is_listed — any published card (listed
-    or not) can be added. Ordered by position (nulls last)."""
+    site-layout decision — any published card can be added. Ordered by position
+    (nulls last)."""
     id = db.Column(db.Integer, primary_key=True)
     entry_id = db.Column(db.Integer, db.ForeignKey('entry.id'), nullable=False)
     position = db.Column(db.Integer, nullable=True)
@@ -379,8 +374,8 @@ class GroupJoinRequest(db.Model):
 
 def user_can_read_entry(user, entry):
     """Whether `user` may read `entry` under the groups predicate. Used for the
-    single-entry 404 decision. Layered on top of is_draft/is_listed/site
-    visibility — this only ever *removes* access for a grouped entry.
+    single-entry 404 decision. Layered on top of is_draft/site visibility —
+    this only ever *removes* access for a grouped entry.
 
     When the feature is off, groups are ignored entirely (option A): grouped
     entries fall back to normal visibility."""
@@ -437,8 +432,10 @@ class SiteSettings(db.Model):
     digest_day = db.Column(db.Integer, default=0)
     search_enabled = db.Column(db.Boolean, default=True)
     subscribe_enabled = db.Column(db.Boolean, default=True)
-    footer_text = db.Column(db.Text, default='')
+    footer_text = db.Column(db.Text, default='')          # "Colophon" in the UI
     announcement_banner = db.Column(db.Text, default='')
+    epigraph = db.Column(db.Text, default='')             # homepage intro
+    about_markdown = db.Column(db.Text, default='')       # /about page body
     multiuser_enabled = db.Column(db.Boolean, default=False)
     # "Enable groups" — only meaningful when multiuser_enabled is also on (see
     # groups_feature_enabled). Off by default.

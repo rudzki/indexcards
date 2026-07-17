@@ -84,10 +84,9 @@ class BaseTest(unittest.TestCase):
             sess['_fresh'] = True
 
     def _add_entry(self, title, slug=None, is_draft=False, body='', summary='',
-                   parent=None, created_by=None, is_listed=True):
+                   parent=None, created_by=None):
         entry = Entry(title=title, slug=slug or make_slug(title),
-                      body_markdown=body, summary=summary, created_by=created_by,
-                      is_listed=is_listed)
+                      body_markdown=body, summary=summary, created_by=created_by)
         if parent is not None:
             entry.parent_id = parent.id
         entry.update_sort_title()
@@ -99,10 +98,9 @@ class BaseTest(unittest.TestCase):
         return entry
 
     def _add_page(self, title, slug=None, is_draft=False, body=''):
-        """A 'page' is now just an unlisted card (is_listed=False) — kept out of
-        the index/feeds but reachable by URL, link, and nav."""
-        return self._add_entry(title, slug=slug, is_draft=is_draft, body=body,
-                               is_listed=False)
+        """Kept as a thin alias: 'pages' are now ordinary cards (the merge
+        collapsed the type distinction, and Listed/Unlisted was retired)."""
+        return self._add_entry(title, slug=slug, is_draft=is_draft, body=body)
 
     @contextmanager
     def _acting_as(self, user):

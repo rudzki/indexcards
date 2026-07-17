@@ -4,6 +4,9 @@
 {% block content %}
 <div class="index-page h-feed">
     <h1 class="sr-only p-name">{{ site_settings.site_title }}</h1>
+    {% if site_settings.epigraph %}
+    <div class="site-epigraph">{{ site_settings.epigraph|inline_markdown }}</div>
+    {% endif %}
     <section class="index-list">
         {% if index_items %}
             {% set ns = namespace(current_letter='') %}

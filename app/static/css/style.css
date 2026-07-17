@@ -1042,6 +1042,23 @@ select.select-xs {
   margin-bottom: 1rem
 }
 
+/* Homepage epigraph — a short intro above the A–Z rail. */
+.site-epigraph {
+  max-width: 46rem;
+  margin: 0 0 1.75rem;
+  color: var(--ink-2);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.site-epigraph p {
+  margin: 0 0 0.6rem;
+}
+
+.site-epigraph p:last-child {
+  margin-bottom: 0;
+}
+
 /* A–Z index rail (alpha jump) */
 .az {
   display: flex;

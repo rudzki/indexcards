@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Site Content — {{ site_settings.site_title }}{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-title">
+        {% include 'admin/_nav_toggle.html' %}
+        <h1>Site Content</h1>
+    </div>
+    {% include 'admin/_nav.html' %}
+
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <fieldset>
+            <legend>Epigraph</legend>
+            <div class="field">
+                <label for="epigraph">Epigraph</label>
+                <textarea id="epigraph" name="epigraph" rows="3">{{ settings.epigraph }}</textarea>
+                <p class="field-hint field-hint-mt mb-0">A few sentences introducing the site, shown at the top of the homepage. Markdown supported. Leave blank to hide it.</p>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>About page</legend>
+            <div class="field">
+                <label for="about_markdown">About</label>
+                <textarea id="about_markdown" name="about_markdown" rows="16">{{ settings.about_markdown }}</textarea>
+                <p class="field-hint field-hint-mt mb-0">Hosted at <code>/about</code> and linked from the site menu. Markdown supported. Leave blank to hide the page and its menu link.</p>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Colophon</legend>
+            <div class="field">
+                <label for="footer_text">Colophon</label>
+                <textarea id="footer_text" name="footer_text" rows="2">{{ settings.footer_text }}</textarea>
+                <p class="field-hint field-hint-mt mb-0">A short note shown in the site footer — typically what the site is built with, a copyright line, or a credit. Markdown supported.</p>
+            </div>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+{% endblock %}

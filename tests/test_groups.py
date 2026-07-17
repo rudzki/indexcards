@@ -169,7 +169,7 @@ class AssignableGroupsTests(GroupsTestBase):
         self._login(author)
         # author is in self.group but not secret2 — only self.group should stick
         self.client.post('/dashboard/entry/new/', data={
-            'title': 'Mine', 'body_markdown': 'x', 'is_listed': 'on',
+            'title': 'Mine', 'body_markdown': 'x',
             'group_ids': [self.group.id, secret2.id],
         })
         entry = Entry.query.filter_by(slug='mine').first()

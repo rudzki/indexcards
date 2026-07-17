@@ -48,7 +48,6 @@ def settings():
     site_settings = SiteSettings.get()
     if request.method == 'POST':
         site_settings.site_title = request.form.get('site_title', '').strip()
-        site_settings.footer_text = request.form.get('footer_text', '').strip()
         site_settings.announcement_banner = request.form.get('announcement_banner', '').strip()
 
         site_settings.search_enabled = 'search_enabled' in request.form
@@ -126,6 +125,22 @@ def settings():
                            themes=themes, smtp_env_configured=smtp_env_configured(),
                            nav_items=nav_items, nav_candidates=nav_candidates,
                            grouped_entry_count=grouped_entry_count)
+
+
+@admin_bp.route('/content/', methods=['GET', 'POST'])
+@admin_required
+def content():
+    """Site Content — the site's editorial prose (epigraph, About page, and the
+    footer colophon), kept apart from operational Settings."""
+    site_settings = SiteSettings.get()
+    if request.method == 'POST':
+        site_settings.epigraph = request.form.get('epigraph', '').strip()
+        site_settings.about_markdown = request.form.get('about_markdown', '').strip()
+        site_settings.footer_text = request.form.get('footer_text', '').strip()
+        db.session.commit()
+        flash('Site content saved.', 'success')
+        return redirect(url_for('admin.content'))
+    return render_template('admin/content.html', settings=site_settings)
 
 
 @admin_bp.route('/nav/add/', methods=['POST'])

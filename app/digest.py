@@ -39,7 +39,6 @@ def send_digest(force):
                    .filter(Entry.published_at >= since,
                            Entry.is_draft == False,  # noqa: E712
                            Entry.is_stub == False,  # noqa: E712
-                           Entry.is_listed == True,  # noqa: E712
                            ~Entry.groups.any())
                    .order_by(Entry.published_at.desc())
                    .all())
@@ -57,7 +56,7 @@ def send_digest(force):
         for log in logs:
             entry = entries_by_id.get(log.entry_id)
             if (entry and not entry.is_draft and not entry.is_stub
-                    and entry.is_listed and not entry.groups and entry.id not in seen):
+                    and not entry.groups and entry.id not in seen):
                 seen.add(entry.id)
                 edited_entries.append((entry, log.changelog))
 

@@ -94,14 +94,14 @@ class QuickCreateTests(BaseTest):
         self._login(self._make_user(role='viewer'))
         self.assertEqual(self._post(title='Nope').status_code, 403)
 
-    def test_returns_existing_unlisted_card(self):
-        # After the merge an unlisted card ("page") shares the one namespace, so
-        # quick-create over its slug returns that card rather than colliding.
+    def test_returns_existing_card(self):
+        # After the merge all cards share one namespace, so quick-create over an
+        # existing card's slug returns that card rather than colliding.
         self._login(self._make_user(role='author'))
-        about = self._add_page('About', slug='about')
-        resp = self._post(title='About')
+        colophon = self._add_entry('Colophon Page', slug='colophon-page')
+        resp = self._post(title='Colophon Page')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json()['id'], about.id)
+        self.assertEqual(resp.get_json()['id'], colophon.id)
 
 
 class StubLinkRenderTests(BaseTest):

@@ -1,6 +1,7 @@
-"""Regressions for the Entry/Page merge: an unlisted card (is_listed=False)
-stays out of every stream surface (index, feeds, digest, API) but remains
-reachable by URL/link/search/nav; plus NavItem curation, ordering, and cleanup.
+"""Listing + nav regressions after the Entry/Page merge. There is no more
+Listed/Unlisted distinction: every published, non-stub card appears in the
+stream surfaces (index, feeds, digest, API). Stubs are still held back from
+feeds. Plus NavItem curation, ordering, and cleanup.
 """
 
 import unittest
@@ -12,54 +13,41 @@ from app import db
 from app.models import NavItem
 
 
-class UnlistedExclusionTests(BaseTest):
+class ListingTests(BaseTest):
     def setUp(self):
         super().setUp()
         self._set_setting(site_visibility='public', feeds_enabled=True,
                           search_enabled=True)
-        self.listed = self._add_entry('Listed One', slug='listed-one',
-                                      body='listed body')
-        self.unlisted = self._add_entry('Unlisted One', slug='unlisted-one',
-                                        body='unlisted body', is_listed=False)
+        # A plain entry and a former "page" — both are now ordinary listed cards.
+        self.one = self._add_entry('Card One', slug='card-one', body='one body')
+        self.two = self._add_entry('Card Two', slug='card-two', body='two body')
 
-    def test_absent_from_index(self):
+    def test_both_in_index(self):
         data = self.client.get('/').data
-        self.assertIn(b'Listed One', data)
-        self.assertNotIn(b'Unlisted One', data)
+        self.assertIn(b'Card One', data)
+        self.assertIn(b'Card Two', data)
 
-    def test_absent_from_feeds(self):
+    def test_both_in_feeds(self):
         xml = self.client.get('/feed.xml').data
-        self.assertIn(b'Listed One', xml)
-        self.assertNotIn(b'Unlisted One', xml)
-        items = self.client.get('/feed.json').get_json()['items']
-        titles = [i['title'] for i in items]
-        self.assertIn('Listed One', titles)
-        self.assertNotIn('Unlisted One', titles)
+        self.assertIn(b'Card One', xml)
+        self.assertIn(b'Card Two', xml)
+        titles = [i['title'] for i in self.client.get('/feed.json').get_json()['items']]
+        self.assertIn('Card One', titles)
+        self.assertIn('Card Two', titles)
 
-    def test_absent_from_api(self):
+    def test_both_in_api(self):
         listing = self.client.get('/api/v1/entries').get_json()
         slugs = [e['slug'] for e in listing['entries']]
-        self.assertIn('listed-one', slugs)
-        self.assertNotIn('unlisted-one', slugs)
-        # Single fetch of an unlisted card 404s through the public API.
-        self.assertEqual(self.client.get('/api/v1/entries/unlisted-one').status_code, 404)
-        self.assertEqual(self.client.get('/api/v1/entries/listed-one').status_code, 200)
-
-    def test_absent_from_random(self):
-        # Only the unlisted card would be a candidate if the filter were missing;
-        # with it, /random has nothing listed here besides `listed`.
-        for _ in range(5):
-            loc = self.client.get('/random').headers.get('Location', '')
-            self.assertNotIn('/unlisted-one/', loc)
+        self.assertIn('card-one', slugs)
+        self.assertIn('card-two', slugs)
+        self.assertEqual(self.client.get('/api/v1/entries/card-two').status_code, 200)
 
     def test_present_in_search_and_url(self):
-        # Unlisted cards are still searchable and directly reachable. (The
-        # visible title gets <mark> highlighting, so match on the result link.)
-        resp = self.client.get('/search?q=unlisted')
-        self.assertIn(b'unlisted-one', resp.data)
-        self.assertEqual(self.client.get('/unlisted-one/').status_code, 200)
+        resp = self.client.get('/search?q=two')
+        self.assertIn(b'card-two', resp.data)
+        self.assertEqual(self.client.get('/card-two/').status_code, 200)
 
-    def test_excluded_from_digest_selection(self):
+    def test_both_in_digest_selection(self):
         self._set_setting(digest_include_edits=False)
         self._make_user('viewer', email='sub@example.com', subscribed=True)
         captured = {}
@@ -73,19 +61,27 @@ class UnlistedExclusionTests(BaseTest):
             self.app.test_cli_runner().invoke(args=['send-digest', '--force'])
 
         titles = [e.title for e in captured.get('new_entries', [])]
-        self.assertIn('Listed One', titles)
-        self.assertNotIn('Unlisted One', titles)
+        self.assertIn('Card One', titles)
+        self.assertIn('Card Two', titles)
+
+    def test_stub_still_held_back_from_feeds(self):
+        stub = self._add_entry('Stub Card', slug='stub-card', body='stub')
+        stub.is_stub = True
+        db.session.commit()
+        xml = self.client.get('/feed.xml').data
+        self.assertNotIn(b'Stub Card', xml)
+        # ...but the stub is still in the index.
+        self.assertIn(b'Stub Card', self.client.get('/').data)
 
 
-class UnlistedLinkTargetTests(BaseTest):
-    def test_unlisted_card_is_valid_backlink_target(self):
+class LinkTargetTests(BaseTest):
+    def test_any_card_is_a_valid_backlink_target(self):
         from app.entries import sync_backlinks
-        self._add_entry('Target', slug='target', is_listed=False)
+        self._add_entry('Target', slug='target')
         source = self._add_entry('Source', slug='source',
                                  body='See [Target](/target/).')
         sync_backlinks(source)
         db.session.commit()
-        # The unlisted card's page lists the linking card as a backlink.
         resp = self.client.get('/target/')
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b'Source', resp.data)
@@ -97,19 +93,19 @@ class ParentPickerTests(BaseTest):
         self.admin = self._make_user('admin')
         self._login(self.admin)
 
-    def test_parent_picker_excludes_unlisted(self):
-        self._add_entry('Listed Parent', slug='lp')
-        self._add_entry('Unlisted Parent', slug='up', is_listed=False)
+    def test_parent_picker_lists_top_level_cards(self):
+        self._add_entry('Parent A', slug='pa')
+        self._add_entry('Parent B', slug='pb')
         results = self.client.get('/api/entries/search?for_parent=1').get_json()
         slugs = [r['slug'] for r in results]
-        self.assertIn('lp', slugs)
-        self.assertNotIn('up', slugs)
+        self.assertIn('pa', slugs)
+        self.assertIn('pb', slugs)
 
-    def test_plain_search_includes_unlisted(self):
-        self._add_entry('Unlisted Searchable', slug='us', is_listed=False)
-        results = self.client.get('/api/entries/search?q=unlisted').get_json()
+    def test_plain_search_finds_card(self):
+        self._add_entry('Searchable', slug='searchable')
+        results = self.client.get('/api/entries/search?q=searchable').get_json()
         slugs = [r['slug'] for r in results]
-        self.assertIn('us', slugs)
+        self.assertIn('searchable', slugs)
 
 
 class NavCurationTests(BaseTest):
@@ -126,11 +122,10 @@ class NavCurationTests(BaseTest):
 
     def test_nav_renders_in_position_order(self):
         a = self._add_entry('Alpha Nav', slug='alpha-nav')
-        b = self._add_entry('Beta Nav', slug='beta-nav', is_listed=False)
-        self._nav(b, 1)   # unlisted card, first
+        b = self._add_entry('Beta Nav', slug='beta-nav')
+        self._nav(b, 1)
         self._nav(a, 2)
         body = self.client.get('/').get_data(as_text=True)
-        # Both appear (unlisted cards may still be nav items)...
         self.assertIn('Beta Nav', body)
         self.assertIn('Alpha Nav', body)
         # ...in position order: Beta (pos 1) before Alpha (pos 2).

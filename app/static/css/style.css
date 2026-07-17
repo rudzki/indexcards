@@ -2447,7 +2447,7 @@ select.select-xs {
 }
 
 .admin-table tr:hover td {
-  background: var(--surface-2)
+  background: var(--surface);
 }
 
 .admin-table tr:last-child td {

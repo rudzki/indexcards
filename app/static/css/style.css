@@ -717,6 +717,16 @@ a.site-title:hover {
   display: none;
 }
 
+
+.badge.badge-stub {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.badge.badge-stub::before {
+  display: none;
+}
+
 /* Avoid a double dot when an explicit .dot child is also present. */
 .badge:has(.dot)::before {
   display: none;
@@ -2469,12 +2479,6 @@ select.select-xs {
   margin-left: 0.35rem;
   vertical-align: middle;
   flex-shrink: 0;
-}
-
-.entry-stub-label {
-  font-size: 0.75rem;
-  color: var(--ink-3);
-  margin-left: 0.35rem;
 }
 
 .listed-mark {

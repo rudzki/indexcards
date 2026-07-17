@@ -52,7 +52,7 @@
                             {% endif %}
                             {% if entry.parent_id %} &nbsp;<span class="parent" aria-hidden="true">↳ {{ entry.parent.title }}</span>{% endif %}
                             {% if entry.is_stub %}
-                                <span class="entry-stub-label">Stub</span>
+                                <span class="badge badge-stub">Stub</span>
                             {% endif %}
                             {% if entry.id in locked_entries %}
                                 <i class="bi bi-lock-fill entry-lock-icon" title="Being edited by {{ locked_entries[entry.id] }}"></i>

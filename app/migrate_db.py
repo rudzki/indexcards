@@ -147,7 +147,7 @@ def _run_migrations():
 
     # The `page` table is legacy (Entry/Page merged). It's no longer created on
     # fresh installs; where it still exists, the merge block below copies its
-    # rows into `entry` as unlisted cards.
+    # rows into `entry` and then drops the now-redundant table.
 
     if not has_table('edit_lock'):
         cursor.execute("""
@@ -213,9 +213,9 @@ def _run_migrations():
     # the menu. Idempotent: keyed on slug (globally unique across the old two
     # tables), so a page already mirrored into entry is skipped on re-run, and
     # nav slots are seeded at most once per entry. Former pages become ordinary
-    # entries (the Listed/Unlisted distinction was retired). The `page` table is
-    # left in place, unused. Any `entry.is_listed` column from an earlier merge
-    # is now inert.
+    # entries (the Listed/Unlisted distinction was retired). Once mirrored, the
+    # `page` table is dropped (below) so the schema matches the models. Any
+    # `entry.is_listed` column from an earlier merge is now inert.
     if has_table('page') and has_table('entry'):
         cursor.execute("""
             INSERT INTO entry
@@ -253,6 +253,12 @@ def _run_migrations():
                 cursor.execute(
                     "INSERT INTO entry_fts(rowid, title, body) VALUES (?, ?, ?)",
                     (eid, str(escape(title or '')), str(escape(strip_markdown(body_md or '')))))
+
+        # Every legacy page has now been mirrored into entry (idempotently, keyed
+        # on slug), so the source table is fully redundant — drop it to keep the
+        # schema in step with the models, which no longer define `page`. Guarded
+        # by has_table above, so this is a no-op on fresh installs and re-runs.
+        cursor.execute("DROP TABLE page")
 
     conn.commit()
     conn.close()

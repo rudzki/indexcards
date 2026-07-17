@@ -3683,8 +3683,8 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
 .entry-nav-arrows {
   display: block;
-  margin-top: 3.5rem;
-  padding-top: 1.5rem;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--line);
   font-family: var(--mono);
   font-size: 11px;

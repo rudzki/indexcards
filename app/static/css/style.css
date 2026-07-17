@@ -3570,7 +3570,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     border-bottom: 1px solid var(--line);
   }
 
-  /* .admin-subnav-visibility, */
+  .admin-subnav-visibility,
   .admin-subnav-type {
     display: none;
   }

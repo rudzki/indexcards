@@ -1756,26 +1756,17 @@ select.select-xs {
   margin-left: 0.3rem
 }
 
-.entry-backlinks {
-  margin-top: 2.5rem;
-  padding: 1.25rem;
-  background: var(--surface);
-  border-radius: var(--r);
-  border: 1px solid var(--line);
-}
-
-.heatmap-section h2,
-.entry-backlinks h2 {
+.heatmap-section h2 {
   margin-top: 0;
   margin-bottom: 0.5rem;
 }
-
+/* 
 .entry-backlinks a {
   color: var(--ink);
   font-weight: 500;
-}
+} */
 
-.entry-backlinks ul {
+/* .entry-backlinks ul {
   list-style: none;
   padding: 0;
   margin: 0
@@ -1789,7 +1780,7 @@ select.select-xs {
 .entry-backlinks li:last-child {
   border-bottom: none;
   padding-bottom: 0
-}
+} */
 
 .backlink-summary {
   color: var(--ink-2)
@@ -3613,12 +3604,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     margin-top: 1.5rem
   }
 
-  .entry-backlinks {
-    border: 1pt solid #ccc;
-    background: none;
-    margin-top: 1.5rem
-  }
-
   h1,
   h2,
   h3,
@@ -3632,7 +3617,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     widows: 3
   }
 
-  .entry-backlinks,
   .entry-footnotes {
     page-break-inside: avoid
   }
@@ -3748,6 +3732,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
 /* ── Children section ────────────────────────────────────── */
 
+.entry-backlinks,
 .entry-children {
   margin-top: 2.5rem;
   padding: 1.25rem;
@@ -3756,22 +3741,26 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   border: 1px solid var(--line);
 }
 
+.entry-backlinks h2,
 .entry-children h2 {
   margin-top: 0;
   margin-bottom: 0.5rem;
 }
 
+.entry-backlinks ul,
 .entry-children ul {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
+.entry-backlinks li,
 .entry-children li {
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--line-soft);
 }
 
+.entry-backlinks li:last-child,
 .entry-children li:last-child {
   border-bottom: none;
   padding-bottom: 0;

@@ -22,24 +22,29 @@ class SettingsValidationTests(BaseTest):
         self.client.post('/dashboard/settings/', data=form)
         return db.session.get(SiteSettings, 1)
 
+    def _post_integrations(self, **overrides):
+        self.client.post('/dashboard/integrations/', data=overrides)
+        return db.session.get(SiteSettings, 1)
+
     def test_unknown_enums_fall_back_to_safe_defaults(self):
         s = self._post(site_visibility='bogus', registration_method='bogus',
                        default_role='bogus', site_theme='bogus',
-                       default_color_mode='bogus', subpage_display='bogus',
-                       digest_day='99')
+                       default_color_mode='bogus', subpage_display='bogus')
         self.assertEqual(s.site_visibility, 'public')
         self.assertEqual(s.registration_method, 'invite')
         self.assertEqual(s.default_role, 'viewer')
         self.assertEqual(s.site_theme, 'default')
         self.assertEqual(s.default_color_mode, 'dark')
         self.assertEqual(s.subpage_display, 'both')
-        self.assertEqual(s.digest_day, 0)
+
+    def test_out_of_range_digest_day_falls_back_to_zero(self):
+        self.assertEqual(self._post_integrations(digest_day='99').digest_day, 0)
 
     def test_blank_smtp_password_preserves_stored(self):
         settings = db.session.get(SiteSettings, 1)
         settings.smtp_password = 'kept-secret'
         db.session.commit()
-        self._post(smtp_password='')
+        self._post_integrations(smtp_password='')
         self.assertEqual(db.session.get(SiteSettings, 1).smtp_password, 'kept-secret')
 
 

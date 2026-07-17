@@ -13,6 +13,90 @@
     <form method="post" class="settings-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
+        <details class="disclosure">
+            <summary>Email configuration</summary>
+            <div class="inner">
+            {% if smtp_env_configured %}
+            <div class="alert alert-info">
+                <span class="ic">i</span>
+                <div>
+                    <b>SMTP is configured in the environment (.env)</b>
+                    <p>Those values override the fields below, which are ignored while set. Remove the <code>SMTP_*</code> variables from <code>.env</code> to use these settings instead.</p>
+                </div>
+            </div>
+            {% endif %}
+            <p class="field-hint">Leave blank to print emails to the console instead of sending.</p>
+            <div class="field-row">
+                <div class="field">
+                    <label for="smtp_host">SMTP Host</label>
+                    <input type="text" id="smtp_host" name="smtp_host" value="{{ settings.smtp_host or '' }}" placeholder="smtp.example.com">
+                </div>
+                <div class="field field-small">
+                    <label for="smtp_port">Port</label>
+                    <input type="number" id="smtp_port" name="smtp_port" value="{{ settings.smtp_port or '' }}" placeholder="587">
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="smtp_username">Username</label>
+                    <input type="text" id="smtp_username" name="smtp_username" value="{{ settings.smtp_username or '' }}" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="smtp_password">Password</label>
+                    <input type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="{% if settings.smtp_password %}••••••••  (leave blank to keep){% endif %}">
+                </div>
+            </div>
+            <div class="field">
+                <label for="smtp_from_address">From Address</label>
+                <input type="email" id="smtp_from_address" name="smtp_from_address" value="{{ settings.smtp_from_address or '' }}" placeholder="hello@example.com">
+            </div>
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="smtp_use_tls" {% if settings.smtp_use_tls %}checked{% endif %}>
+                    Use TLS
+                </label>
+            </div>
+
+            <p class="data-subheading">Weekly Digest</p>
+            <p class="field-hint">A summary of new and updated entries sent automatically to all subscribers on the chosen day.</p>
+            <div class="field">
+                <label for="digest_day">Send On</label>
+                <select id="digest_day" name="digest_day">
+                    {% for day, name in [(0, 'Monday'), (1, 'Tuesday'), (2, 'Wednesday'), (3, 'Thursday'), (4, 'Friday'), (5, 'Saturday'), (6, 'Sunday')] %}
+                        <option value="{{ day }}" {% if settings.digest_day == day %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field field-inline">
+                <label>
+                    <input type="checkbox" name="digest_include_edits" {% if settings.digest_include_edits %}checked{% endif %}>
+                    Include updated entries
+                </label>
+            </div>
+            </div>
+        </details>
+
+        <details class="disclosure">
+            <summary>Custom Code</summary>
+            <div class="inner">
+            <div class="field">
+                <label for="custom_css">Custom CSS</label>
+                <textarea id="custom_css" name="custom_css" rows="6" spellcheck="false">{{ settings.custom_css or '' }}</textarea>
+                <p class="field-hint">Injected into &lt;head&gt; on every page. Overrides site styles.</p>
+            </div>
+            <div class="field">
+                <label for="custom_head_html">Custom &lt;head&gt; HTML</label>
+                <textarea id="custom_head_html" name="custom_head_html" rows="6" spellcheck="false">{{ settings.custom_head_html or '' }}</textarea>
+                <p class="field-hint">Injected at the end of &lt;head&gt;. Use for analytics scripts, meta tags, or third-party integrations.</p>
+            </div>
+            <div class="field">
+                <label for="custom_footer_html">Custom footer HTML</label>
+                <textarea id="custom_footer_html" name="custom_footer_html" rows="6" spellcheck="false">{{ settings.custom_footer_html or '' }}</textarea>
+                <p class="field-hint mb-0">Injected before &lt;/body&gt;. Use for widgets, tracking pixels, or other body-level scripts.</p>
+            </div>
+            </div>
+        </details>
+
         <fieldset>
             <legend>Mailchimp</legend>
             <p class="field-hint">Automatically add new subscribers to a Mailchimp audience when they confirm their subscription.</p>

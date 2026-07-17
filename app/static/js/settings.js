@@ -95,11 +95,11 @@
         if (name) {
             currentEl.innerHTML = '<i class="bi bi-' + name + '" id="icon-preview"></i> '
                 + '<span id="icon-label">' + name + '</span> '
-                + '<button type="button" class="btn btn-xs" id="icon-clear">Clear</button> '
-                + '<button type="button" class="btn btn-primary btn-xs" id="icon-pick-btn">Change</button>';
+                + '<button type="button" class="btn btn-sm" id="icon-clear">Clear</button> '
+                + '<button type="button" class="btn btn-primary btn-sm" id="icon-pick-btn">Change</button>';
         } else {
             currentEl.innerHTML = '<span id="icon-label" class="field-hint">None selected</span> '
-                + '<button type="button" class="btn btn-primary btn-xs" id="icon-pick-btn">Choose icon…</button>';
+                + '<button type="button" class="btn btn-primary btn-sm" id="icon-pick-btn">Choose icon…</button>';
         }
         document.getElementById('icon-pick-btn').addEventListener('click', togglePicker);
         var cb = document.getElementById('icon-clear');

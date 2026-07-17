@@ -15,7 +15,7 @@
     {% include 'admin/_nav.html' %}
 
     {% if users %}
-        <table class="admin-table">
+        <table class="data">
             <thead>
                 <tr>
                     <th class="col-primary"><a href="{{ sort_url('email') }}" class="sort-link">Email{{ sort_ind('email') }}</a></th>
@@ -95,7 +95,7 @@
         {% if pending %}
         <div class="invite-pending">
             <h3>Pending Invites</h3>
-            <table class="admin-table">
+            <table class="data">
                 <tbody>
                     {% for reg in pending %}
                     <tr>

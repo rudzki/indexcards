@@ -14,6 +14,15 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <fieldset>
+            <legend>Announcement Banner</legend>
+            <div class="field">
+                <label for="announcement_banner">Announcement Banner</label>
+                <textarea id="announcement_banner" name="announcement_banner" rows="2">{{ settings.announcement_banner }}</textarea>
+                <p class="field-hint field-hint-mt mb-0">Shows a dismissible site-wide banner above every page. Leave blank to hide it.</p>
+            </div>
+        </fieldset>
+
+        <fieldset>
             <legend>Epigraph</legend>
             <div class="field">
                 <label for="epigraph">Epigraph</label>

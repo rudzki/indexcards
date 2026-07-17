@@ -14,7 +14,7 @@
     {% if pending %}
     <div class="join-requests">
         <h2>Pending join requests</h2>
-        <table class="admin-table">
+        <table class="data">
             <tbody>
                 {% for req in pending %}
                 <tr>
@@ -42,7 +42,7 @@
     {% endif %}
 
     {% if groups %}
-        <table class="admin-table">
+        <table class="data">
             <thead>
                 <tr>
                     <th class="col-primary">Group</th>
@@ -143,7 +143,7 @@
         <h2>Site-wide group access</h2>
         <p class="field-hint">Users with all-groups access can read every grouped entry without joining each group.</p>
         {% if all_access_users %}
-        <table class="admin-table">
+        <table class="data">
             <tbody>
                 {% for user in all_access_users %}
                 <tr>

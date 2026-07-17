@@ -36,7 +36,7 @@
         <a href="{{ url_for('admin.dashboard', stub='all', status=status, listed=listed, sort=sort, order=order) }}"
            class="{{ 'active' if stub == 'all' }}">All</a>
         <a href="{{ url_for('admin.dashboard', stub='stub', status=status, listed=listed) }}"
-           class="{{ 'active' if stub == 'stub' }}">Stubs{% if stub_count %} <span class="subnav-count">{{ stub_count }}</span>{% endif %}</a>
+           class="{{ 'active' if stub == 'stub' }}">Stubs only {% if stub_count %} <span class="subnav-count">{{ stub_count }}</span>{% endif %}</a>
     </nav>
 
     {% if entries or pagination.total %}

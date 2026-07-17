@@ -12,21 +12,23 @@ def validated_image_ext(file, allowed):
     return ext if ext in allowed else None
 
 
-def apply_sort(query, request, column_map, default_key):
+def apply_sort(query, request, column_map, default_key, default_order='desc'):
     """Read ?sort/?order, map the sort key to a column, and apply the ordering.
 
     column_map maps each sort key to either a column, or a (column, join_arg)
     pair when that sort needs a join applied first (e.g. the logs view joins
     User to sort by editor email). An unknown sort/order falls back to the
-    defaults. Returns (query, sort, order) so the caller can echo the resolved
-    values back to the template.
+    defaults. `default_order` sets the direction used when ?order is absent,
+    letting a caller land on ascending (e.g. oldest-first) by default. Returns
+    (query, sort, order) so the caller can echo the resolved values back to the
+    template.
     """
     sort = request.args.get('sort', default_key)
     if sort not in column_map:
         sort = default_key
-    order = request.args.get('order', 'desc')
+    order = request.args.get('order', default_order)
     if order not in ('asc', 'desc'):
-        order = 'desc'
+        order = default_order
 
     spec = column_map[sort]
     if isinstance(spec, tuple):

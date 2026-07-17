@@ -34,7 +34,10 @@ def dashboard():
     # Independent, combinable filter axes:
     #   status  — publication state via is_draft (published vs draft)
     #   listed  — listing visibility via is_listed (former entries vs former pages)
-    #   stub    — placeholder state via is_stub (stubs vs full entries)
+    #   stub    — narrows to placeholders via is_stub. This one is a plain
+    #             all/stub toggle, not a tri-state: its whole job is surfacing
+    #             the stubs still waiting to be fleshed out, so the complement
+    #             ("full entries only") view carries no workflow and is omitted.
     # They combine, so a viewer can narrow to e.g. draft + unlisted stubs.
     status = request.args.get('status', 'all')
     listed = request.args.get('listed', 'all')
@@ -48,6 +51,10 @@ def dashboard():
     # Hide grouped entries the viewer can't read (admins bypass via the filter).
     q = q.filter(accessible_entries_filter(current_user))
 
+    # Standing count of the viewer's stubs, independent of the other filters, so
+    # the Stubs toggle can double as a "how many do I still owe" indicator.
+    stub_count = q.filter(Entry.is_stub == True).count()  # noqa: E712
+
     if status == 'published':
         q = q.filter(Entry.is_draft == False)  # noqa: E712
     elif status == 'draft':
@@ -60,19 +67,26 @@ def dashboard():
 
     if stub == 'stub':
         q = q.filter(Entry.is_stub == True)  # noqa: E712
-    elif stub == 'full':
-        q = q.filter(Entry.is_stub == False)  # noqa: E712
+
+    # In the Stubs view, default to oldest-created first so the most neglected
+    # placeholders float to the top — the ones you've been meaning to write for
+    # longest. An explicit ?sort from the user still wins.
+    if stub == 'stub' and 'sort' not in request.args:
+        default_sort, default_order = 'created', 'asc'
+    else:
+        default_sort, default_order = 'updated', 'desc'
 
     q, sort, order = apply_sort(q, request, {
-        'title': Entry.sort_title, 'status': Entry.is_draft, 'updated': Entry.updated_at,
-    }, 'updated')
+        'title': Entry.sort_title, 'status': Entry.is_draft,
+        'updated': Entry.updated_at, 'created': Entry.created_at,
+    }, default_sort, default_order)
 
     pagination = q.paginate(page=page, per_page=25, error_out=False)
     locked_entries = active_locks('entry')
     return render_template('admin/dashboard.html', entries=pagination.items,
                            pagination=pagination, sort=sort, order=order,
                            status=status, listed=listed, stub=stub,
-                           locked_entries=locked_entries)
+                           stub_count=stub_count, locked_entries=locked_entries)
 
 
 @admin_bp.route('/entry/new/', methods=['GET', 'POST'])

@@ -2414,6 +2414,25 @@ select.select-xs {
   box-shadow: 0 1px 2px rgba(0, 0, 0, .18);
 }
 
+/* Count chip inside a subnav pill (e.g. how many stubs are still owed). The
+   warn tint reads as a gentle "to-do" without shouting like danger. */
+.subnav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.3125rem;
+  margin-left: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-radius: var(--r-pill);
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;

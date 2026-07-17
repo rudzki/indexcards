@@ -3691,6 +3691,10 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   margin-bottom: 0;
 }
 
+.ml-025 {
+  margin-left: 0.25rem;
+}
+
 /* ── Arrow nav ───────────────────────────────────────────── */
 
 .entry-nav-arrows {

@@ -3133,20 +3133,13 @@ fieldset > .invite-form {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .7rem;
-  background: var(--color-error);
-  border: 1px solid #fff;
-  color: #fff;
-  padding: .6rem 1rem;
+  gap: .8rem;
+  padding: .9rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid;
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   font-size: 14px;
-  display: flex;
-gap: .8rem;
-padding: .9rem 1.1rem;
-border-radius: 10px;
-border: 1px solid;
-font-size: 14px;
-background: var(--danger-bg);
-border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: var(--danger-bg);
 }
 
 

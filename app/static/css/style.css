@@ -3515,7 +3515,6 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
   .site-nav {
     display: none;
-
     flex-direction: column;
     gap: 0;
     width: 100%;

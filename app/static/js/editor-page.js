@@ -194,6 +194,15 @@
 })();
 
 (function() {
+    var draft = document.getElementById('is-draft-checkbox');
+    var btn = document.getElementById('save-button');
+    if (!draft || !btn) return;
+    draft.addEventListener('change', function() {
+        btn.textContent = draft.checked ? 'Save as Draft' : 'Publish';
+    });
+})();
+
+(function() {
     var form = document.querySelector('.editor-form');
     if (!form || !form.dataset.lockType || !form.dataset.lockId) return;
     var LOCK_URL = '/api/lock/' + form.dataset.lockType + '/' + form.dataset.lockId;

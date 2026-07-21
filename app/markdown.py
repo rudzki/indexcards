@@ -8,7 +8,7 @@ ALLOWED_TAGS = [
     'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'strong', 'em', 'del', 'a', 'ul', 'ol', 'li', 'blockquote',
     'pre', 'code', 'hr', 'sup', 'section', 'img',
-    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'details', 'summary',
     'cite', 'q', 'abbr',
 ]
 ALLOWED_ATTRS = {
@@ -42,7 +42,46 @@ LOOSE_LI_RE = re.compile(
 def tighten_list_items(html):
     return LOOSE_LI_RE.sub(lambda m: f'<li>{m.group(1)}{m.group(2)}', html)
 
-MISTUNE_PLUGINS = ['table', 'strikethrough']
+# A collapsible block, authored as:
+#
+#     :::details Summary line
+#     Any block markdown here.
+#     :::
+#
+# mistune's own FencedDirective is not used: it insists on the MyST brace form
+# (`:::{details} title`), which is noisier to type and to read in the raw body.
+# An unterminated block falls through to a literal paragraph rather than
+# swallowing the rest of the entry.
+DETAILS_PATTERN = (
+    r'^:::details[ \t]*(?P<details_title>[^\n]*)\n'
+    r'(?P<details_text>(?:[^\n]*\n)*?)'
+    r':::[ \t]*(?:\n|$)'
+)
+
+
+def parse_details(block, m, state):
+    child = state.child_state(m.group('details_text'))
+    block.parse(child)
+    state.append_token({
+        'type': 'details',
+        'children': child.tokens,
+        'attrs': {'title': m.group('details_title').strip() or 'Details'},
+    })
+    return m.end()
+
+
+def render_details(renderer, text, **attrs):
+    title = html_lib.escape(attrs.get('title') or 'Details')
+    return f'<details><summary>{title}</summary>\n{text}</details>\n'
+
+
+def details_plugin(md):
+    md.block.register('details', DETAILS_PATTERN, parse_details, before='fenced_code')
+    if md.renderer and md.renderer.NAME == 'html':
+        md.renderer.register('details', render_details)
+
+
+MISTUNE_PLUGINS = ['strikethrough', details_plugin]
 
 
 def _new_markdown():
@@ -214,6 +253,9 @@ def strip_markdown(text):
         return ''
     text = FOOTNOTE_DEF_RE.sub('', text)
     text = FOOTNOTE_REF_RE.sub('', text)
+    # Drop the details fences but keep the summary line, which reads as prose.
+    text = re.sub(r'^:::details[ \t]*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^:::[ \t]*$', '', text, flags=re.MULTILINE)
     text = re.sub(r'[#*_`\[\]()>~]', '', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip()

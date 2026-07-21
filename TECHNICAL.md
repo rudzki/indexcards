@@ -229,14 +229,19 @@ then FTS table creation, then seeds the `SiteSettings` singleton if absent.
 
 ## 6. Markdown, sanitization, and search
 
-- **Rendering** (`app/markdown.py`): `mistune` (table + strikethrough plugins)
-  renders with `escape=False`; custom footnote pre/post-processing turns `[^1]`
-  syntax into hover-able references and an end-of-page section (fenced code
-  blocks are left untouched); loose-list `<p>` wrappers from the editor are
-  tightened; then `bleach.clean()` with an explicit tag/attribute allowlist;
-  then heading-ID injection for the table of contents. A separate
+- **Rendering** (`app/markdown.py`): `mistune` (strikethrough plugin plus a
+  custom `:::details` block rule) renders with `escape=False`; custom footnote
+  pre/post-processing turns `[^1]` syntax into hover-able references and an
+  end-of-page section (fenced code blocks are left untouched); loose-list `<p>`
+  wrappers from the editor are tightened; then `bleach.clean()` with an explicit
+  tag/attribute allowlist; then heading-ID injection for the table of contents.
+  A separate
   `render_inline_markdown` renders short one-off strings (footer, announcement
-  banner) with inline formatting only.
+  banner) with inline formatting only. **Tables are deliberately unsupported**:
+  the editor's ProseMirror schema has no table nodes, so a table authored in
+  markdown would be destroyed on the next save. Anything added to the renderer
+  needs a matching schema node *and* serializer rule in `editor.js`, or it will
+  not survive a round-trip.
 - **Internal links**: `INTERNAL_LINK_RE` matches `href="/slug/"` in the rendered
   HTML, capturing the final path segment so both flat (`/slug/`) and nested
   (`/parent/child/`) URLs are recognized. `extract_internal_links()` feeds

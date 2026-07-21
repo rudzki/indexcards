@@ -30,6 +30,26 @@ class RenderTests(BaseTest):
         # The ref inside the fence must not become a live footnote link.
         self.assertIn('see[^1]', html)
 
+    def test_details_rendered(self):
+        html = render_markdown(':::details Why this matters\nHidden **text**.\n:::')
+        self.assertIn('<details>', html)
+        self.assertIn('<summary>Why this matters</summary>', html)
+        self.assertIn('<strong>text</strong>', html)
+
+    def test_details_defaults_title_and_survives_nested_fence(self):
+        html = render_markdown(':::details\n```\nx = 1\n```\n:::')
+        self.assertIn('<summary>Details</summary>', html)
+        self.assertIn('x = 1', html)
+
+    def test_details_title_is_escaped(self):
+        html = render_markdown(':::details <script>alert(1)</script>\nbody\n:::')
+        self.assertNotIn('<script>', html)
+
+    def test_unterminated_details_stays_literal(self):
+        html = render_markdown(':::details Oops\nno close')
+        self.assertNotIn('<details>', html)
+        self.assertIn('no close', html)
+
 
 class SanitizeTests(BaseTest):
     def test_allowed_markup_kept(self):
@@ -40,8 +60,11 @@ class SanitizeTests(BaseTest):
         self.assertIn('<img', img)
         self.assertIn('src="https://example.com/i.png"', img)
 
-        table = render_markdown('| a | b |\n| - | - |\n| 1 | 2 |')
-        self.assertIn('<table>', table)
+    def test_tables_not_rendered(self):
+        # Tables are deliberately unsupported: the editor's schema has no table
+        # nodes, so authoring one would be destroyed on the next save.
+        html = render_markdown('| a | b |\n| - | - |\n| 1 | 2 |')
+        self.assertNotIn('<table', html)
 
     def test_disallowed_tag_stripped_text_kept(self):
         html = render_markdown('<div class="x">hi</div>')

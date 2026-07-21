@@ -1,6 +1,6 @@
 import {
     Schema,
-    EditorState, Plugin, PluginKey,
+    EditorState, Plugin, PluginKey, TextSelection,
     EditorView,
     markdownSchema,
     addListNodes,
@@ -17,8 +17,58 @@ import {
     dropCursor, gapCursor,
 } from "./vendor/prosemirror/prosemirror-bundle.js";
 
+// A real <details> would collapse in the editor and hide its own content, so
+// the block is rendered as a plain container that is always open. Footnote
+// keys are shown via CSS ::before rather than a node in the document, which
+// keeps them out of the way of the cursor.
+const customNodes = {
+    details: {
+        content: "details_summary block+",
+        group: "block",
+        defining: true,
+        parseDOM: [{ tag: "div.pm-details" }],
+        toDOM() { return ["div", { class: "pm-details" }, 0]; },
+    },
+    details_summary: {
+        content: "inline*",
+        marks: "",
+        parseDOM: [{ tag: "div.pm-details-summary" }],
+        toDOM() { return ["div", { class: "pm-details-summary" }, 0]; },
+    },
+    footnote_ref: {
+        inline: true,
+        group: "inline",
+        atom: true,
+        attrs: { key: {} },
+        parseDOM: [{
+            tag: "sup.footnote-ref",
+            getAttrs(dom) { return { key: dom.getAttribute("data-key") }; },
+        }],
+        toDOM(node) {
+            return ["sup", { class: "footnote-ref", "data-key": node.attrs.key }, node.attrs.key];
+        },
+    },
+    footnote_def: {
+        content: "inline*",
+        group: "block",
+        defining: true,
+        attrs: { key: {} },
+        parseDOM: [{
+            tag: "p.pm-footnote-def",
+            getAttrs(dom) { return { key: dom.getAttribute("data-key") }; },
+        }],
+        toDOM(node) {
+            return ["p", {
+                class: "pm-footnote-def",
+                "data-key": `[${node.attrs.key}]:`,
+            }, 0];
+        },
+    },
+};
+
 const schema = new Schema({
-    nodes: addListNodes(markdownSchema.spec.nodes, "paragraph block*", "block"),
+    nodes: addListNodes(markdownSchema.spec.nodes, "paragraph block*", "block")
+        .append(customNodes),
     marks: markdownSchema.spec.marks.append({
         s: {
             parseDOM: [{ tag: 's' }, { tag: 'del' }, { style: 'text-decoration=line-through' }],
@@ -62,7 +112,22 @@ function buildKeymap(schema) {
     keys["Mod-i"] = toggleMark(schema.marks.em);
     keys["Mod-`"] = toggleMark(schema.marks.code);
 
+    // A details summary is a single line: Enter drops into the body below it
+    // rather than trying to split a node the schema only allows one of.
+    const leaveSummary = (state, dispatch) => {
+        const { $from, empty } = state.selection;
+        if (!empty || $from.parent.type !== schema.nodes.details_summary) return false;
+        if (dispatch) {
+            const after = $from.after($from.depth);
+            dispatch(state.tr
+                .setSelection(TextSelection.near(state.doc.resolve(after)))
+                .scrollIntoView());
+        }
+        return true;
+    };
+
     keys["Enter"] = chainCommands(
+        leaveSummary,
         splitListItem(schema.nodes.list_item),
         newlineInCode,
         createParagraphNear,
@@ -84,10 +149,113 @@ function buildKeymap(schema) {
 
 try { defaultMarkdownParser.tokenizer.enable('strikethrough'); } catch (e) {}
 
+// The tokenizer ships with the CommonMark preset, which knows nothing about
+// `:::details` blocks or `[^1]` footnotes. Without these rules both parse as
+// ordinary text and the serializer escapes the brackets on the way back out —
+// `[^1]` returns as `\[^1\]` — so opening an entry and saving it destroys the
+// footnotes it already had. See app/markdown.py for the rendering side.
+function detailsBlockRule(state, startLine, endLine, silent) {
+    const start = state.bMarks[startLine] + state.tShift[startLine];
+    const open = /^:::details[ \t]*(.*)$/.exec(state.src.slice(start, state.eMarks[startLine]));
+    if (!open) return false;
+    if (silent) return true;
+
+    let closeLine = -1;
+    for (let line = startLine + 1; line < endLine; line++) {
+        const from = state.bMarks[line] + state.tShift[line];
+        if (/^:::[ \t]*$/.test(state.src.slice(from, state.eMarks[line]))) {
+            closeLine = line;
+            break;
+        }
+    }
+    // Unterminated: fall through so it stays a literal paragraph rather than
+    // swallowing the rest of the entry. Matches the server's behaviour.
+    if (closeLine === -1) return false;
+
+    const openToken = state.push('details_open', 'div', 1);
+    openToken.map = [startLine, closeLine];
+
+    state.push('details_summary_open', 'div', 1);
+    const title = state.push('inline', '', 0);
+    title.content = open[1].trim();
+    title.children = [];
+    state.push('details_summary_close', 'div', -1);
+
+    const oldParent = state.parentType;
+    state.parentType = 'details';
+    state.md.block.tokenize(state, startLine + 1, closeLine);
+    state.parentType = oldParent;
+
+    state.push('details_close', 'div', -1);
+    state.line = closeLine + 1;
+    return true;
+}
+
+function footnoteDefBlockRule(state, startLine, endLine, silent) {
+    const start = state.bMarks[startLine] + state.tShift[startLine];
+    const m = /^\[\^(\w+)\]:[ \t]*(.*)$/.exec(state.src.slice(start, state.eMarks[startLine]));
+    if (!m) return false;
+    if (silent) return true;
+
+    const openToken = state.push('footnote_def_open', 'p', 1);
+    openToken.map = [startLine, startLine + 1];
+    openToken.attrSet('data-key', m[1]);
+
+    const body = state.push('inline', '', 0);
+    body.content = m[2];
+    body.children = [];
+
+    state.push('footnote_def_close', 'p', -1);
+    state.line = startLine + 1;
+    return true;
+}
+
+function footnoteRefInlineRule(state, silent) {
+    if (state.src.charCodeAt(state.pos) !== 0x5B /* [ */) return false;
+    if (state.src.charCodeAt(state.pos + 1) !== 0x5E /* ^ */) return false;
+
+    const m = /^\[\^(\w+)\]/.exec(state.src.slice(state.pos, state.posMax));
+    if (!m) return false;
+    if (!silent) {
+        state.push('footnote_ref', 'sup', 0).attrSet('data-key', m[1]);
+    }
+    state.pos += m[0].length;
+    return true;
+}
+
+try {
+    const md = defaultMarkdownParser.tokenizer;
+    md.block.ruler.before('fence', 'details', detailsBlockRule, {
+        alt: ['paragraph', 'blockquote', 'list'],
+    });
+    // Must beat CommonMark's `reference` rule: it reads `[^1]: text` as a link
+    // reference definition and swallows it without emitting any token, which is
+    // a second, independent way footnote definitions were being lost.
+    md.block.ruler.before('reference', 'footnote_def', footnoteDefBlockRule, {
+        alt: ['paragraph'],
+    });
+    md.inline.ruler.before('link', 'footnote_ref', footnoteRefInlineRule);
+} catch (e) {
+    console.warn("Could not install markdown rules:", e);
+}
+
 const mdParser = new MarkdownParser(
     schema,
     defaultMarkdownParser.tokenizer,
-    { ...defaultMarkdownParser.tokens, s: { mark: 's' } },
+    {
+        ...defaultMarkdownParser.tokens,
+        s: { mark: 's' },
+        details: { block: 'details' },
+        details_summary: { block: 'details_summary' },
+        footnote_def: {
+            block: 'footnote_def',
+            getAttrs: tok => ({ key: tok.attrGet('data-key') }),
+        },
+        footnote_ref: {
+            node: 'footnote_ref',
+            getAttrs: tok => ({ key: tok.attrGet('data-key') }),
+        },
+    },
 );
 
 const mdSerializer = new MarkdownSerializer(
@@ -103,6 +271,28 @@ const mdSerializer = new MarkdownSerializer(
         list_item(state, node) {
             state.renderContent(node);
         },
+        details(state, node) {
+            const summary = node.firstChild ? node.firstChild.textContent.trim() : '';
+            state.write(':::details' + (summary ? ' ' + summary : '') + '\n');
+            // Child 0 is the summary, already written as part of the fence.
+            node.forEach((child, _offset, index) => {
+                if (index > 0) state.render(child, node, index);
+            });
+            state.ensureNewLine();
+            state.write(':::');
+            state.closeBlock(node);
+        },
+        details_summary() {
+            // Consumed by details() above; never serialized on its own.
+        },
+        footnote_def(state, node) {
+            state.write(`[^${node.attrs.key}]: `);
+            state.renderInline(node);
+            state.closeBlock(node);
+        },
+        footnote_ref(state, node) {
+            state.write(`[^${node.attrs.key}]`);
+        },
     },
     {
         ...defaultMarkdownSerializer.marks,
@@ -110,7 +300,7 @@ const mdSerializer = new MarkdownSerializer(
     },
 );
 
-function markdownToDoc(markdown) {
+export function markdownToDoc(markdown) {
     if (!markdown || !markdown.trim()) {
         return mdParser.parse("");
     }
@@ -122,7 +312,7 @@ function markdownToDoc(markdown) {
     }
 }
 
-function docToMarkdown(doc) {
+export function docToMarkdown(doc) {
     return mdSerializer.serialize(doc);
 }
 
@@ -385,6 +575,52 @@ function triggerImageUpload(view) {
     input.click();
 }
 
+function insertDetails(view) {
+    const { state } = view;
+    const from = state.selection.from;
+    const node = schema.nodes.details.create(null, [
+        schema.nodes.details_summary.create(),
+        schema.nodes.paragraph.create(),
+    ]);
+
+    const tr = state.tr.replaceSelectionWith(node);
+    // replaceSelectionWith may split the surrounding block, so locate the
+    // inserted node rather than assuming it landed exactly at `from`.
+    let target = null;
+    tr.doc.nodesBetween(
+        Math.max(0, from - 2),
+        Math.min(tr.doc.content.size, from + node.nodeSize + 2),
+        (n, pos) => {
+            if (target === null && n.type === schema.nodes.details) target = pos;
+        },
+    );
+    // +1 into the details node, +1 into the summary line.
+    if (target !== null) tr.setSelection(TextSelection.create(tr.doc, target + 2));
+    view.dispatch(tr.scrollIntoView());
+    view.focus();
+}
+
+function insertFootnote(view) {
+    const { state } = view;
+
+    const used = new Set();
+    state.doc.descendants(n => {
+        if (n.type === schema.nodes.footnote_ref || n.type === schema.nodes.footnote_def) {
+            used.add(n.attrs.key);
+        }
+    });
+    let n = 1;
+    while (used.has(String(n))) n++;
+    const key = String(n);
+
+    const tr = state.tr.replaceSelectionWith(schema.nodes.footnote_ref.create({ key }), false);
+    const defPos = tr.doc.content.size;
+    tr.insert(defPos, schema.nodes.footnote_def.create({ key }));
+    tr.setSelection(TextSelection.create(tr.doc, defPos + 1));
+    view.dispatch(tr.scrollIntoView());
+    view.focus();
+}
+
 function isMarkActive(state, markType) {
     const { from, $from, to, empty } = state.selection;
     if (empty) return !!(state.storedMarks || $from.marks()).find(m => m.type === markType);
@@ -395,7 +631,8 @@ function isNodeActive(state, nodeType, attrs) {
     const { $from } = state.selection;
     if (nodeType === schema.nodes.blockquote ||
         nodeType === schema.nodes.bullet_list ||
-        nodeType === schema.nodes.ordered_list) {
+        nodeType === schema.nodes.ordered_list ||
+        nodeType === schema.nodes.details) {
         for (let d = $from.depth; d > 0; d--) {
             if ($from.node(d).type === nodeType) return true;
         }
@@ -427,10 +664,13 @@ function setupToolbar(toolbar, view) {
             const { tr } = view.state;
             view.dispatch(tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()));
         }},
+        { icon: "bi-chevron-bar-expand", title: "Collapsible Section", action: () => insertDetails(view), activeNode: () => schema.nodes.details },
         { sep: true },
         { icon: "bi-link-45deg", title: "Insert Link (Ctrl+K)", action: () => showLinkDialog(view) },
         { icon: "bi-image", title: "Insert Image", action: () => triggerImageUpload(view) },
         { icon: "bi-code", title: "Inline Code (Ctrl+`)", action: () => toggleMark(schema.marks.code)(view.state, view.dispatch), activeMark: () => schema.marks.code },
+        { icon: "bi-code-square", title: "Code Block", action: () => setBlockType(schema.nodes.code_block)(view.state, view.dispatch), activeNode: () => schema.nodes.code_block },
+        { icon: "bi-superscript", title: "Insert Footnote", action: () => insertFootnote(view) },
         { sep: true },
         { icon: "bi-arrow-counterclockwise", title: "Undo (Ctrl+Z)", action: () => undo(view.state, view.dispatch) },
         { icon: "bi-arrow-clockwise", title: "Redo (Ctrl+Shift+Z)", action: () => redo(view.state, view.dispatch) },

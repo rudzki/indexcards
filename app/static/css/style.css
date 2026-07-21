@@ -1716,6 +1716,57 @@ select.select-xs {
   color: var(--danger)
 }
 
+/* Collapsible section (:::details) */
+.entry-body details {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  margin: 1.4em 0;
+  padding: 0 1rem;
+}
+
+.entry-body details > summary {
+  cursor: pointer;
+  padding: 0.75rem 0;
+  font-weight: 600;
+  color: var(--ink);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.entry-body details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.entry-body details > summary::before {
+  content: "";
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid var(--ink-2);
+  border-bottom: 2px solid var(--ink-2);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.entry-body details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.entry-body details > summary:hover::before {
+  border-color: var(--ink);
+}
+
+.entry-body details > *:not(summary) {
+  margin-top: 0;
+}
+
+.entry-body details > *:last-child {
+  margin-bottom: 1rem;
+}
+
 /* Shared code-block container */
 .entry-body pre,
 .ProseMirror pre {
@@ -2325,6 +2376,60 @@ select.select-xs {
   vertical-align: super;
   color: var(--ink-2);
   cursor: default;
+}
+
+/* Footnote ref is an atom: give it a chip outline so it reads as one unit. */
+.ProseMirror sup.footnote-ref {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  user-select: all;
+}
+
+/* Definitions stay editable text; the key is decoration, not document content. */
+.ProseMirror .pm-footnote-def {
+  font-size: 0.875em;
+  color: var(--ink-2);
+  padding-left: 3.25rem;
+  text-indent: -3.25rem;
+}
+
+.ProseMirror .pm-footnote-def::before {
+  content: attr(data-key);
+  font-family: var(--mono);
+  color: var(--ink-2);
+  opacity: 0.7;
+  margin-right: 0.5rem;
+  user-select: none;
+}
+
+/* A real <details> would collapse and hide its own content while editing, so
+   the editor shows an always-open stand-in. */
+.ProseMirror .pm-details {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.875rem;
+}
+
+.ProseMirror .pm-details-summary {
+  font-weight: 600;
+  color: var(--ink);
+  padding-bottom: 0.375rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.ProseMirror .pm-details-summary:empty::before {
+  content: "Summary…";
+  color: var(--ink-2);
+  opacity: 0.6;
+}
+
+.ProseMirror .pm-details > *:last-child {
+  margin-bottom: 0;
 }
 
 .ProseMirror-focused {

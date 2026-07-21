@@ -1499,7 +1499,7 @@ select.select-xs {
 }
 
 .entry-toc .toc-h3 {
-  padding-left: 1rem;
+  margin-left: 1rem;
 }
 
 /* Eyebrow / section-label pattern — used in panels and sidebars */

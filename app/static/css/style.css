@@ -1719,9 +1719,9 @@ select.select-xs {
 /* Collapsible section (:::details) */
 .entry-body details {
   border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--surface);
-  margin: 1.4em 0;
+  /* border-radius: var(--r); */
+  /* background: var(--surface); */
+  /* margin: 1.4em 0; */
   padding: 0 1rem;
 }
 

@@ -2204,6 +2204,9 @@ select.select-xs {
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .editor-toolbar button {
@@ -2251,6 +2254,7 @@ select.select-xs {
   resize: vertical;
   width: 100%;
   min-height: 20rem;
+  max-height: max(20rem, calc(100vh - 18rem));
   background: var(--bg);
   color: var(--ink);
 }
@@ -2307,6 +2311,9 @@ select.select-xs {
   border: 1px solid var(--line);
   border-radius: 0 0 8px 8px;
   background: var(--surface);
+  max-height: max(20rem, calc(100vh - 18rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ProseMirror {

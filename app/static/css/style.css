@@ -1498,6 +1498,10 @@ select.select-xs {
   width: 300px;
 }
 
+.entry-toc .toc-h3 {
+  padding-left: 1rem;
+}
+
 /* Eyebrow / section-label pattern — used in panels and sidebars */
 .entry-toc strong,
 .heatmap-section h2,
@@ -2871,6 +2875,42 @@ details.disclosure .inner {
   flex-wrap: wrap
 }
 
+/* ── Account avatar ──────────────────────────────────────── */
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 4px;
+  flex-wrap: wrap
+}
+
+.avatar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap
+}
+
+.avatar-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  flex-shrink: 0
+}
+
+.avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase
+}
+
 /* ── Icon picker ─────────────────────────────────────────── */
 
 .icon-picker-current {
@@ -3212,6 +3252,16 @@ fieldset > .invite-form {
   border: 6px solid transparent;
   border-bottom: none;
   border-top-color: var(--line);
+}
+
+.bio-popup-avatar {
+  width: 3rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  display: block;
+  margin-bottom: 0.5rem;
 }
 
 .bio-popup-text+.bio-popup-link {

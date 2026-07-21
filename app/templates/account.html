@@ -5,8 +5,32 @@
 {% block content %}
 <div class="auth-page">
     <h1>Account</h1>
-    <form method="post" class="auth-form">
+    <form method="post" class="auth-form" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+            <label>Avatar</label>
+            <div class="avatar-row">
+                {% if current_user.avatar_url %}
+                    <img src="{{ current_user.avatar_url }}" alt="Your avatar" class="avatar-thumb">
+                {% else %}
+                    <span class="avatar-thumb avatar-placeholder" aria-hidden="true">{{ current_user.display_name[:1]|upper }}</span>
+                {% endif %}
+                <div class="avatar-controls">
+                    <label class="btn btn-sm import-file-btn">
+                        {% if current_user.avatar_url %}Change…{% else %}Choose image…{% endif %}
+                        <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif" hidden
+                               onchange="document.getElementById('avatar-filename').textContent = this.files[0]?.name || '';">
+                    </label>
+                    <span id="avatar-filename" class="field-hint"></span>
+                    {% if current_user.avatar_url %}
+                    <label class="field-inline">
+                        <input type="checkbox" name="remove_avatar"> Remove avatar
+                    </label>
+                    {% endif %}
+                </div>
+            </div>
+            <p class="field-hint field-hint-mt mb-0">PNG, JPEG, WebP, or GIF. Max 2 MB. Saved when you press Save.</p>
+        </div>
         <div class="field">
             <label for="display_name">Display Name</label>
             <input type="text" id="display_name" name="display_name" value="{{ current_user.display_name }}" required>

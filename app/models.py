@@ -230,8 +230,20 @@ class User(UserMixin, db.Model):
     # All-Groups grant: this user can read every grouped entry regardless of
     # explicit membership (distinct from admin, which also bypasses).
     all_groups = db.Column(db.Boolean, default=False)
+    # Uploaded avatar filename (lives in the uploads dir, served via
+    # /uploads/<filename>). Empty/None when the user hasn't set one.
+    avatar = db.Column(db.Text, default='')
 
     groups = db.relationship('Group', secondary=group_members, backref='members')
+
+    @property
+    def avatar_url(self):
+        """Public URL of the user's avatar, or None when unset. The stored
+        filename is a random 32-hex name so it serves through the existing
+        /uploads/ route (which validates that shape)."""
+        if not self.avatar:
+            return None
+        return url_for('main.uploaded_file', filename=self.avatar)
 
     @property
     def is_admin(self):

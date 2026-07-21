@@ -109,6 +109,9 @@ def _run_migrations():
     if has_table('user') and not has_column('user', 'all_groups'):
         cursor.execute("ALTER TABLE user ADD COLUMN all_groups BOOLEAN DEFAULT 0")
 
+    if has_table('user') and not has_column('user', 'avatar'):
+        cursor.execute("ALTER TABLE user ADD COLUMN avatar TEXT DEFAULT ''")
+
     if has_table('site_settings') and not has_column('site_settings', 'site_icon'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN site_icon TEXT DEFAULT ''")
     if has_table('site_settings') and not has_column('site_settings', 'site_image'):

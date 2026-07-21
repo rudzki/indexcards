@@ -104,6 +104,14 @@ document.querySelectorAll('.footnote-ref a[data-footnote]').forEach(function(el)
             if (existing) { existing.remove(); return; }
             var popup = document.createElement('div');
             popup.className = 'bio-popup';
+            var avatar = el.getAttribute('data-avatar');
+            if (avatar) {
+                var avatarImg = document.createElement('img');
+                avatarImg.className = 'bio-popup-avatar';
+                avatarImg.src = avatar;
+                avatarImg.alt = '';
+                popup.appendChild(avatarImg);
+            }
             var bio = el.getAttribute('data-bio');
             if (bio) {
                 var bioText = document.createElement('div');

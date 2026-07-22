@@ -99,13 +99,9 @@
     </nav>
     {% endif %}
 
-    <nav class="entry-nav-arrows">
-        <ul>
-            {% if prev_entry %}<li class="entry-nav-prev"><a href="{{ entry_url(prev_entry) }}">← {{ prev_entry.title }}</a></li>{% endif %}
-            <li class="entry-nav-center"><a href="{{ url_for('main.index') }}">Index</a></li>
-            {% if next_entry %}<li class="entry-nav-next"><a href="{{ entry_url(next_entry) }}">{{ next_entry.title }} →</a></li>{% endif %}
-        </ul>
-    </nav>
+    <div class="entry-nav-return">
+        <a href="{{ url_for('main.index') }}">&larr; Return to Index</a>
+    </div>
 </article>
 {% endblock %}
 

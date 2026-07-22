@@ -3891,7 +3891,17 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   margin-left: 0.25rem;
 }
 
-/* ── Arrow nav ───────────────────────────────────────────── */
+/* ── entry nav ───────────────────────────────────────────── */
+
+.entry-nav-return {
+  text-align: center;
+  margin-top: 2.5rem;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
 
 .entry-nav-arrows {
   display: block;

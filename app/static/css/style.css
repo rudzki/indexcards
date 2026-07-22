@@ -1718,11 +1718,12 @@ select.select-xs {
 
 /* Collapsible section (:::details) */
 .entry-body details {
+  margin: 1.4em 0;
+  background: var(--surface);
   border: 1px solid var(--line);
-  /* border-radius: var(--r); */
-  /* background: var(--surface); */
-  /* margin: 1.4em 0; */
-  padding: 0 1rem;
+  border-radius: 0;
+  padding: 1.25rem;
+  font-size: 0.875rem;
 }
 
 .entry-body details > summary {

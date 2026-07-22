@@ -1474,7 +1474,7 @@ select.select-xs {
 
 .entry-breadcrumb {
   color: var(--ink);
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   font-family: var(--mono);
   font-size: 0.875rem;
   text-transform: uppercase;
@@ -1886,7 +1886,7 @@ select.select-xs {
   display: flex;
   align-items: center;
   gap: 1rem;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: var(--ink-3);
 }
 

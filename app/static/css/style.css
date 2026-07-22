@@ -1473,7 +1473,7 @@ select.select-xs {
 
 .entry-breadcrumb {
   color: var(--ink);
-  margin-bottom: 1.25rem;
+  margin-bottom: 2rem;
   font-family: var(--mono);
   font-size: 0.8125rem;
   text-transform: uppercase;

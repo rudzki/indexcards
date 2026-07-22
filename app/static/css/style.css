@@ -37,8 +37,7 @@
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: "SF Mono", ui-monospace, "Cascadia Mono", "Roboto Mono", Menlo, monospace;
 
-  /* App aliases — some consumed in Jinja templates rather than CSS */
-  --max-width: 940px;
+  --max-width: 1100px;
   --font-body: var(--font);
   --font-mono: var(--mono);
   --color-text: var(--ink);
@@ -1476,7 +1475,7 @@ select.select-xs {
   color: var(--ink);
   margin-bottom: 1.25rem;
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   text-transform: uppercase;
   letter-spacing: .08em;
 }

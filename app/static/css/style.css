@@ -3325,7 +3325,7 @@ fieldset > .invite-form {
   gap: .8rem;
   padding: .9rem 1.1rem;
   border-radius: 0;
-  border: 1px solid;
+  border-bottom: 1px solid;
   border-color: color-mix(in srgb, var(--danger) 20%, transparent);
   font-size: 0.875rem;
   background: var(--danger-bg);

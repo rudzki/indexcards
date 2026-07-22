@@ -3946,7 +3946,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
 
 .entry-backlinks,
 .entry-children {
-  margin-top: 2.5rem;
+  margin: 2.5rem 0;
 }
 
 .entry-backlinks h2,

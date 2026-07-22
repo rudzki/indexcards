@@ -1141,6 +1141,7 @@ select.select-xs {
   pointer-events: none;
 }
 
+.index-list h2,
 .index-letter {
   font-size: 0.875rem;
   font-weight: 700;
@@ -1153,6 +1154,7 @@ select.select-xs {
   border-bottom: 1px solid var(--line);
 }
 
+.index-list h2:first-of-type,
 .index-list .index-letter:first-of-type {
   margin-top: 0.75rem
 }
@@ -1505,8 +1507,6 @@ select.select-xs {
 /* Eyebrow / section-label pattern — used in panels and sidebars */
 .entry-toc strong,
 .heatmap-section h2,
-.entry-backlinks h2,
-.entry-children h2,
 .entry-toc summary,
 .entry-footnotes h2,
 .invite-form h2,

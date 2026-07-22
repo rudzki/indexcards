@@ -1722,8 +1722,8 @@ select.select-xs {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 0;
-  padding: 1.25rem;
   font-size: 0.875rem;
+  padding: 0 1rem;
 }
 
 .entry-body details > summary {

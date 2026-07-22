@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% import "_macros.html" as macros %}
+{% import "_macros.html" as macros with context %}
 
 {% block title %}{{ entry.title }} — {{ site_settings.site_title }}{% endblock %}
 {% block og_type %}article{% endblock %}
@@ -78,26 +78,22 @@
     </footer>
 
     {% if backlinks %}
-    <nav class="entry-backlinks" aria-label="Linked from">
+    <nav class="entry-backlinks index-list" aria-label="Linked from">
         <h2>Linked from</h2>
         <ul>
             {% for bl in backlinks %}
-                <li class="h-cite">
-                    <a class="u-url p-name" href="{{ entry_url(bl) }}">{{ bl.title }}</a>
-                </li>
+                {{ macros.index_item(bl, groups_enabled) }}
             {% endfor %}
         </ul>
     </nav>
     {% endif %}
 
     {% if children %}
-    <nav class="entry-children" aria-label="Subpages">
+    <nav class="entry-children index-list" aria-label="Subpages">
         <h2>Subpages</h2>
         <ul>
             {% for child in children %}
-            <li>
-                <a href="{{ entry_url(child) }}">{{ child.title }}</a>
-            </li>
+                {{ macros.index_item(child, groups_enabled) }}
             {% endfor %}
         </ul>
     </nav>

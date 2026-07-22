@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% import "_macros.html" as macros %}
+{% import "_macros.html" as macros with context %}
 
 {% block content %}
 <div class="index-page h-feed">
@@ -51,14 +51,7 @@
                         {% if item.children %}
                             <ul class="index-children">
                                 {% for child in item.children %}
-                                    <li class="index-entry h-entry">
-                                        <span class="index-child" aria-hidden="true">↳</span>
-                                        <a class="u-url p-name index-child-link" href="{{ entry_url(child) }}">{{ child.title }}</a>
-                                        {% if groups_enabled and child.groups %}{{ macros.group_badges(child) }}{% endif %}
-                                        {% if child.summary %}
-                                            <span class="index-summary p-summary"> — {{ child.summary }}</span>
-                                        {% endif %}
-                                    </li>
+                                    {{ macros.index_item(child, groups_enabled, child=True) }}
                                 {% endfor %}
                             </ul>
                         {% endif %}

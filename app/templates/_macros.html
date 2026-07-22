@@ -6,6 +6,25 @@
     {%- for g in entry.groups -%}{{ group_badge(g) }} {% endfor -%}
 {% endmacro %}
 
+{# One index-style entry line: title link, group badges, summary. Shared by the
+   main index and the entry page's Subpages / Linked-from boxes so they stay in
+   the same format. `child` renders the nested ↳ variant; `show_parent` appends
+   the parent link the top-level index uses. Import this macro `with context` so
+   entry_url (a context processor) resolves inside it. #}
+{% macro index_item(entry, groups_enabled=False, show_parent=False, child=False) %}
+<li class="index-entry h-entry">
+    {% if child %}<span class="index-child" aria-hidden="true">↳</span>{% endif %}
+    <a class="u-url p-name{% if child %} index-child-link{% endif %}" href="{{ entry_url(entry) }}">{{ entry.title }}</a>
+    {% if groups_enabled and entry.groups %}{{ group_badges(entry) }}{% endif %}
+    {% if entry.summary %}
+        <span class="index-summary p-summary"> — {{ entry.summary }}</span>
+    {% endif %}
+    {% if show_parent and entry.parent %}
+        <span class="index-parent-link">(<a href="{{ entry_url(entry.parent) }}">{{ entry.parent.title }}</a>)</span>
+    {% endif %}
+</li>
+{%- endmacro %}
+
 {% macro author_name(user, p_name=False) %}
     {%- set name_class = 'p-name author-name' if p_name else 'author-name' -%}
     {%- if user.bio or user.link or user.avatar_url -%}

@@ -3726,6 +3726,7 @@ html[data-theme="light"] .theme-toggle .icon-moon {
     order: 3;
     width: 100%;
     margin-left: 0;
+    margin-top: 0.67rem;
   }
 
   .site-search input {
@@ -3954,40 +3955,9 @@ html[data-theme="light"] .theme-toggle .icon-moon {
   margin-bottom: 0.5rem;
 }
 
-/* Compact chip list (from the style guide's .backlinks) — title-only pills. */
-.entry-backlinks ul,
-.entry-children ul {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.entry-backlinks li,
-.entry-children li {
-  margin: 0;
-}
-
-.entry-backlinks a,
-.entry-children a {
-  display: inline-block;
-  font-size: 13px;
-  color: var(--ink-2);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  padding: 3px 10px;
-  text-decoration: none;
-}
-
-.entry-backlinks a:hover,
-.entry-children a:hover {
-  color: var(--ink);
-  border-color: var(--ink-3);
-  text-decoration: none;
-}
+/* These boxes render as index-style lists (via the shared index_item macro and
+   the .index-list class on the nav), so the list/entry/summary styling comes
+   from the .index-list rules above. Nothing list-specific is needed here. */
 
 /* ── Parent field ────────────────────────────────────────── */
 

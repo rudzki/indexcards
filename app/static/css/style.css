@@ -3276,11 +3276,11 @@ fieldset > .invite-form {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.8rem;
   background: var(--surface-2);
   color: var(--ink-2);
-  font-size: 0.8125rem;
-  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -3323,7 +3323,7 @@ fieldset > .invite-form {
   align-items: center;
   justify-content: center;
   gap: .8rem;
-  padding: .9rem 1.1rem;
+  padding: .75rem 1.15rem;
   border-radius: 0;
   border-bottom: 1px solid;
   border-color: color-mix(in srgb, var(--danger) 20%, transparent);

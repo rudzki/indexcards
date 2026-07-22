@@ -3313,8 +3313,8 @@ fieldset > .invite-form {
 
 
 .inset-banner-wrap {
-  max-width: var(--max-width);
   margin: 0;
+  width: 100%;
   padding: 0;
 }
 

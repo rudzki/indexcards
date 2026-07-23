@@ -51,6 +51,7 @@ def settings():
 
         site_settings.search_enabled = 'search_enabled' in request.form
         site_settings.subscribe_enabled = 'subscribe_enabled' in request.form
+        site_settings.footer_credit = 'footer_credit' in request.form
 
         site_settings.multiuser_enabled = 'multiuser_enabled' in request.form
         # Groups depend on multi-user; force off if multi-user is off so the two

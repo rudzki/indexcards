@@ -432,6 +432,31 @@ a.site-title:hover {
   color: var(--ink-2)
 }
 
+.footer-credit {
+  max-width: var(--max-width);
+  margin: 1.25rem auto 0;
+  text-align: center;
+}
+
+.footer-credit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footer-credit-link:hover {
+  color: var(--ink);
+}
+
+.footer-credit-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 
 /* ── Toast messages ──────────────────────────────────────── */
 

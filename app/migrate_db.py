@@ -187,6 +187,9 @@ def _run_migrations():
     if has_table('site_settings') and not has_column('site_settings', 'default_color_mode'):
         cursor.execute("ALTER TABLE site_settings ADD COLUMN default_color_mode TEXT DEFAULT 'dark'")
 
+    if has_table('site_settings') and not has_column('site_settings', 'footer_credit'):
+        cursor.execute("ALTER TABLE site_settings ADD COLUMN footer_credit BOOLEAN DEFAULT 1")
+
     if has_table('entry') and not has_column('entry', 'is_stub'):
         cursor.execute("ALTER TABLE entry ADD COLUMN is_stub BOOLEAN DEFAULT 0")
 

@@ -445,6 +445,7 @@ class SiteSettings(db.Model):
     search_enabled = db.Column(db.Boolean, default=True)
     subscribe_enabled = db.Column(db.Boolean, default=True)
     footer_text = db.Column(db.Text, default='')          # "Colophon" in the UI
+    footer_credit = db.Column(db.Boolean, default=True)   # "Powered by Index Cards"
     announcement_banner = db.Column(db.Text, default='')
     epigraph = db.Column(db.Text, default='')             # homepage intro
     about_markdown = db.Column(db.Text, default='')       # /about page body

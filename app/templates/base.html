@@ -68,9 +68,9 @@
                 <a href="{{ url_for('main.about') }}" class="{{ 'active' if request.endpoint == 'main.about' }}">About</a>
                 {% endif %}
 
-                {% if nav_pages or site_settings.about_markdown %} <span class="sep">|</span> {% endif %}
 
                 {% if current_user.is_authenticated %}
+                    {% if nav_pages or site_settings.about_markdown %} <span class="sep">|</span> {% endif %}
                     {% if current_user.can_write %}
                         <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.blueprint == 'admin' }}">Dashboard</a>
                     {% endif %}
